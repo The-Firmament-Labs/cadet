@@ -64,6 +64,8 @@ const SCHEDULE_STATUSES: &[&str] = &["ready", "claimed"];
 const SCHEDULE_STATUS_READY: &str = "ready";
 const SCHEDULE_STATUS_CLAIMED: &str = "claimed";
 
+const RUNNER_PRESENCE_STATUSES: &[&str] = &["alive", "running", "idle", "stale"];
+
 const EXECUTION_TARGET_BROWSER_WORKER: &str = "browser-worker";
 
 #[table(accessor = agent_record, public)]
@@ -514,6 +516,15 @@ fn validate_schedule_status(value: String) -> Result<String, String> {
     }
 }
 
+fn validate_runner_presence_status(value: String) -> Result<String, String> {
+    let status = validate_text(value, "status")?;
+    if RUNNER_PRESENCE_STATUSES.contains(&status.as_str()) {
+        Ok(status)
+    } else {
+        Err("invalid runner presence status".to_string())
+    }
+}
+
 fn validate_artifact_kind(value: String) -> Result<String, String> {
     let kind = validate_text(value, "kind")?;
     if ["screenshot", "text", "pdf", "html", "trace"].contains(&kind.as_str()) {
@@ -714,7 +725,7 @@ pub fn upsert_presence(
     let agent_id = validate_identifier(agent_id, "agent_id")?;
     let runner_id = validate_text(runner_id, "runner_id")?;
     let control_plane = validate_control_plane(control_plane)?;
-    let status = validate_text(status, "status")?;
+    let status = validate_runner_presence_status(status)?;
 
     let row = RunnerPresence {
         runner_id,
