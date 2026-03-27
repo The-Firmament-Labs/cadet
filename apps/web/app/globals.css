@@ -1,12 +1,14 @@
 :root {
-  --bg: #f4efe5;
-  --card: rgba(255, 252, 247, 0.82);
-  --card-border: rgba(73, 54, 34, 0.12);
-  --text: #1f1610;
-  --muted: #675446;
-  --accent: #b55d2f;
-  --accent-soft: rgba(181, 93, 47, 0.12);
-  --shadow: 0 24px 60px rgba(51, 35, 20, 0.12);
+  --bg: #02050d;
+  --panel: rgba(8, 12, 26, 0.72);
+  --panel-strong: rgba(7, 10, 22, 0.88);
+  --panel-border: rgba(151, 188, 255, 0.18);
+  --text: #f5f7ff;
+  --muted: rgba(220, 228, 255, 0.74);
+  --accent: #9bf5ff;
+  --accent-strong: #ffd66b;
+  --accent-soft: rgba(155, 245, 255, 0.12);
+  --shadow: 0 30px 120px rgba(0, 0, 0, 0.48);
 }
 
 * {
@@ -18,124 +20,597 @@ body {
   margin: 0;
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(181, 93, 47, 0.16), transparent 30%),
-    radial-gradient(circle at top right, rgba(58, 119, 117, 0.12), transparent 28%),
-    linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
+    radial-gradient(circle at 20% 18%, rgba(85, 125, 255, 0.24), transparent 24%),
+    radial-gradient(circle at 80% 12%, rgba(124, 39, 255, 0.22), transparent 20%),
+    radial-gradient(circle at 50% 110%, rgba(255, 163, 94, 0.14), transparent 34%),
+    linear-gradient(180deg, #03050b 0%, #060914 38%, #050913 100%);
   color: var(--text);
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  font-family: var(--font-body), sans-serif;
 }
 
 a {
   color: inherit;
+  text-decoration: none;
 }
 
-.shell {
-  max-width: 1120px;
+.cosmosShell {
+  width: min(1200px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 40px 24px 72px;
+  padding: 28px 0 96px;
 }
 
-.hero {
+.poster,
+.section {
   display: grid;
-  gap: 28px;
-  padding: 36px;
-  border: 1px solid var(--card-border);
-  border-radius: 28px;
-  background: var(--card);
+  gap: 24px;
+}
+
+.poster {
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  align-items: center;
+  min-height: min(92svh, 860px);
+  padding: clamp(24px, 4vw, 44px);
+  border: 1px solid rgba(160, 198, 255, 0.16);
+  border-radius: 40px;
+  background:
+    linear-gradient(135deg, rgba(12, 18, 34, 0.86), rgba(7, 11, 24, 0.42)),
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.06), transparent 36%);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+}
+
+.poster::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 160px;
+  background: linear-gradient(180deg, transparent, rgba(3, 5, 11, 0.86));
+  pointer-events: none;
+}
+
+.posterCopy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 22px;
+  max-width: 560px;
+  animation: rise-in 900ms cubic-bezier(0.17, 0.84, 0.44, 1) both;
 }
 
 .eyebrow {
   margin: 0;
-  font-size: 0.8rem;
-  letter-spacing: 0.22em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--accent);
 }
 
 .headline {
   margin: 0;
-  max-width: 12ch;
-  font-size: clamp(3rem, 8vw, 6rem);
-  line-height: 0.95;
+  max-width: 11ch;
+  font-family: var(--font-display), serif;
+  font-size: clamp(3.5rem, 9vw, 7.2rem);
+  line-height: 0.88;
+  letter-spacing: -0.04em;
 }
 
 .lede {
   margin: 0;
-  max-width: 64ch;
-  font-size: 1.1rem;
-  line-height: 1.7;
+  max-width: 58ch;
+  font-size: 1.08rem;
+  line-height: 1.8;
   color: var(--muted);
 }
 
-.heroGrid,
-.grid {
+.posterActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-size: 0.96rem;
+  font-weight: 700;
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.primaryAction {
+  color: #03111a;
+  background: linear-gradient(135deg, var(--accent) 0%, #f7f8ff 100%);
+  box-shadow: 0 14px 32px rgba(90, 210, 255, 0.28);
+}
+
+.secondaryAction {
+  border: 1px solid rgba(177, 205, 255, 0.26);
+  background: rgba(5, 11, 24, 0.24);
+}
+
+.primaryAction:hover,
+.secondaryAction:hover,
+.flightPanel:hover,
+.telemetryPanel:hover,
+.commandDeck:hover {
+  transform: translateY(-4px);
+}
+
+.missionStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.missionStat {
+  padding: 16px 18px;
+  border: 1px solid rgba(177, 205, 255, 0.16);
+  border-radius: 22px;
+  background: rgba(7, 11, 24, 0.38);
+  backdrop-filter: blur(14px);
+}
+
+.missionStat dt {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(214, 226, 255, 0.56);
+}
+
+.missionStat dd {
+  margin: 0;
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+  font-weight: 700;
+}
+
+.posterNote {
+  margin: 0;
+  max-width: 54ch;
+  color: rgba(219, 228, 255, 0.84);
+}
+
+.spaceScene {
+  --scene-x: 0;
+  --scene-y: 0;
+  --scene-scroll: 0.45;
+  position: relative;
+  min-height: min(74vh, 620px);
+  border-radius: 34px;
+  overflow: hidden;
+  background: #02050d;
+  border: 1px solid rgba(170, 202, 255, 0.14);
+  animation: float-in 1100ms cubic-bezier(0.17, 0.84, 0.44, 1) 120ms both;
+}
+
+.spaceSceneNebula,
+.spaceSceneCurtain,
+.spaceSceneGlow,
+.spaceSceneStars,
+.spaceSceneRing,
+.spaceSceneAstronaut,
+.sceneMarker,
+.spaceSceneReadout {
+  position: absolute;
+}
+
+.spaceSceneNebula,
+.spaceSceneCurtain,
+.spaceSceneGlow,
+.spaceSceneStars {
+  inset: -10%;
+}
+
+.spaceSceneNebula {
+  background:
+    linear-gradient(155deg, rgba(2, 3, 11, 0.28), rgba(4, 8, 19, 0.14)),
+    url("/visuals/space-hero-alt.jpg") center/cover no-repeat;
+  filter: saturate(1.2) contrast(1.06);
+  transform:
+    translate3d(
+      calc(var(--scene-x) * 34px),
+      calc(var(--scene-y) * 24px + (var(--scene-scroll) - 0.45) * -48px),
+      0
+    )
+    scale(1.16);
+}
+
+.spaceSceneCurtain {
+  background:
+    radial-gradient(circle at top left, rgba(15, 31, 71, 0.2), transparent 42%),
+    linear-gradient(135deg, rgba(255, 164, 87, 0.14), rgba(75, 119, 255, 0.12)),
+    url("/visuals/space-hero.jpg") center/cover no-repeat;
+  mix-blend-mode: screen;
+  opacity: 0.34;
+  transform:
+    translate3d(
+      calc(var(--scene-x) * -22px),
+      calc(var(--scene-y) * -18px + (var(--scene-scroll) - 0.45) * 34px),
+      0
+    )
+    scale(1.08);
+}
+
+.spaceSceneGlowA {
+  background: radial-gradient(circle at 68% 30%, rgba(108, 221, 255, 0.24), transparent 24%);
+}
+
+.spaceSceneGlowB {
+  background: radial-gradient(circle at 22% 72%, rgba(255, 173, 92, 0.26), transparent 20%);
+}
+
+.spaceSceneStars {
+  background-image:
+    radial-gradient(circle at 14% 22%, rgba(255, 255, 255, 0.9) 0 1.2px, transparent 1.6px),
+    radial-gradient(circle at 42% 18%, rgba(255, 255, 255, 0.5) 0 1px, transparent 1.4px),
+    radial-gradient(circle at 64% 44%, rgba(255, 255, 255, 0.8) 0 1px, transparent 1.4px),
+    radial-gradient(circle at 84% 28%, rgba(255, 255, 255, 0.5) 0 1.2px, transparent 1.5px),
+    radial-gradient(circle at 72% 72%, rgba(255, 255, 255, 0.8) 0 1.4px, transparent 1.8px),
+    radial-gradient(circle at 28% 82%, rgba(255, 255, 255, 0.54) 0 1px, transparent 1.5px);
+  opacity: 0.9;
+  transform:
+    translate3d(calc(var(--scene-x) * 12px), calc(var(--scene-y) * 10px), 0)
+    scale(1.02);
+}
+
+.spaceSceneRing {
+  border: 1px solid rgba(168, 209, 255, 0.22);
+  border-radius: 999px;
+  inset: auto;
+}
+
+.spaceSceneRingPrimary {
+  width: 260px;
+  height: 260px;
+  top: 16%;
+  left: 8%;
+  transform:
+    translate3d(calc(var(--scene-x) * 18px), calc(var(--scene-y) * 12px), 0)
+    rotate(calc(var(--scene-scroll) * 18deg));
+}
+
+.spaceSceneRingSecondary {
+  width: 380px;
+  height: 380px;
+  right: -8%;
+  bottom: -12%;
+  border-color: rgba(255, 214, 107, 0.18);
+  transform:
+    translate3d(calc(var(--scene-x) * -16px), calc(var(--scene-y) * -10px), 0)
+    rotate(calc(var(--scene-scroll) * -20deg));
+}
+
+.spaceSceneAstronaut {
+  right: -2%;
+  bottom: -6%;
+  width: min(58%, 430px);
+  max-width: 430px;
+  height: auto;
+  object-fit: cover;
+  filter: drop-shadow(0 26px 42px rgba(0, 0, 0, 0.44));
+  transform:
+    translate3d(
+      calc(var(--scene-x) * -44px),
+      calc(var(--scene-y) * -28px + (var(--scene-scroll) - 0.45) * -38px),
+      0
+    )
+    rotate(calc(var(--scene-x) * -8deg));
+  transform-origin: center top;
+}
+
+.sceneMarker {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(184, 214, 255, 0.2);
+  background: rgba(6, 10, 22, 0.54);
+  backdrop-filter: blur(16px);
+  font-size: 0.82rem;
+  color: rgba(237, 244, 255, 0.9);
+}
+
+.sceneMarkerLocal {
+  top: 14%;
+  right: 18%;
+}
+
+.sceneMarkerEdge {
+  left: 12%;
+  bottom: 18%;
+}
+
+.sceneMarkerRust {
+  right: 10%;
+  bottom: 42%;
+}
+
+.spaceSceneReadout {
+  left: 24px;
+  bottom: 24px;
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: rgba(7, 11, 24, 0.5);
+  border: 1px solid rgba(175, 204, 255, 0.18);
+  backdrop-filter: blur(18px);
+}
+
+.spaceSceneReadout span {
+  font-size: 0.74rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(215, 229, 255, 0.58);
+}
+
+.spaceSceneReadout strong {
+  font-size: 0.95rem;
+}
+
+.section {
+  margin-top: 34px;
+  padding: clamp(24px, 4vw, 34px);
+  border-radius: 34px;
+  background: linear-gradient(180deg, var(--panel) 0%, rgba(6, 10, 22, 0.86) 100%);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  position: relative;
+}
+
+.sectionHeader,
+.missionCopy {
+  display: grid;
+  gap: 14px;
+  max-width: 700px;
+}
+
+.sectionTag {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.section h2 {
+  margin: 0;
+  font-family: var(--font-display), serif;
+  font-size: clamp(2.3rem, 5vw, 4.2rem);
+  line-height: 0.94;
+  letter-spacing: -0.03em;
+}
+
+.sectionCopy {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.flightGrid,
+.telemetryGrid {
   display: grid;
   gap: 18px;
 }
 
-.heroGrid {
+.flightGrid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.grid {
+.telemetryGrid {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  margin-top: 22px;
 }
 
-.card {
+.flightPanel,
+.telemetryPanel,
+.commandDeck {
+  position: relative;
+  border-radius: 28px;
+  border: 1px solid rgba(175, 204, 255, 0.16);
+  background: rgba(8, 12, 26, 0.62);
   padding: 22px;
-  border-radius: 22px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.55);
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease;
 }
 
-.card h2,
-.card h3 {
-  margin-top: 0;
-  margin-bottom: 12px;
+.flightPanel:hover,
+.telemetryPanel:hover,
+.commandDeck:hover {
+  border-color: rgba(208, 230, 255, 0.3);
+  background: rgba(10, 15, 32, 0.74);
 }
 
-.list {
+.panelIndex {
+  margin: 0 0 10px;
+  font-size: 0.74rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(215, 229, 255, 0.52);
+}
+
+.flightPanel h3,
+.telemetryPanel h2 {
+  margin: 0 0 12px;
+}
+
+.flightPanel p:last-child,
+.telemetryList {
   margin: 0;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.telemetryList {
   padding-left: 1.2rem;
-  color: var(--muted);
-  line-height: 1.7;
 }
 
-.panel {
-  margin-top: 24px;
-  padding: 24px;
-  border-radius: 24px;
-  background: rgba(28, 22, 17, 0.94);
-  color: #f8f2ec;
-  box-shadow: var(--shadow);
+.missionSection {
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  align-items: end;
 }
 
-.panel code,
-.panel pre {
-  font-family: "SFMono-Regular", "Menlo", "Monaco", monospace;
+.missionBackdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(4, 7, 16, 0.94) 0%, rgba(4, 7, 16, 0.38) 58%, rgba(4, 7, 16, 0.82) 100%),
+    url("/visuals/space-hero.jpg") center/cover no-repeat;
+  opacity: 0.32;
 }
 
-.code {
-  overflow-x: auto;
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.07);
+.missionCopy,
+.commandDeck {
+  position: relative;
+  z-index: 1;
 }
 
-.muted {
-  color: var(--muted);
+.commandDeck pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "SFMono-Regular", "SF Mono", "Menlo", monospace;
+  font-size: 0.92rem;
+  line-height: 1.8;
+  color: rgba(239, 246, 255, 0.92);
+}
+
+.finalSection {
+  text-align: center;
+  justify-items: center;
+}
+
+.finalSection .sectionCopy {
+  max-width: 56ch;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(34px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 980px) {
+  .poster,
+  .missionSection {
+    grid-template-columns: 1fr;
+  }
+
+  .poster {
+    min-height: auto;
+  }
+
+  .spaceScene {
+    min-height: 520px;
+  }
 }
 
 @media (max-width: 720px) {
-  .shell {
-    padding: 20px 16px 48px;
+  .cosmosShell {
+    width: min(100%, calc(100% - 24px));
+    padding: 12px 0 72px;
   }
 
-  .hero {
-    padding: 24px;
+  .poster,
+  .section {
+    padding: 22px 18px;
+    border-radius: 28px;
+  }
+
+  .posterCopy {
+    gap: 16px;
+  }
+
+  .missionStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .headline {
+    max-width: 8ch;
+    font-size: clamp(2.85rem, 13.2vw, 4rem);
+  }
+
+  .lede {
+    font-size: 0.98rem;
+    line-height: 1.7;
+  }
+
+  .missionStat {
+    padding: 14px 12px;
+  }
+
+  .missionStat dt {
+    font-size: 0.62rem;
+  }
+
+  .missionStat dd {
+    font-size: 1.9rem;
+  }
+
+  .posterNote {
+    display: none;
+  }
+
+  .spaceScene {
+    min-height: 280px;
+    margin-top: -4px;
+  }
+
+  .spaceSceneAstronaut {
+    width: min(58%, 240px);
+  }
+
+  .spaceSceneReadout {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    padding: 12px 14px;
+  }
+
+  .spaceSceneReadout span {
+    font-size: 0.64rem;
+  }
+
+  .spaceSceneReadout strong {
+    font-size: 0.82rem;
+  }
+
+  .sceneMarkerLocal,
+  .sceneMarkerEdge,
+  .sceneMarkerRust {
+    display: none;
   }
 }
-

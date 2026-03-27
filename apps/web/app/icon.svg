@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <rect width="128" height="128" rx="32" fill="#02050d"/>
+  <circle cx="64" cy="64" r="34" fill="url(#planet)"/>
+  <path
+    d="M18 66.5c8.8-9.7 28.6-18.1 47.6-18.1 19.8 0 35.1 7.3 44.4 15.8"
+    stroke="#9BF5FF"
+    stroke-linecap="round"
+    stroke-width="8"
+  />
+  <path
+    d="M30 85c10.3 6.8 22.5 10.2 35.3 10.2 17.4 0 34.2-6.5 46.7-18.2"
+    stroke="#FFD66B"
+    stroke-linecap="round"
+    stroke-width="6"
+  />
+  <circle cx="42" cy="39" r="4" fill="#F5F7FF"/>
+  <circle cx="92" cy="27" r="3" fill="#F5F7FF"/>
+  <circle cx="101" cy="91" r="2.5" fill="#F5F7FF"/>
+  <defs>
+    <linearGradient id="planet" x1="36" x2="94" y1="31" y2="97" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5A74FF"/>
+      <stop offset="0.52" stop-color="#6A4BFF"/>
+      <stop offset="1" stop-color="#FF8E66"/>
+    </linearGradient>
+  </defs>
+</svg>
