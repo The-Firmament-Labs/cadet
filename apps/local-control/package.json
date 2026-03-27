@@ -1,0 +1,17 @@
+{
+  "name": "@starbridge/local-control",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@starbridge/core": "workspace:*",
+    "@starbridge/sdk": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "bun --watch src/index.ts",
+    "start": "bun run src/index.ts"
+  }
+}
+

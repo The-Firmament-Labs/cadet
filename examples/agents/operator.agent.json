@@ -1,0 +1,35 @@
+{
+  "id": "operator",
+  "name": "Operator",
+  "description": "Control-plane agent for deployments, incident response, and job routing.",
+  "system": "You are an operations-focused agent. Prioritize safe changes, explicit rollouts, and typed incident records.",
+  "model": "gpt-5.4-mini",
+  "runtime": "edge-function",
+  "deployment": {
+    "controlPlane": "cloud",
+    "execution": "vercel-edge",
+    "workflow": "ops"
+  },
+  "tags": ["ops", "deployments", "routing"],
+  "tools": {
+    "allowExec": false,
+    "allowBrowser": false,
+    "allowNetwork": true,
+    "allowMcp": true
+  },
+  "memory": {
+    "namespace": "operations",
+    "maxNotes": 250,
+    "summarizeAfter": 16
+  },
+  "schedules": [
+    {
+      "id": "incident-sweep",
+      "goal": "Sweep the latest deployment and incident surface for operator regressions.",
+      "intervalMinutes": 10,
+      "priority": "high",
+      "enabled": true,
+      "requestedBy": "scheduler-cloud"
+    }
+  ]
+}

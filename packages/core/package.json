@@ -1,0 +1,41 @@
+{
+  "name": "@starbridge/core",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./agent-manifest": {
+      "types": "./src/agent-manifest.ts",
+      "default": "./src/agent-manifest.ts"
+    },
+    "./job": {
+      "types": "./src/job.ts",
+      "default": "./src/job.ts"
+    },
+    "./prompt": {
+      "types": "./src/prompt.ts",
+      "default": "./src/prompt.ts"
+    },
+    "./edge-agent": {
+      "types": "./src/edge-agent.ts",
+      "default": "./src/edge-agent.ts"
+    },
+    "./catalog": {
+      "types": "./src/catalog.ts",
+      "default": "./src/catalog.ts"
+    },
+    "./schedule": {
+      "types": "./src/schedule.ts",
+      "default": "./src/schedule.ts"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run src/__tests__/core.test.ts"
+  }
+}

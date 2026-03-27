@@ -1,0 +1,29 @@
+{
+  "name": "starbridge",
+  "private": true,
+  "packageManager": "bun@1.3.10",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "bun run build:core && bun run build:sdk && bun run build:cli && bun run build:local-control && bun run build:web",
+    "build:core": "bun run --cwd packages/core build",
+    "build:sdk": "bun run --cwd packages/sdk build",
+    "build:cli": "bun run --cwd packages/cli build",
+    "build:local-control": "bun run --cwd apps/local-control build",
+    "build:web": "bun run --cwd apps/web build",
+    "typecheck": "bun run --cwd packages/core typecheck && bun run --cwd packages/sdk typecheck && bun run --cwd packages/cli typecheck && bun run --cwd apps/local-control typecheck && bun run --cwd apps/web typecheck",
+    "test": "bun run --cwd packages/core test && bun run --cwd packages/sdk test && bun run --cwd packages/cli test",
+    "dev:local-control": "bun run --cwd apps/local-control dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "cli": "bun run ./packages/cli/src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

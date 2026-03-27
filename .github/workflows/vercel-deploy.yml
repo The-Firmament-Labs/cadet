@@ -1,0 +1,77 @@
+name: Vercel Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Detect Vercel configuration
+        id: config
+        run: |
+          if [ -n "${VERCEL_TOKEN}" ] && [ -n "${VERCEL_ORG_ID}" ] && [ -n "${VERCEL_PROJECT_ID}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip deploy when Vercel secrets are not configured
+        if: steps.config.outputs.enabled != 'true'
+        run: |
+          echo "Skipping Vercel deployment."
+          echo "Configure VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID to enable CD."
+
+      - name: Set up Bun
+        if: steps.config.outputs.enabled == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Set up Node.js
+        if: steps.config.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install workspace dependencies
+        if: steps.config.outputs.enabled == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Install Vercel CLI
+        if: steps.config.outputs.enabled == 'true'
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        if: steps.config.outputs.enabled == 'true'
+        working-directory: apps/web
+        run: vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
+
+      - name: Build Vercel deployment
+        if: steps.config.outputs.enabled == 'true'
+        working-directory: apps/web
+        run: vercel build --prod --token="${VERCEL_TOKEN}"
+
+      - name: Deploy to Vercel
+        if: steps.config.outputs.enabled == 'true'
+        working-directory: apps/web
+        run: vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}"

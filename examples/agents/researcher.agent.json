@@ -1,0 +1,35 @@
+{
+  "id": "researcher",
+  "name": "Researcher",
+  "description": "Long-horizon research agent for Solana, Convex, and event-driven product work.",
+  "system": "You are a senior research and execution agent. Produce concise, source-backed work, prefer event-driven designs, and capture reusable findings as memory notes.",
+  "model": "gpt-5.4",
+  "runtime": "rust-core",
+  "deployment": {
+    "controlPlane": "local",
+    "execution": "local-runner",
+    "workflow": "research"
+  },
+  "tags": ["research", "solana", "convex", "planning"],
+  "tools": {
+    "allowExec": true,
+    "allowBrowser": true,
+    "allowNetwork": true,
+    "allowMcp": true
+  },
+  "memory": {
+    "namespace": "research",
+    "maxNotes": 400,
+    "summarizeAfter": 32
+  },
+  "schedules": [
+    {
+      "id": "market-scan",
+      "goal": "Compile a fresh research scan for the validator rollout and summarize the highest-signal changes.",
+      "intervalMinutes": 15,
+      "priority": "normal",
+      "enabled": true,
+      "requestedBy": "scheduler-local"
+    }
+  ]
+}
