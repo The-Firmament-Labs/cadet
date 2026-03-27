@@ -8,6 +8,7 @@ import {
   nextWorkflowStage,
   normalizeJobRequest,
   ownerExecutionForStage,
+  parseRunnerPresenceStatus,
   parseScheduleDispatchStatus,
   schedulesForManifest,
   seedWorkflowFromGoal,
@@ -90,7 +91,12 @@ async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Prom
       continue;
     }
 
-    await client.upsertPresence(presence.agentId, presence.runnerId, controlPlane, "stale");
+    await client.upsertPresence(
+      presence.agentId,
+      presence.runnerId,
+      controlPlane,
+      parseRunnerPresenceStatus("stale")
+    );
     staleRunners.push(presence.runnerId);
   }
 
@@ -101,12 +107,17 @@ async function heartbeatLocalPresence(catalog: AgentManifest[]): Promise<void> {
   const client = createControlClient();
 
   for (const manifest of catalog) {
-    await client.upsertPresence(manifest.id, runnerIdFor(manifest.id, "control"), "local", "alive");
+    await client.upsertPresence(
+      manifest.id,
+      runnerIdFor(manifest.id, "control"),
+      "local",
+      parseRunnerPresenceStatus("alive")
+    );
     await client.upsertPresence(
       manifest.id,
       runnerIdFor(manifest.id, "scheduler"),
       "local",
-      "alive"
+      parseRunnerPresenceStatus("idle")
     );
   }
 }
@@ -181,7 +192,7 @@ async function completeRouteTriage(
   const client = createControlClient();
   const runnerId = runnerIdFor(manifest.id, "route");
 
-  await client.upsertPresence(manifest.id, runnerId, "local", "running");
+  await client.upsertPresence(manifest.id, runnerId, "local", parseRunnerPresenceStatus("running"));
   await client.claimWorkflowStep(workflow.routeStepId, manifest.deployment.execution, runnerId);
 
   const routeResult = executeEdgeAgent(manifest, job);
@@ -221,7 +232,7 @@ async function completeRouteTriage(
 
   await client.remember(manifest.id, manifest.memory.namespace, routeResult.memoryNote);
   await client.markJobCompleted(job.jobId, `Workflow ${workflow.runId} seeded`);
-  await client.upsertPresence(manifest.id, runnerId, "local", "idle");
+  await client.upsertPresence(manifest.id, runnerId, "local", parseRunnerPresenceStatus("idle"));
 }
 
 async function registerLocalAgents(payload: unknown): Promise<unknown> {

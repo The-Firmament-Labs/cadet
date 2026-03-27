@@ -5,6 +5,7 @@ import {
   normalizeJobRequest,
   ownerExecutionForStage,
   parseAgentManifest,
+  parseRunnerPresenceStatus,
   parseScheduleDispatchStatus,
   seedWorkflowFromGoal,
   type AgentManifest,
@@ -75,7 +76,12 @@ async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Prom
       continue;
     }
 
-    await client.upsertPresence(presence.agentId, presence.runnerId, controlPlane, "stale");
+    await client.upsertPresence(
+      presence.agentId,
+      presence.runnerId,
+      controlPlane,
+      parseRunnerPresenceStatus("stale")
+    );
     staleRunners.push(presence.runnerId);
   }
 
@@ -90,7 +96,7 @@ async function heartbeatCloudPresence(): Promise<void> {
       manifest.id,
       runnerIdFor(manifest.id, "scheduler"),
       "cloud",
-      "alive"
+      parseRunnerPresenceStatus("idle")
     );
   }
 }
@@ -193,7 +199,7 @@ async function completeRouteTriage(
     ? "vercel-edge"
     : manifest.deployment.execution;
 
-  await client.upsertPresence(manifest.id, runnerId, "cloud", "running");
+  await client.upsertPresence(manifest.id, runnerId, "cloud", parseRunnerPresenceStatus("running"));
   await client.claimWorkflowStep(workflow.routeStepId, routeOwner, runnerId);
 
   const routeResult = executeEdgeAgent(manifest, job);
@@ -233,7 +239,7 @@ async function completeRouteTriage(
 
   await client.remember(manifest.id, manifest.memory.namespace, routeResult.memoryNote);
   await client.markJobCompleted(job.jobId, `Workflow ${workflow.runId} seeded`);
-  await client.upsertPresence(manifest.id, runnerId, "cloud", "idle");
+  await client.upsertPresence(manifest.id, runnerId, "cloud", parseRunnerPresenceStatus("idle"));
 }
 
 function normalizeScheduledCloudJob(
