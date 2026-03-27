@@ -474,19 +474,23 @@ export async function loadInbox(): Promise<{
 
 export async function loadRunDetails(runId: string): Promise<{
   run: Awaited<ReturnType<StarbridgeControlClient["listWorkflowRuns"]>>[number];
+  job: Awaited<ReturnType<StarbridgeControlClient["listJobs"]>>[number] | null;
   steps: Awaited<ReturnType<StarbridgeControlClient["listWorkflowSteps"]>>;
   messages: Awaited<ReturnType<StarbridgeControlClient["listMessageEvents"]>>;
+  toolCalls: Awaited<ReturnType<StarbridgeControlClient["listToolCalls"]>>;
   approvals: Awaited<ReturnType<StarbridgeControlClient["listApprovalRequests"]>>;
   browserTasks: Awaited<ReturnType<StarbridgeControlClient["listBrowserTasks"]>>;
   browserArtifacts: Awaited<ReturnType<StarbridgeControlClient["listBrowserArtifacts"]>>;
   retrievalTraces: Awaited<ReturnType<StarbridgeControlClient["listRetrievalTraces"]>>;
 }> {
   const client = createControlClient();
-  const [runs, steps, messages, approvals, browserTasks, browserArtifacts, retrievalTraces] =
+  const [runs, jobs, steps, messages, toolCalls, approvals, browserTasks, browserArtifacts, retrievalTraces] =
     await Promise.all([
       client.listWorkflowRuns(),
+      client.listJobs(),
       client.listWorkflowSteps(),
       client.listMessageEvents(),
+      client.listToolCalls(),
       client.listApprovalRequests(),
       client.listBrowserTasks(),
       client.listBrowserArtifacts(),
@@ -498,15 +502,38 @@ export async function loadRunDetails(runId: string): Promise<{
     throw new Error(`Unknown workflow run '${runId}'`);
   }
 
+  const runMessages = messages.filter((candidate) => candidate.runId === runId);
+  const jobId = extractJobIdFromRun(run.runId, runMessages);
+
   return {
     run,
+    job: jobId ? jobs.find((candidate) => candidate.jobId === jobId) ?? null : null,
     steps: steps.filter((candidate) => candidate.runId === runId),
-    messages: messages.filter((candidate) => candidate.runId === runId),
+    messages: runMessages,
+    toolCalls: toolCalls.filter((candidate) => candidate.runId === runId),
     approvals: approvals.filter((candidate) => candidate.runId === runId),
     browserTasks: browserTasks.filter((candidate) => candidate.runId === runId),
     browserArtifacts: browserArtifacts.filter((candidate) => candidate.runId === runId),
     retrievalTraces: retrievalTraces.filter((candidate) => candidate.runId === runId)
   };
+}
+
+function extractJobIdFromRun(
+  runId: string,
+  messages: Awaited<ReturnType<StarbridgeControlClient["listMessageEvents"]>>
+): string | null {
+  for (const message of messages) {
+    try {
+      const metadata = JSON.parse(message.metadataJson) as { jobId?: unknown };
+      if (typeof metadata.jobId === "string" && metadata.jobId.length > 0) {
+        return metadata.jobId;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return runId.startsWith("run_job_") ? runId.slice("run_".length) : null;
 }
 
 export async function resolveApprovalFromPayload(

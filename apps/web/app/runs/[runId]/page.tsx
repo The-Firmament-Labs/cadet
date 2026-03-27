@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 
 import { loadRunDetails } from "../../../lib/server";
@@ -52,6 +53,43 @@ export default async function RunDetailPage({
               <small>{step.status}</small>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="missionPanel">
+        <p className="eyebrow">Job</p>
+        <div className="stackList">
+          {!detail.job ? (
+            <div className="stackCard">
+              <strong>No linked job record found.</strong>
+            </div>
+          ) : (
+            <article className="stackCard">
+              <span>{detail.job.priority}</span>
+              <strong>{detail.job.jobId}</strong>
+              <small>{detail.job.status}</small>
+              {detail.job.resultSummary ? <p>{detail.job.resultSummary}</p> : null}
+            </article>
+          )}
+        </div>
+      </section>
+
+      <section className="missionPanel">
+        <p className="eyebrow">Tool Calls</p>
+        <div className="stackList">
+          {detail.toolCalls.length === 0 ? (
+            <div className="stackCard">
+              <strong>No tool calls recorded yet.</strong>
+            </div>
+          ) : (
+            detail.toolCalls.map((toolCall) => (
+              <article key={toolCall.toolCallId} className="stackCard">
+                <span>{toolCall.status}</span>
+                <strong>{toolCall.toolName}</strong>
+                <small>{toolCall.toolCallId}</small>
+              </article>
+            ))
+          )}
         </div>
       </section>
 
