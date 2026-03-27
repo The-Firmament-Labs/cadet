@@ -53,25 +53,14 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install workspace dependencies
-        if: steps.config.outputs.enabled == 'true'
-        run: bun install --frozen-lockfile
-
       - name: Install Vercel CLI
         if: steps.config.outputs.enabled == 'true'
         run: npm install --global vercel@latest
 
       - name: Pull Vercel environment
         if: steps.config.outputs.enabled == 'true'
-        working-directory: apps/web
         run: vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
-
-      - name: Build Vercel deployment
-        if: steps.config.outputs.enabled == 'true'
-        working-directory: apps/web
-        run: vercel build --prod --token="${VERCEL_TOKEN}"
 
       - name: Deploy to Vercel
         if: steps.config.outputs.enabled == 'true'
-        working-directory: apps/web
-        run: vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}"
+        run: vercel deploy --prod --token="${VERCEL_TOKEN}"
