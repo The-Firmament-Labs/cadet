@@ -1,6 +1,13 @@
 export type JobPriority = "low" | "normal" | "high";
+export type JobStatus = "queued" | "running" | "completed" | "failed";
 
 export const jobPriorities: readonly JobPriority[] = ["low", "normal", "high"] as const;
+export const jobStatuses: readonly JobStatus[] = [
+  "queued",
+  "running",
+  "completed",
+  "failed"
+] as const;
 
 export function isJobPriority(value: string): value is JobPriority {
   return (jobPriorities as readonly string[]).includes(value);
@@ -8,6 +15,17 @@ export function isJobPriority(value: string): value is JobPriority {
 
 export function parseJobPriority(value: string, field = "job priority"): JobPriority {
   if (!isJobPriority(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function isJobStatus(value: string): value is JobStatus {
+  return (jobStatuses as readonly string[]).includes(value);
+}
+
+export function parseJobStatus(value: string, field = "job status"): JobStatus {
+  if (!isJobStatus(value)) {
     throw new Error(`Invalid ${field}: ${value}`);
   }
   return value;

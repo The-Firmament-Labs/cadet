@@ -153,6 +153,10 @@ describe("StarbridgeControlClient", () => {
                     }
                   },
                   {
+                    name: { some: "status" },
+                    algebraic_type: { String: [] }
+                  },
+                  {
                     name: { some: "last_job_id" },
                     algebraic_type: {
                       Sum: {
@@ -165,7 +169,7 @@ describe("StarbridgeControlClient", () => {
                   }
                 ]
               },
-              rows: [["operator_incident-sweep", "operator", "cloud", "Sweep", 10, "high", "scheduler", true, 1000, [1, []], [0, "job_1"]]]
+              rows: [["operator_incident-sweep", "operator", "cloud", "Sweep", 10, "high", "scheduler", true, 1000, [1, []], "ready", [0, "job_1"]]]
             }
           ]),
           {
@@ -197,6 +201,7 @@ describe("StarbridgeControlClient", () => {
         priority: "high",
         enabled: true,
         requestedBy: "scheduler",
+        status: "ready",
         nextRunAtMicros: 1000,
         lastRunAtMicros: null,
         lastJobId: "job_1"

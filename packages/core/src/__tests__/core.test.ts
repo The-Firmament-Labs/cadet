@@ -4,9 +4,15 @@ import { filterAgentsByControlPlane } from "../catalog";
 import { executeEdgeAgent } from "../edge-agent";
 import { searchMemoryByEmbedding } from "../memory";
 import { parseAgentManifest } from "../agent-manifest";
-import { normalizeJobRequest } from "../job";
+import { isJobStatus, jobStatuses, normalizeJobRequest, parseJobStatus } from "../job";
 import { composeRuntimePrompt } from "../prompt";
-import { isScheduleDue, schedulesForManifest } from "../schedule";
+import {
+  isScheduleDue,
+  isScheduleStatus,
+  parseScheduleStatus,
+  scheduleStatuses,
+  schedulesForManifest
+} from "../schedule";
 import {
   isWorkflowExecutionTarget,
   isWorkflowStage,
@@ -426,5 +432,15 @@ describe("workflow canonical vocabulary", () => {
     expect(isWorkflowExecutionTarget("external-agent")).toBe(false);
     expect(workflowRunStates).toContain("awaiting-approval");
     expect(workflowStepStates).toContain("claimed");
+  });
+
+  it("exports stable job and schedule statuses", () => {
+    expect(jobStatuses).toEqual(["queued", "running", "completed", "failed"]);
+    expect(parseJobStatus("running")).toBe("running");
+    expect(isJobStatus("unknown")).toBe(false);
+
+    expect(scheduleStatuses).toEqual(["ready", "claimed"]);
+    expect(parseScheduleStatus("claimed")).toBe("claimed");
+    expect(isScheduleStatus("queued")).toBe(false);
   });
 });

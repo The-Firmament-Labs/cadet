@@ -4,6 +4,21 @@ import type {
   ControlPlaneTarget
 } from "./agent-manifest";
 
+export type ScheduleStatus = "ready" | "claimed";
+
+export const scheduleStatuses: readonly ScheduleStatus[] = ["ready", "claimed"] as const;
+
+export function isScheduleStatus(value: string): value is ScheduleStatus {
+  return (scheduleStatuses as readonly string[]).includes(value);
+}
+
+export function parseScheduleStatus(value: string, field = "schedule status"): ScheduleStatus {
+  if (!isScheduleStatus(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
 export interface ScheduleRegistration {
   scheduleId: string;
   agentId: string;
@@ -16,6 +31,7 @@ export interface ScheduleRegistration {
 }
 
 export interface RegisteredScheduleRecord extends ScheduleRegistration {
+  status: ScheduleStatus;
   nextRunAtMicros: number;
   lastRunAtMicros: number | null;
   lastJobId: string | null;
