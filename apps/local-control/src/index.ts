@@ -24,6 +24,7 @@ const port = Number(process.env.PORT ?? "3010");
 const heartbeatIntervalMs = Number(process.env.STARBRIDGE_HEARTBEAT_INTERVAL_MS ?? "30000");
 const scheduleIntervalMs = Number(process.env.STARBRIDGE_SCHEDULE_INTERVAL_MS ?? "30000");
 const presenceTtlMs = Number(process.env.STARBRIDGE_PRESENCE_TTL_MS ?? "90000");
+const staleRunnerPresenceStatus = parseRunnerPresenceStatus("stale");
 
 interface ScheduledRunResult {
   scheduleId: string;
@@ -83,7 +84,7 @@ async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Prom
   const nowMicros = Date.now() * 1_000;
 
   for (const presence of await client.listPresence()) {
-    if (presence.controlPlane !== controlPlane || presence.status === "stale") {
+    if (presence.controlPlane !== controlPlane || presence.status === staleRunnerPresenceStatus) {
       continue;
     }
 

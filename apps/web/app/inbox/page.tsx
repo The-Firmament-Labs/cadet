@@ -1,8 +1,10 @@
+import { parseApprovalStatus } from "@starbridge/core";
 import Link from "next/link";
 
 import { loadInbox } from "../../lib/server";
 
 export const dynamic = "force-dynamic";
+const pendingApprovalStatus = parseApprovalStatus("pending");
 
 export default async function InboxPage() {
   const inbox = await loadInbox().catch(() => ({
@@ -31,7 +33,9 @@ export default async function InboxPage() {
           </article>
           <article className="metricCard">
             <span>Pending approvals</span>
-            <strong>{inbox.approvals.filter((item) => item.status === "pending").length}</strong>
+            <strong>
+              {inbox.approvals.filter((item) => item.status === pendingApprovalStatus).length}
+            </strong>
           </article>
           <article className="metricCard">
             <span>Browser tasks</span>

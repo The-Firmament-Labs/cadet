@@ -4,9 +4,11 @@ import {
   nextWorkflowStage,
   normalizeJobRequest,
   ownerExecutionForStage,
+  parseApprovalStatus,
   parseAgentManifest,
   parseRunnerPresenceStatus,
   parseScheduleDispatchStatus,
+  parseWorkflowStepStatus,
   seedWorkflowFromGoal,
   type AgentManifest,
   type JobRequest,
@@ -20,6 +22,14 @@ import { cloudAgentCatalog } from "./cloud-agents";
 import { requireSpacetimeServerEnv } from "./env";
 
 const presenceTtlMs = Number(process.env.STARBRIDGE_PRESENCE_TTL_MS ?? "90000");
+const staleRunnerPresenceStatus = parseRunnerPresenceStatus("stale");
+const approvedApprovalStatus = parseApprovalStatus("approved");
+const rejectedApprovalStatus = parseApprovalStatus("rejected");
+const expiredApprovalStatus = parseApprovalStatus("expired");
+const retryableWorkflowStepStatuses = new Set([
+  parseWorkflowStepStatus("failed"),
+  parseWorkflowStepStatus("blocked")
+]);
 
 interface CloudScheduledRunResult {
   scheduleId: string;
@@ -68,7 +78,7 @@ async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Prom
   const staleRunners: string[] = [];
 
   for (const presence of await client.listPresence()) {
-    if (presence.controlPlane !== controlPlane || presence.status === "stale") {
+    if (presence.controlPlane !== controlPlane || presence.status === staleRunnerPresenceStatus) {
       continue;
     }
 
@@ -545,7 +555,7 @@ export async function resolveApprovalFromPayload(
   }
 
   const body = payload as {
-    status?: "approved" | "rejected" | "expired";
+    status?: typeof approvedApprovalStatus | typeof rejectedApprovalStatus | typeof expiredApprovalStatus;
     resolvedBy?: string;
     note?: string;
   };
@@ -598,7 +608,7 @@ export async function retryWorkflowRun(runId: string): Promise<unknown> {
     [...steps]
       .filter((candidate) => candidate.runId === runId)
       .sort((left, right) => right.updatedAtMicros - left.updatedAtMicros)
-      .find((candidate) => candidate.status === "failed" || candidate.status === "blocked") ??
+      .find((candidate) => retryableWorkflowStepStatuses.has(candidate.status)) ??
     [...steps]
       .filter((candidate) => candidate.runId === runId)
       .sort((left, right) => right.updatedAtMicros - left.updatedAtMicros)[0];
