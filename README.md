@@ -1,6 +1,6 @@
-# Starbridge
+# Cadet
 
-Starbridge is an event-driven agent platform scaffold that blends:
+Cadet is an event-driven agent platform scaffold that blends:
 
 - Eliza-style manifest-driven agents and pluggable extension points.
 - Hermes-style CLI + memory + cloud/runtime separation.
@@ -86,7 +86,14 @@ examples/agents       Example agent manifests
    bun run dev:web
    ```
 
-9. Use the main CLI:
+9. Bootstrap SpacetimeDB locally:
+
+   ```bash
+   bun run spacetime:bootstrap:local
+   bun run spacetime:status
+   ```
+
+10. Use the main CLI:
 
    ```bash
    bun run cli -- agents list --dir ./examples/agents
@@ -97,7 +104,7 @@ examples/agents       Example agent manifests
    curl -H 'authorization: Bearer $CRON_SECRET' http://localhost:3001/api/cron/reconcile
    ```
 
-10. Build the cloud-runner container:
+11. Build the cloud-runner container:
 
    ```bash
    docker build -f docker/runner.Dockerfile -t starbridge-runner .
@@ -105,7 +112,7 @@ examples/agents       Example agent manifests
 
 ## Environment
 
-The web app expects these variables in `apps/web/.env.local` or your Vercel project settings:
+Copy [.env.example](/Users/home/Documents/New%20project/.env.example) to `.env.local` for local work. The web app expects the same variables in `apps/web/.env.local` or your Vercel project settings:
 
 ```bash
 SPACETIMEDB_URL=http://127.0.0.1:3000
@@ -132,6 +139,42 @@ STARBRIDGE_PRESENCE_TTL_MS=90000
 - `app/api/agents/edge/dispatch/route.ts` runs on the Edge Runtime.
 - `examples/agents/*.agent.json` can carry `schedules[]` definitions and those schedules are registered idempotently into SpacetimeDB.
 - Long-running or stateful agents should stay in the Rust runner, not in an edge or request path.
+- On Vercel, `SPACETIMEDB_URL` and `SPACETIMEDB_DATABASE` are required at runtime. The cloud control plane now fails fast instead of silently falling back to `127.0.0.1`.
+- `NEXT_PUBLIC_CONTROL_PLANE_URL` is optional on Vercel; when omitted, Cadet derives the public URL from Vercel runtime metadata.
+
+## SpacetimeDB bootstrap
+
+Local database:
+
+```bash
+spacetime start
+bun run spacetime:bootstrap:local
+bun run spacetime:status
+```
+
+Maincloud database:
+
+```bash
+SPACETIME_SERVER=maincloud \
+SPACETIME_BASE_URL=https://maincloud.spacetimedb.com \
+SPACETIME_DATABASE=cadet-control \
+bun run spacetime:bootstrap
+```
+
+Available helpers:
+
+```bash
+bun run spacetime:build
+bun run spacetime:publish
+bun run spacetime:seed -- --catalog all
+bun run spacetime:status
+```
+
+If the module schema changes and Maincloud rejects the publish because of existing data, rerun with:
+
+```bash
+SPACETIME_DELETE_DATA=1 bun run spacetime:publish
+```
 
 ## GitHub Actions
 

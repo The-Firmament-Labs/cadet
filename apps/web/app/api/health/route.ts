@@ -1,9 +1,9 @@
 import { createControlClient } from "../../../lib/server";
 import { cloudAgentCatalog } from "../../../lib/cloud-agents";
-import { getServerEnv } from "../../../lib/env";
+import { getSafeServerEnv } from "../../../lib/env";
 
 export async function GET() {
-  const env = getServerEnv();
+  const env = getSafeServerEnv();
 
   try {
     const schema = await createControlClient().schema();

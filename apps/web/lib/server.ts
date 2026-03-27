@@ -10,7 +10,7 @@ import { executeEdgeAgent } from "@starbridge/core/edge-agent";
 import { StarbridgeControlClient } from "@starbridge/sdk";
 
 import { cloudAgentCatalog } from "./cloud-agents";
-import { getServerEnv } from "./env";
+import { requireSpacetimeServerEnv } from "./env";
 
 const presenceTtlMs = Number(process.env.STARBRIDGE_PRESENCE_TTL_MS ?? "90000");
 
@@ -23,7 +23,7 @@ interface CloudScheduledRunResult {
 }
 
 export function createControlClient(): StarbridgeControlClient {
-  const env = getServerEnv();
+  const env = requireSpacetimeServerEnv();
 
   return new StarbridgeControlClient({
     baseUrl: env.spacetimeUrl,

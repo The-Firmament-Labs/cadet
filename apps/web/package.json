@@ -16,7 +16,7 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start --port 3001",
-    "test": "bunx vitest run app/page.test.tsx",
+    "test": "bunx vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }
 }

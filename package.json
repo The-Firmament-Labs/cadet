@@ -17,7 +17,14 @@
     "test": "bun run --cwd packages/core test && bun run --cwd packages/sdk test && bun run --cwd packages/cli test && bun run --cwd apps/web test",
     "dev:local-control": "bun run --cwd apps/local-control dev",
     "dev:web": "bun run --cwd apps/web dev",
-    "cli": "bun run ./packages/cli/src/index.ts"
+    "cli": "bun run ./packages/cli/src/index.ts",
+    "spacetime:build": "bun run ./scripts/spacetime.ts build",
+    "spacetime:publish": "bun run ./scripts/spacetime.ts publish",
+    "spacetime:seed": "bun run ./scripts/spacetime.ts seed",
+    "spacetime:status": "bun run ./scripts/spacetime.ts status",
+    "spacetime:bootstrap": "bun run ./scripts/spacetime.ts bootstrap",
+    "spacetime:bootstrap:local": "SPACETIME_SERVER=local SPACETIME_DATABASE=starbridge-control bun run ./scripts/spacetime.ts bootstrap",
+    "spacetime:bootstrap:cloud": "SPACETIME_SERVER=maincloud SPACETIME_BASE_URL=https://maincloud.spacetimedb.com SPACETIME_DATABASE=cadet-control bun run ./scripts/spacetime.ts bootstrap"
   },
   "devDependencies": {
     "@types/node": "^24.7.0",

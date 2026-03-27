@@ -1,15 +1,15 @@
 import React from "react";
 import { CadetLanding } from "./cadet-landing";
-import { getServerEnv } from "../lib/env";
+import { getSafeServerEnv } from "../lib/env";
 import { cloudAgentCatalog } from "../lib/cloud-agents";
 
 export default function HomePage() {
-  const env = getServerEnv();
+  const env = getSafeServerEnv();
   const landingEnv = {
     controlPlaneUrl: env.controlPlaneUrl,
     spacetimeUrl: env.spacetimeUrl,
     database: env.database,
-    hasCronSecret: Boolean(env.cronSecret)
+    hasCronSecret: env.hasCronSecret
   };
   const cloudAgents = cloudAgentCatalog.map((agent) => ({
     id: agent.id,
