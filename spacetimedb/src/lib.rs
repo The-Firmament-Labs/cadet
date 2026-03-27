@@ -1,5 +1,61 @@
 use spacetimedb::{reducer, table, Identity, ReducerContext, Table, Timestamp};
 
+const WORKFLOW_STAGES: &[&str] = &[
+    "route",
+    "plan",
+    "gather",
+    "act",
+    "verify",
+    "summarize",
+    "learn",
+];
+const WORKFLOW_STAGE_ROUTE: &str = "route";
+const WORKFLOW_STAGE_ACT: &str = "act";
+const WORKFLOW_STAGE_GATHER: &str = "gather";
+const WORKFLOW_STAGE_VERIFY: &str = "verify";
+const WORKFLOW_STAGE_LEARN: &str = "learn";
+
+const WORKFLOW_RUN_STATUSES: &[&str] = &[
+    "queued",
+    "running",
+    "blocked",
+    "awaiting-approval",
+    "completed",
+    "failed",
+    "cancelled",
+];
+const WORKFLOW_RUN_STATUS_QUEUED: &str = "queued";
+const WORKFLOW_RUN_STATUS_RUNNING: &str = "running";
+const WORKFLOW_RUN_STATUS_BLOCKED: &str = "blocked";
+const WORKFLOW_RUN_STATUS_AWAITING_APPROVAL: &str = "awaiting-approval";
+const WORKFLOW_RUN_STATUS_COMPLETED: &str = "completed";
+const WORKFLOW_RUN_STATUS_FAILED: &str = "failed";
+
+const WORKFLOW_STEP_STATUSES: &[&str] = &[
+    "ready",
+    "claimed",
+    "running",
+    "blocked",
+    "awaiting-approval",
+    "completed",
+    "failed",
+    "cancelled",
+];
+const WORKFLOW_STEP_STATUS_READY: &str = "ready";
+const WORKFLOW_STEP_STATUS_RUNNING: &str = "running";
+const WORKFLOW_STEP_STATUS_BLOCKED: &str = "blocked";
+const WORKFLOW_STEP_STATUS_AWAITING_APPROVAL: &str = "awaiting-approval";
+const WORKFLOW_STEP_STATUS_COMPLETED: &str = "completed";
+const WORKFLOW_STEP_STATUS_FAILED: &str = "failed";
+
+const BROWSER_TASK_STATUSES: &[&str] = &["queued", "claimed", "running", "blocked", "completed", "failed"];
+const BROWSER_TASK_STATUS_QUEUED: &str = "queued";
+const BROWSER_TASK_STATUS_RUNNING: &str = "running";
+const BROWSER_TASK_STATUS_COMPLETED: &str = "completed";
+const BROWSER_TASK_STATUS_FAILED: &str = "failed";
+
+const EXECUTION_TARGET_BROWSER_WORKER: &str = "browser-worker";
+
 #[table(accessor = agent_record, public)]
 pub struct AgentRecord {
     #[primary_key]
@@ -342,17 +398,7 @@ fn validate_direction(value: String) -> Result<String, String> {
 
 fn validate_stage(value: String) -> Result<String, String> {
     let stage = validate_text(value, "stage")?;
-    if [
-        "route",
-        "plan",
-        "gather",
-        "act",
-        "verify",
-        "summarize",
-        "learn",
-    ]
-    .contains(&stage.as_str())
-    {
+    if WORKFLOW_STAGES.contains(&stage.as_str()) {
         Ok(stage)
     } else {
         Err("stage must be route, plan, gather, act, verify, summarize, or learn".to_string())
@@ -361,17 +407,7 @@ fn validate_stage(value: String) -> Result<String, String> {
 
 fn validate_workflow_run_status(value: String) -> Result<String, String> {
     let status = validate_text(value, "status")?;
-    if [
-        "queued",
-        "running",
-        "blocked",
-        "awaiting-approval",
-        "completed",
-        "failed",
-        "cancelled",
-    ]
-    .contains(&status.as_str())
-    {
+    if WORKFLOW_RUN_STATUSES.contains(&status.as_str()) {
         Ok(status)
     } else {
         Err("invalid workflow run status".to_string())
@@ -380,18 +416,7 @@ fn validate_workflow_run_status(value: String) -> Result<String, String> {
 
 fn validate_step_status(value: String) -> Result<String, String> {
     let status = validate_text(value, "status")?;
-    if [
-        "ready",
-        "claimed",
-        "running",
-        "blocked",
-        "awaiting-approval",
-        "completed",
-        "failed",
-        "cancelled",
-    ]
-    .contains(&status.as_str())
-    {
+    if WORKFLOW_STEP_STATUSES.contains(&status.as_str()) {
         Ok(status)
     } else {
         Err("invalid workflow step status".to_string())
@@ -449,6 +474,15 @@ fn validate_execution_target(value: String) -> Result<String, String> {
         Ok(target)
     } else {
         Err("unsupported owner_execution target".to_string())
+    }
+}
+
+fn validate_browser_task_status(value: String) -> Result<String, String> {
+    let status = validate_text(value, "status")?;
+    if BROWSER_TASK_STATUSES.contains(&status.as_str()) {
+        Ok(status)
+    } else {
+        Err("invalid browser task status".to_string())
     }
 }
 
@@ -911,8 +945,8 @@ pub fn start_workflow_run(
         priority,
         trigger_source,
         requested_by,
-        current_stage: "route".to_string(),
-        status: "queued".to_string(),
+        current_stage: WORKFLOW_STAGE_ROUTE.to_string(),
+        status: WORKFLOW_RUN_STATUS_QUEUED.to_string(),
         summary: None,
         context_json,
         created_at_micros: now,
@@ -960,7 +994,7 @@ pub fn enqueue_workflow_step(
         agent_id,
         stage: stage.clone(),
         owner_execution,
-        status: "ready".to_string(),
+        status: WORKFLOW_STEP_STATUS_READY.to_string(),
         input_json,
         output_json: None,
         retry_count: 0,
@@ -973,7 +1007,14 @@ pub fn enqueue_workflow_step(
         completed_at_micros: None,
     });
 
-    update_workflow_run_status(ctx, &run_id, "queued".to_string(), stage, None, None)
+    update_workflow_run_status(
+        ctx,
+        &run_id,
+        WORKFLOW_RUN_STATUS_QUEUED.to_string(),
+        stage,
+        None,
+        None,
+    )
 }
 
 #[reducer]
@@ -996,12 +1037,12 @@ pub fn claim_workflow_step(
         return Err("workflow step belongs to a different execution target".to_string());
     }
 
-    if step.status != "ready" {
+    if step.status != WORKFLOW_STEP_STATUS_READY {
         return Err("workflow step is not ready".to_string());
     }
 
     ctx.db.workflow_step().step_id().update(WorkflowStep {
-        status: "running".to_string(),
+        status: WORKFLOW_STEP_STATUS_RUNNING.to_string(),
         runner_id: Some(runner_id),
         claimed_at_micros: Some(now),
         updated_at_micros: now,
@@ -1028,19 +1069,23 @@ pub fn complete_workflow_step(
     let stage = step.stage.clone();
 
     ctx.db.workflow_step().step_id().update(WorkflowStep {
-        status: "completed".to_string(),
+        status: WORKFLOW_STEP_STATUS_COMPLETED.to_string(),
         output_json: Some(output_json),
         updated_at_micros: now,
         completed_at_micros: Some(now),
         ..step
     });
 
-    let status = if stage == "learn" {
-        "completed".to_string()
+    let status = if stage == WORKFLOW_STAGE_LEARN {
+        WORKFLOW_RUN_STATUS_COMPLETED.to_string()
     } else {
-        "running".to_string()
+        WORKFLOW_RUN_STATUS_RUNNING.to_string()
     };
-    let completed_at_micros = if stage == "learn" { Some(now) } else { None };
+    let completed_at_micros = if stage == WORKFLOW_STAGE_LEARN {
+        Some(now)
+    } else {
+        None
+    };
 
     update_workflow_run_status(
         ctx,
@@ -1069,7 +1114,7 @@ pub fn fail_workflow_step(
     let stage = step.stage.clone();
 
     ctx.db.workflow_step().step_id().update(WorkflowStep {
-        status: "failed".to_string(),
+        status: WORKFLOW_STEP_STATUS_FAILED.to_string(),
         output_json: Some(output_json),
         updated_at_micros: now,
         completed_at_micros: Some(now),
@@ -1079,7 +1124,7 @@ pub fn fail_workflow_step(
     update_workflow_run_status(
         ctx,
         &run_id,
-        "failed".to_string(),
+        WORKFLOW_RUN_STATUS_FAILED.to_string(),
         stage,
         None,
         Some(now),
@@ -1128,7 +1173,7 @@ pub fn request_approval(
     };
 
     ctx.db.workflow_step().step_id().update(WorkflowStep {
-        status: "awaiting-approval".to_string(),
+        status: WORKFLOW_STEP_STATUS_AWAITING_APPROVAL.to_string(),
         approval_request_id: Some(approval_id),
         updated_at_micros: now,
         ..step
@@ -1137,8 +1182,8 @@ pub fn request_approval(
     update_workflow_run_status(
         ctx,
         &run_id,
-        "awaiting-approval".to_string(),
-        "act".to_string(),
+        WORKFLOW_RUN_STATUS_AWAITING_APPROVAL.to_string(),
+        WORKFLOW_STAGE_ACT.to_string(),
         None,
         None,
     )
@@ -1174,9 +1219,9 @@ pub fn resolve_approval(
     };
 
     let step_status = if status == "approved" {
-        "ready".to_string()
+        WORKFLOW_STEP_STATUS_READY.to_string()
     } else {
-        "failed".to_string()
+        WORKFLOW_STEP_STATUS_FAILED.to_string()
     };
 
     ctx.db.workflow_step().step_id().update(WorkflowStep {
@@ -1185,13 +1230,20 @@ pub fn resolve_approval(
         ..step
     });
 
-    let run_status = if step_status == "ready" {
-        "running".to_string()
+    let run_status = if step_status == WORKFLOW_STEP_STATUS_READY {
+        WORKFLOW_RUN_STATUS_RUNNING.to_string()
     } else {
-        "failed".to_string()
+        WORKFLOW_RUN_STATUS_FAILED.to_string()
     };
 
-    update_workflow_run_status(ctx, &approval_run_id, run_status, "act".to_string(), None, None)
+    update_workflow_run_status(
+        ctx,
+        &approval_run_id,
+        run_status,
+        WORKFLOW_STAGE_ACT.to_string(),
+        None,
+        None,
+    )
 }
 
 #[reducer]
@@ -1276,8 +1328,8 @@ pub fn enqueue_browser_task(
         agent_id,
         mode,
         risk,
-        status: "queued".to_string(),
-        owner_execution: "browser-worker".to_string(),
+        status: BROWSER_TASK_STATUS_QUEUED.to_string(),
+        owner_execution: EXECUTION_TARGET_BROWSER_WORKER.to_string(),
         url,
         request_json,
         result_json: None,
@@ -1286,12 +1338,12 @@ pub fn enqueue_browser_task(
         updated_at_micros: now,
     });
 
-    block_linked_step(ctx, &step_id, "blocked")?;
+    block_linked_step(ctx, &step_id, WORKFLOW_STEP_STATUS_BLOCKED)?;
     update_workflow_run_status(
         ctx,
         &run_id,
-        "blocked".to_string(),
-        "gather".to_string(),
+        WORKFLOW_RUN_STATUS_BLOCKED.to_string(),
+        WORKFLOW_STAGE_GATHER.to_string(),
         None,
         None,
     )
@@ -1311,12 +1363,12 @@ pub fn claim_browser_task(
         return Err("browser task not found".to_string());
     };
 
-    if task.status != "queued" {
+    if task.status != BROWSER_TASK_STATUS_QUEUED {
         return Err("browser task is not queued".to_string());
     }
 
     ctx.db.browser_task().task_id().update(BrowserTask {
-        status: "running".to_string(),
+        status: validate_browser_task_status(BROWSER_TASK_STATUS_RUNNING.to_string())?,
         runner_id: Some(runner_id),
         updated_at_micros: now,
         ..task
@@ -1342,18 +1394,18 @@ pub fn complete_browser_task(
     let task_run_id = task.run_id.clone();
 
     ctx.db.browser_task().task_id().update(BrowserTask {
-        status: "completed".to_string(),
+        status: validate_browser_task_status(BROWSER_TASK_STATUS_COMPLETED.to_string())?,
         result_json: Some(result_json),
         updated_at_micros: now,
         ..task
     });
 
-    block_linked_step(ctx, &task_step_id, "ready")?;
+    block_linked_step(ctx, &task_step_id, WORKFLOW_STEP_STATUS_READY)?;
     update_workflow_run_status(
         ctx,
         &task_run_id,
-        "running".to_string(),
-        "verify".to_string(),
+        WORKFLOW_RUN_STATUS_RUNNING.to_string(),
+        WORKFLOW_STAGE_VERIFY.to_string(),
         None,
         None,
     )
@@ -1376,18 +1428,18 @@ pub fn fail_browser_task(
     let task_run_id = task.run_id.clone();
 
     ctx.db.browser_task().task_id().update(BrowserTask {
-        status: "failed".to_string(),
+        status: validate_browser_task_status(BROWSER_TASK_STATUS_FAILED.to_string())?,
         result_json: Some(result_json),
         updated_at_micros: now,
         ..task
     });
 
-    block_linked_step(ctx, &task_step_id, "failed")?;
+    block_linked_step(ctx, &task_step_id, WORKFLOW_STEP_STATUS_FAILED)?;
     update_workflow_run_status(
         ctx,
         &task_run_id,
-        "failed".to_string(),
-        "verify".to_string(),
+        WORKFLOW_RUN_STATUS_FAILED.to_string(),
+        WORKFLOW_STAGE_VERIFY.to_string(),
         None,
         Some(now),
     )
