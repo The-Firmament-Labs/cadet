@@ -25,7 +25,7 @@ use serde_json::{json, Value};
 use spacetimedb_sdk::{DbContext, Table, TableWithPrimaryKey};
 use starbridge_core::{
     compose_prompt, deterministic_embedding, execute_local_job, execute_workflow_stage, AgentManifest,
-    EventBus, ExecutionOwner, JobEnvelope, RuntimeEvent, WorkflowStage,
+    EventBus, ExecutionOwner, JobEnvelope, RuntimeEvent, StepState, WorkflowStage,
 };
 
 #[derive(Clone)]
@@ -676,7 +676,11 @@ fn maybe_handle_step(reducers: &RemoteReducers, tables: &RemoteTables, state: &W
         return;
     }
 
-    if step.status == "ready" {
+    let Ok(step_status) = step.status.parse::<StepState>() else {
+        return;
+    };
+
+    if step_status == StepState::Ready {
         let _ = reducers.claim_workflow_step(
             step.step_id.clone(),
             state.owner.to_string(),
@@ -685,7 +689,7 @@ fn maybe_handle_step(reducers: &RemoteReducers, tables: &RemoteTables, state: &W
         return;
     }
 
-    if step.status == "running" && step.runner_id.as_deref() == Some(state.runner_id.as_str()) {
+    if step_status == StepState::Running && step.runner_id.as_deref() == Some(state.runner_id.as_str()) {
         process_workflow_step(reducers, tables, state, step);
     }
 }
@@ -764,7 +768,13 @@ fn replay_run(base_url: &str, database: &str, run_id: &str) -> Result<(), String
         .workflow_step()
         .iter()
         .filter(|candidate| candidate.run_id == run_id)
-        .filter(|candidate| candidate.status == "failed" || candidate.status == "blocked")
+        .filter(|candidate| {
+            candidate
+                .status
+                .parse::<StepState>()
+                .map(|status| matches!(status, StepState::Failed | StepState::Blocked))
+                .unwrap_or(false)
+        })
         .max_by_key(|candidate| candidate.updated_at_micros)
         .ok_or_else(|| format!("Run '{run_id}' has no failed or blocked step"))?;
 

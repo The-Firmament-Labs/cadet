@@ -184,6 +184,43 @@ pub enum RunState {
     Cancelled,
 }
 
+impl RunState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            RunState::Queued => "queued",
+            RunState::Running => "running",
+            RunState::Blocked => "blocked",
+            RunState::WaitingApproval => "awaiting-approval",
+            RunState::Completed => "completed",
+            RunState::Failed => "failed",
+            RunState::Cancelled => "cancelled",
+        }
+    }
+}
+
+impl fmt::Display for RunState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for RunState {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "queued" => Ok(RunState::Queued),
+            "running" => Ok(RunState::Running),
+            "blocked" => Ok(RunState::Blocked),
+            "awaiting-approval" => Ok(RunState::WaitingApproval),
+            "completed" => Ok(RunState::Completed),
+            "failed" => Ok(RunState::Failed),
+            "cancelled" => Ok(RunState::Cancelled),
+            _ => Err(format!("unsupported run state '{value}'")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum StepState {
@@ -195,6 +232,45 @@ pub enum StepState {
     Completed,
     Failed,
     Cancelled,
+}
+
+impl StepState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            StepState::Ready => "ready",
+            StepState::Claimed => "claimed",
+            StepState::Running => "running",
+            StepState::Blocked => "blocked",
+            StepState::WaitingApproval => "awaiting-approval",
+            StepState::Completed => "completed",
+            StepState::Failed => "failed",
+            StepState::Cancelled => "cancelled",
+        }
+    }
+}
+
+impl fmt::Display for StepState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for StepState {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "ready" => Ok(StepState::Ready),
+            "claimed" => Ok(StepState::Claimed),
+            "running" => Ok(StepState::Running),
+            "blocked" => Ok(StepState::Blocked),
+            "awaiting-approval" => Ok(StepState::WaitingApproval),
+            "completed" => Ok(StepState::Completed),
+            "failed" => Ok(StepState::Failed),
+            "cancelled" => Ok(StepState::Cancelled),
+            _ => Err(format!("unsupported step state '{value}'")),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -735,5 +811,16 @@ mod tests {
         let owner = ExecutionOwner::from_target(target);
         assert_eq!(owner, ExecutionOwner::ContainerRunner);
         assert_eq!(owner.to_string(), "container-runner");
+    }
+
+    #[test]
+    fn run_and_step_states_roundtrip() {
+        let run = RunState::from_str("awaiting-approval").expect("valid run state");
+        assert_eq!(run, RunState::WaitingApproval);
+        assert_eq!(run.to_string(), "awaiting-approval");
+
+        let step = StepState::from_str("blocked").expect("valid step state");
+        assert_eq!(step, StepState::Blocked);
+        assert_eq!(step.to_string(), "blocked");
     }
 }

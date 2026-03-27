@@ -2,7 +2,7 @@
 
 **Current Phase**: Phase 0 - Canonical Architecture Consolidation  
 **Current Stage**: Planning / Implementation  
-**Last Checkpoint**: loop 0.8 landed locally  
+**Last Checkpoint**: loop 0.9 landed locally  
 **Planning Docs**: [MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md), [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md), [docs/CONVERSATION_SYNTHESIS.md](docs/CONVERSATION_SYNTHESIS.md), [docs/RALPH_LOOP.md](docs/RALPH_LOOP.md), [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
@@ -49,9 +49,10 @@ If the active user is `SYMBaiEX`, default to non-UI implementation work first un
 - [x] Shared message channel and direction parsers now back SDK decoding for threads, events, and delivery attempts
 - [x] Shared parsers now cover control-plane targets, job priorities, browser modes, and browser artifact kinds in SDK decoding paths
 - [x] SpacetimeDB reducers now reuse canonical workflow, step, and browser-task status/stage constants instead of scattering reducer-local literals
+- [x] Rust core now round-trips run/step state enums, and the runner uses typed step-state parsing for claim/replay flow decisions
 - [ ] Replace additional raw-string workflow/runtime state usage across Rust and TS surfaces
 
-**Next Action**: Continue removing duplicated workflow/runtime literals from runner-side step/browser-task handling and replay/recovery flows, then normalize remaining operator-surface state interpretation so storage, SDK, orchestration, and worker paths all speak one canonical state model.
+**Next Action**: Continue removing duplicated workflow/runtime literals from browser-task handling and remaining control-plane/operator surfaces, then normalize recovery and inspection paths so storage, SDK, orchestration, and worker paths all speak one canonical state model.
 
 **Key Files**:
 - [rust/starbridge-core/src/lib.rs](/Users/home/Documents/New%20project/rust/starbridge-core/src/lib.rs)
