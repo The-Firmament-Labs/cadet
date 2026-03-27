@@ -5,6 +5,11 @@ import { executeEdgeAgent } from "../edge-agent";
 import { searchMemoryByEmbedding } from "../memory";
 import { parseAgentManifest } from "../agent-manifest";
 import { isJobStatus, jobStatuses, normalizeJobRequest, parseJobStatus } from "../job";
+import {
+  isRunnerPresenceStatus,
+  parseRunnerPresenceStatus,
+  runnerPresenceStatuses
+} from "../presence";
 import { composeRuntimePrompt } from "../prompt";
 import {
   isScheduleDue,
@@ -442,5 +447,9 @@ describe("workflow canonical vocabulary", () => {
     expect(scheduleStatuses).toEqual(["ready", "claimed"]);
     expect(parseScheduleStatus("claimed")).toBe("claimed");
     expect(isScheduleStatus("queued")).toBe(false);
+
+    expect(runnerPresenceStatuses).toEqual(["alive", "running", "idle", "stale"]);
+    expect(parseRunnerPresenceStatus("stale")).toBe("stale");
+    expect(isRunnerPresenceStatus("failed")).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ export * from "./edge-agent";
 export * from "./job";
 export * from "./memory";
 export * from "./orchestration";
+export * from "./presence";
 export * from "./prompt";
 export * from "./schedule";
 export * from "./workflow";

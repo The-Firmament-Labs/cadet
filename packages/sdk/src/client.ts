@@ -13,6 +13,7 @@ import type {
   NormalizedJobRequest,
   RegisteredScheduleRecord,
   RetrievalTrace,
+  RunnerPresenceStatus,
   ScheduleRegistration,
   ThreadRecord,
   WorkflowRunRecord,
@@ -30,6 +31,7 @@ import {
   parseJobPriority,
   parseScheduleStatus,
   parseDeliveryStatus,
+  parseRunnerPresenceStatus,
   parseWorkflowExecutionTarget,
   parseWorkflowRunStatus,
   parseWorkflowStage,
@@ -47,7 +49,7 @@ export interface RunnerPresenceRecord {
   runnerId: string;
   agentId: string;
   controlPlane: ControlPlaneTarget;
-  status: string;
+  status: RunnerPresenceStatus;
   lastSeenAtMicros: number;
 }
 
@@ -518,7 +520,7 @@ export class StarbridgeControlClient {
           asString(row.control_plane, "control_plane"),
           "control_plane"
         ),
-        status: asString(row.status, "status"),
+        status: parseRunnerPresenceStatus(asString(row.status, "status"), "status"),
         lastSeenAtMicros: asNumber(row.last_seen_at, "last_seen_at")
       }))
     );
