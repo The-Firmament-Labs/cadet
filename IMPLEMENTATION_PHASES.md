@@ -5,6 +5,39 @@
 **Deployment targets**: local, Vercel, Cloudflare Workers, self-hosted containers  
 **Execution model**: manifest-driven, subscription-driven workers, typed browser tasks
 
+## Canonical usage
+
+This file is the agent-facing execution index, not a replacement for the full system plan.
+
+Use the planning set in this order:
+
+1. `MASTER_IMPLEMENTATION_PLAN.md` — canonical architecture sequence, phase ordering, review cadence, and end-state definition
+2. `IMPLEMENTATION_PHASES.md` — current phase map and atomic loop entry points
+3. `docs/RALPH_LOOP.md` — exact Route / Atomize / Land / Prove / Handoff discipline
+4. `SESSION.md` — current checkpoint, next action, and validated progress
+
+Rule for any agent continuing work:
+
+- preserve the original phase intent
+- implement via small RALPH loops
+- update `SESSION.md` after each landed milestone
+- update `MASTER_IMPLEMENTATION_PLAN.md` only if sequencing or architecture priorities materially change
+- keep this file usable as the “where do I start next?” handoff surface
+
+## GitHub user check
+
+At the start of an implementation session, agents should check:
+
+```bash
+gh api user --jq .login
+```
+
+If the active GitHub user is `SYMBaiEX`:
+
+- do not lead with UI work
+- prefer runtime, workflow, memory, tooling, deployment, and reliability loops
+- only take UI loops when explicitly requested or when they directly unblock core system progress
+
 ---
 
 ## Planning anchors
@@ -12,6 +45,29 @@
 - Conversation synthesis: [docs/CONVERSATION_SYNTHESIS.md](docs/CONVERSATION_SYNTHESIS.md)
 - Atomic execution method: [docs/RALPH_LOOP.md](docs/RALPH_LOOP.md)
 - Current session tracker: [SESSION.md](SESSION.md)
+- Master plan: [MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md)
+
+## Phase map alignment
+
+The original six execution tracks are preserved here because they are still useful agent handoff buckets:
+
+1. Deployment portability
+2. Chat gateway and operator inbox
+3. Dynamic agent UI and workflow editor
+4. Crate-based agent ecosystem
+5. Retrieval, learning, and memory hardening
+6. CI/CD and release hardening
+
+The master plan expands these into a fuller architecture sequence by adding:
+
+- canonical architecture consolidation
+- durable runtime kernel
+- tooling/policy/approval work
+- observability/reliability/recovery
+- security/governance
+- ecosystem expansion
+
+Agents should treat the six tracks below as the active workstreams and use the master plan to understand full-system ordering and dependencies.
 
 ---
 
@@ -251,3 +307,16 @@ Cadet reaches the intended shape when:
 - deployment targets can change without forking the workflow model
 - the product shell explains runs clearly
 - specialized agents stay lightweight and crate-based
+
+## Agent handoff contract
+
+When an agent finishes a loop from this file, it should record in `SESSION.md`:
+
+- current phase
+- loop completed
+- files touched
+- validation run
+- next smallest loop
+- blockers or open risks
+
+This preserves the original design intent that any agent can pick up the phase plan and continue building without reconstructing context from scratch.

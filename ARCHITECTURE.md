@@ -11,12 +11,30 @@ Roadmap and decision docs:
 - [RALPH loop](docs/RALPH_LOOP.md)
 - [Implementation phases](IMPLEMENTATION_PHASES.md)
 - [Session tracker](SESSION.md)
+- [Master implementation plan](MASTER_IMPLEMENTATION_PLAN.md)
 - [Docs index](docs/README.md)
 - [Architecture guide](docs/ARCHITECTURE_GUIDE.md)
 - [Dioxus + SpacetimeDB guide](docs/DIOXUS_SPACETIMEDB.md)
 - [Agent manifests guide](docs/AGENT_MANIFESTS.md)
 - [Dynamic agent UI](docs/DYNAMIC_AGENT_UI.md)
 - [GitHub automation guide](docs/GITHUB_AUTOMATION.md)
+
+## Canonical planning note
+
+This file describes the architectural shape and high-level split.
+
+The canonical execution sequence now lives in:
+
+- `MASTER_IMPLEMENTATION_PLAN.md` for full phase ordering, review gates, and definition of done
+- `IMPLEMENTATION_PHASES.md` for agent-friendly phase entry points and atomic loop execution
+- `SESSION.md` for current checkpoint, next slice, and validated progress
+
+Any agent continuing Cadet work should:
+
+1. read `MASTER_IMPLEMENTATION_PLAN.md`
+2. enter through `IMPLEMENTATION_PHASES.md`
+3. use `docs/RALPH_LOOP.md` for slice size and proof discipline
+4. update `SESSION.md` at each milestone handoff
 
 ## Design goals
 
