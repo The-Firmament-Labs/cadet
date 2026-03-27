@@ -208,4 +208,193 @@ describe("StarbridgeControlClient", () => {
       }
     ]);
   });
+
+  it("decodes public SQL rows for jobs and tool calls", async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const query = String(init?.body ?? "");
+      if (query.includes("job_record")) {
+        return new Response(
+          JSON.stringify([
+            {
+              schema: {
+                elements: [
+                  { name: { some: "job_id" }, algebraic_type: { String: [] } },
+                  { name: { some: "agent_id" }, algebraic_type: { String: [] } },
+                  { name: { some: "goal" }, algebraic_type: { String: [] } },
+                  { name: { some: "priority" }, algebraic_type: { String: [] } },
+                  { name: { some: "requested_by" }, algebraic_type: { String: [] } },
+                  {
+                    name: { some: "requested_by_identity" },
+                    algebraic_type: {
+                      Product: {
+                        elements: [{ name: { some: "__identity__" }, algebraic_type: { String: [] } }]
+                      }
+                    }
+                  },
+                  { name: { some: "context_json" }, algebraic_type: { String: [] } },
+                  { name: { some: "status" }, algebraic_type: { String: [] } },
+                  {
+                    name: { some: "runner_id" },
+                    algebraic_type: {
+                      Sum: {
+                        variants: [
+                          { name: { some: "some" }, algebraic_type: { String: [] } },
+                          { name: { some: "none" }, algebraic_type: { Product: { elements: [] } } }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    name: { some: "result_summary" },
+                    algebraic_type: {
+                      Sum: {
+                        variants: [
+                          { name: { some: "some" }, algebraic_type: { String: [] } },
+                          { name: { some: "none" }, algebraic_type: { Product: { elements: [] } } }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    name: { some: "created_at" },
+                    algebraic_type: {
+                      Product: {
+                        elements: [
+                          {
+                            name: { some: "__timestamp_micros_since_unix_epoch__" },
+                            algebraic_type: { I64: [] }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    name: { some: "updated_at" },
+                    algebraic_type: {
+                      Product: {
+                        elements: [
+                          {
+                            name: { some: "__timestamp_micros_since_unix_epoch__" },
+                            algebraic_type: { I64: [] }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              rows: [
+                [
+                  "job_1",
+                  "operator",
+                  "Sweep incidents",
+                  "high",
+                  "scheduler",
+                  ["identity_scheduler"],
+                  "{\"scope\":\"incidents\"}",
+                  "running",
+                  [0, "runner_1"],
+                  [1, []],
+                  [1111],
+                  [2222]
+                ]
+              ]
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+
+      if (query.includes("tool_call_record")) {
+        return new Response(
+          JSON.stringify([
+            {
+              schema: {
+                elements: [
+                  { name: { some: "tool_call_id" }, algebraic_type: { String: [] } },
+                  { name: { some: "run_id" }, algebraic_type: { String: [] } },
+                  { name: { some: "step_id" }, algebraic_type: { String: [] } },
+                  { name: { some: "agent_id" }, algebraic_type: { String: [] } },
+                  { name: { some: "tool_name" }, algebraic_type: { String: [] } },
+                  { name: { some: "status" }, algebraic_type: { String: [] } },
+                  { name: { some: "input_json" }, algebraic_type: { String: [] } },
+                  {
+                    name: { some: "output_json" },
+                    algebraic_type: {
+                      Sum: {
+                        variants: [
+                          { name: { some: "some" }, algebraic_type: { String: [] } },
+                          { name: { some: "none" }, algebraic_type: { Product: { elements: [] } } }
+                        ]
+                      }
+                    }
+                  },
+                  { name: { some: "created_at_micros" }, algebraic_type: { I64: [] } },
+                  { name: { some: "updated_at_micros" }, algebraic_type: { I64: [] } }
+                ]
+              },
+              rows: [
+                [
+                  "tool_step_1",
+                  "run_1",
+                  "step_1",
+                  "operator",
+                  "workflow::plan",
+                  "completed",
+                  "{\"goal\":\"Sweep incidents\"}",
+                  [0, "{\"summary\":\"done\"}"],
+                  3333,
+                  4444
+                ]
+              ]
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    });
+
+    const client = new StarbridgeControlClient({
+      baseUrl: "http://127.0.0.1:3000",
+      database: "starbridge-control",
+      fetchImpl: fetchImpl as unknown as typeof fetch
+    });
+
+    await expect(client.listJobs()).resolves.toEqual([
+      {
+        jobId: "job_1",
+        agentId: "operator",
+        goal: "Sweep incidents",
+        priority: "high",
+        requestedBy: "scheduler",
+        requestedByIdentity: "identity_scheduler",
+        contextJson: "{\"scope\":\"incidents\"}",
+        status: "running",
+        runnerId: "runner_1",
+        resultSummary: null,
+        createdAtMicros: 1111,
+        updatedAtMicros: 2222
+      }
+    ]);
+
+    await expect(client.listToolCalls()).resolves.toEqual([
+      {
+        toolCallId: "tool_step_1",
+        runId: "run_1",
+        stepId: "step_1",
+        agentId: "operator",
+        toolName: "workflow::plan",
+        status: "completed",
+        inputJson: "{\"goal\":\"Sweep incidents\"}",
+        outputJson: "{\"summary\":\"done\"}",
+        createdAtMicros: 3333,
+        updatedAtMicros: 4444
+      }
+    ]);
+  });
 });

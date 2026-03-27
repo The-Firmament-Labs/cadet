@@ -2,7 +2,7 @@
 
 **Current Phase**: Phase 0 - Canonical Architecture Consolidation  
 **Current Stage**: Planning / Implementation  
-**Last Checkpoint**: loop 0.22 landed locally  
+**Last Checkpoint**: loop 0.23 landed locally  
 **Planning Docs**: [MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md), [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md), [docs/CONVERSATION_SYNTHESIS.md](docs/CONVERSATION_SYNTHESIS.md), [docs/RALPH_LOOP.md](docs/RALPH_LOOP.md), [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
@@ -63,9 +63,10 @@ If the active user is `SYMBaiEX`, default to non-UI implementation work first un
 - [x] Presence parser adoption now preserves existing scheduler heartbeat semantics while removing raw liveness literals
 - [x] Core, SDK, and SpacetimeDB now share canonical tool-call statuses so tool call recording stops accepting arbitrary status strings
 - [x] Rust core now round-trips tool-call statuses, and the runner records tool calls through the shared Rust status enum instead of raw literals
+- [x] SDK now exposes typed `listJobs()` and `listToolCalls()` read models, and repo status tooling consumes the typed jobs surface
 - [ ] Replace additional raw-string workflow/runtime state usage across Rust and TS surfaces
 
-**Next Action**: Continue removing duplicated workflow/runtime literals from remaining operator/control-plane surfaces and residual test fixtures, then normalize inspection/recovery read models and any unchecked status decoding so storage, SDK, orchestration, and worker paths all speak one canonical state model.
+**Next Action**: Continue removing duplicated workflow/runtime literals from remaining operator/control-plane surfaces and residual test fixtures, then normalize any remaining storage read models so inspection, recovery, SDK, orchestration, and worker paths all speak one canonical state model.
 
 **Key Files**:
 - [rust/starbridge-core/src/lib.rs](/Users/home/Documents/New%20project/rust/starbridge-core/src/lib.rs)

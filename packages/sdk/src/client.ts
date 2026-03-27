@@ -6,6 +6,7 @@ import type {
   BrowserToolRequest,
   ControlPlaneTarget,
   DeliveryAttemptRecord,
+  JobRecord,
   MemoryChunk,
   MemoryDocument,
   MemoryEmbedding,
@@ -17,6 +18,7 @@ import type {
   ScheduleRegistration,
   ThreadRecord,
   ToolCallStatus,
+  ToolCallRecord,
   WorkflowRunRecord,
   WorkflowStepRecord
 } from "@starbridge/core";
@@ -31,6 +33,7 @@ import {
   parseToolCallStatus,
   parseControlPlaneTarget,
   parseJobPriority,
+  parseJobStatus,
   parseScheduleStatus,
   parseDeliveryStatus,
   parseRunnerPresenceStatus,
@@ -528,6 +531,25 @@ export class StarbridgeControlClient {
     );
   }
 
+  public async listJobs(): Promise<JobRecord[]> {
+    return this.selectAll("job_record").then((rows) =>
+      rows.map((row) => ({
+        jobId: asString(row.job_id, "job_id"),
+        agentId: asString(row.agent_id, "agent_id"),
+        goal: asString(row.goal, "goal"),
+        priority: parseJobPriority(asString(row.priority, "priority"), "priority"),
+        requestedBy: asString(row.requested_by, "requested_by"),
+        requestedByIdentity: asString(row.requested_by_identity, "requested_by_identity"),
+        contextJson: asString(row.context_json, "context_json"),
+        status: parseJobStatus(asString(row.status, "status"), "status"),
+        runnerId: asOptionalString(row.runner_id),
+        resultSummary: asOptionalString(row.result_summary),
+        createdAtMicros: asNumber(row.created_at, "created_at"),
+        updatedAtMicros: asNumber(row.updated_at, "updated_at")
+      }))
+    );
+  }
+
   public async listThreads(): Promise<ThreadRecord[]> {
     return this.selectAll("thread_record").then((rows) =>
       rows.map((row) => ({
@@ -660,6 +682,23 @@ export class StarbridgeControlClient {
         url: asString(row.url, "url"),
         metadataJson: asString(row.metadata_json, "metadata_json"),
         createdAtMicros: asNumber(row.created_at_micros, "created_at_micros")
+      }))
+    );
+  }
+
+  public async listToolCalls(): Promise<ToolCallRecord[]> {
+    return this.selectAll("tool_call_record").then((rows) =>
+      rows.map((row) => ({
+        toolCallId: asString(row.tool_call_id, "tool_call_id"),
+        runId: asString(row.run_id, "run_id"),
+        stepId: asString(row.step_id, "step_id"),
+        agentId: asString(row.agent_id, "agent_id"),
+        toolName: asString(row.tool_name, "tool_name"),
+        status: parseToolCallStatus(asString(row.status, "status"), "status"),
+        inputJson: asString(row.input_json, "input_json"),
+        outputJson: asOptionalString(row.output_json),
+        createdAtMicros: asNumber(row.created_at_micros, "created_at_micros"),
+        updatedAtMicros: asNumber(row.updated_at_micros, "updated_at_micros")
       }))
     );
   }

@@ -261,6 +261,19 @@ export interface BrowserArtifactRecord {
   createdAtMicros: number;
 }
 
+export interface ToolCallRecord {
+  toolCallId: string;
+  runId: string;
+  stepId: string;
+  agentId: string;
+  toolName: string;
+  status: ToolCallStatus;
+  inputJson: string;
+  outputJson: string | null;
+  createdAtMicros: number;
+  updatedAtMicros: number;
+}
+
 export interface DeliveryAttemptRecord {
   attemptId: string;
   threadId: string;

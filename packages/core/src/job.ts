@@ -50,6 +50,21 @@ export interface NormalizedJobRequest {
   context: Record<string, ScalarContextValue>;
 }
 
+export interface JobRecord {
+  jobId: string;
+  agentId: string;
+  goal: string;
+  priority: JobPriority;
+  requestedBy: string;
+  requestedByIdentity: string;
+  contextJson: string;
+  status: JobStatus;
+  runnerId: string | null;
+  resultSummary: string | null;
+  createdAtMicros: number;
+  updatedAtMicros: number;
+}
+
 export interface NormalizeJobRequestDependencies {
   now?: () => Date;
   createId?: () => string;

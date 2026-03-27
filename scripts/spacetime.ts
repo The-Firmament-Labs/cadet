@@ -159,8 +159,8 @@ async function fetchStatus(): Promise<{
   const [agents, schedules, presence, jobs, memory] = await Promise.all([
     client.selectAll("agent_record"),
     client.selectAll("schedule_record"),
-    client.selectAll("runner_presence"),
-    client.selectAll("job_record"),
+    client.listPresence(),
+    client.listJobs(),
     client.selectAll("memory_note")
   ]);
 
