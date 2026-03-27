@@ -10,6 +10,7 @@ describe("HomePage", () => {
 
     expect(markup).toContain("Cadet");
     expect(markup).toContain("Put local and edge agents into the same event horizon.");
+    expect(markup).toContain("Read the operator guide");
     expect(markup).toContain("Mission log");
     expect(markup).toContain("/api/cron/reconcile");
     expect(markup).toContain("data-orbit-float");

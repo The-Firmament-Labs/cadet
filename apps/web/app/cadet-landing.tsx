@@ -268,6 +268,9 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
             <a className="primaryAction" href="#flight-stack">
               Explore the flight stack
             </a>
+            <a className="secondaryAction" href="/docs">
+              Read the operator guide
+            </a>
             <a className="secondaryAction" href="#mission-log">
               Open the mission log
             </a>
