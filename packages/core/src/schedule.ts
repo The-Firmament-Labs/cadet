@@ -5,8 +5,14 @@ import type {
 } from "./agent-manifest";
 
 export type ScheduleStatus = "ready" | "claimed";
+export type ScheduleDispatchStatus = "dispatched" | "skipped" | "failed";
 
 export const scheduleStatuses: readonly ScheduleStatus[] = ["ready", "claimed"] as const;
+export const scheduleDispatchStatuses: readonly ScheduleDispatchStatus[] = [
+  "dispatched",
+  "skipped",
+  "failed"
+] as const;
 
 export function isScheduleStatus(value: string): value is ScheduleStatus {
   return (scheduleStatuses as readonly string[]).includes(value);
@@ -14,6 +20,20 @@ export function isScheduleStatus(value: string): value is ScheduleStatus {
 
 export function parseScheduleStatus(value: string, field = "schedule status"): ScheduleStatus {
   if (!isScheduleStatus(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function isScheduleDispatchStatus(value: string): value is ScheduleDispatchStatus {
+  return (scheduleDispatchStatuses as readonly string[]).includes(value);
+}
+
+export function parseScheduleDispatchStatus(
+  value: string,
+  field = "schedule dispatch status"
+): ScheduleDispatchStatus {
+  if (!isScheduleDispatchStatus(value)) {
     throw new Error(`Invalid ${field}: ${value}`);
   }
   return value;

@@ -8,7 +8,8 @@ import {
   seedWorkflowFromGoal,
   type AgentManifest,
   type JobRequest,
-  type RegisteredScheduleRecord
+  type RegisteredScheduleRecord,
+  type ScheduleDispatchStatus
 } from "@starbridge/core";
 import { isScheduleDue, schedulesForManifest } from "@starbridge/core/schedule";
 import { StarbridgeControlClient } from "@starbridge/sdk";
@@ -23,7 +24,7 @@ interface CloudScheduledRunResult {
   agentId: string;
   runId?: string;
   jobId?: string;
-  status: "dispatched" | "skipped" | "failed";
+  status: ScheduleDispatchStatus;
   reason?: string;
 }
 

@@ -13,7 +13,10 @@ import {
 import { composeRuntimePrompt } from "../prompt";
 import {
   isScheduleDue,
+  isScheduleDispatchStatus,
   isScheduleStatus,
+  parseScheduleDispatchStatus,
+  scheduleDispatchStatuses,
   parseScheduleStatus,
   scheduleStatuses,
   schedulesForManifest
@@ -447,6 +450,10 @@ describe("workflow canonical vocabulary", () => {
     expect(scheduleStatuses).toEqual(["ready", "claimed"]);
     expect(parseScheduleStatus("claimed")).toBe("claimed");
     expect(isScheduleStatus("queued")).toBe(false);
+
+    expect(scheduleDispatchStatuses).toEqual(["dispatched", "skipped", "failed"]);
+    expect(parseScheduleDispatchStatus("dispatched")).toBe("dispatched");
+    expect(isScheduleDispatchStatus("running")).toBe(false);
 
     expect(runnerPresenceStatuses).toEqual(["alive", "running", "idle", "stale"]);
     expect(parseRunnerPresenceStatus("stale")).toBe("stale");

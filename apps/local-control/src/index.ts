@@ -3,16 +3,17 @@ import path from "node:path";
 import {
   createStepId,
   executeEdgeAgent,
-  nextWorkflowStage,
   filterAgentsByControlPlane,
   isScheduleDue,
+  nextWorkflowStage,
   normalizeJobRequest,
   ownerExecutionForStage,
   schedulesForManifest,
   seedWorkflowFromGoal,
   type AgentManifest,
   type JobRequest,
-  type RegisteredScheduleRecord
+  type RegisteredScheduleRecord,
+  type ScheduleDispatchStatus
 } from "@starbridge/core";
 import { loadAgentManifestDirectory } from "@starbridge/core/fs";
 import { StarbridgeControlClient } from "@starbridge/sdk";
@@ -27,7 +28,7 @@ interface ScheduledRunResult {
   agentId: string;
   runId?: string;
   jobId?: string;
-  status: "dispatched" | "skipped" | "failed";
+  status: ScheduleDispatchStatus;
   reason?: string;
 }
 
