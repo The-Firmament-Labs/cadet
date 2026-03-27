@@ -25,12 +25,12 @@ use serde_json::{json, Value};
 use spacetimedb_sdk::{DbContext, Table, TableWithPrimaryKey};
 use starbridge_core::{
     compose_prompt, deterministic_embedding, execute_local_job, execute_workflow_stage, AgentManifest,
-    EventBus, JobEnvelope, RuntimeEvent,
+    EventBus, ExecutionOwner, JobEnvelope, RuntimeEvent, WorkflowStage,
 };
 
 #[derive(Clone)]
 struct WorkerState {
-    owner: String,
+    owner: ExecutionOwner,
     runner_id: String,
     manifests: Arc<HashMap<String, AgentManifest>>,
     active_steps: Arc<Mutex<HashSet<String>>>,
@@ -185,25 +185,25 @@ fn message_event_value(message: &MessageEvent) -> Value {
     })
 }
 
-fn next_stage(stage: &str) -> Option<&'static str> {
-    match stage {
-        "route" => Some("plan"),
-        "plan" => Some("gather"),
-        "gather" => Some("act"),
-        "act" => Some("verify"),
-        "verify" => Some("summarize"),
-        "summarize" => Some("learn"),
-        _ => None,
-    }
+fn next_stage(stage: WorkflowStage) -> Option<WorkflowStage> {
+    stage.next()
 }
 
-fn owner_for_stage(manifest: &AgentManifest, stage: &str, browser_required: bool) -> String {
+fn owner_for_stage(
+    manifest: &AgentManifest,
+    stage: WorkflowStage,
+    browser_required: bool,
+) -> ExecutionOwner {
     match stage {
-        "learn" => "learning-worker".to_string(),
-        "gather" | "verify" if browser_required => "browser-worker".to_string(),
-        "route" => manifest.deployment.execution.clone(),
-        _ if manifest.deployment.execution == "vercel-edge" => "container-runner".to_string(),
-        _ => manifest.deployment.execution.clone(),
+        WorkflowStage::Learn => ExecutionOwner::LearningWorker,
+        WorkflowStage::Gather | WorkflowStage::Verify if browser_required => {
+            ExecutionOwner::BrowserWorker
+        }
+        WorkflowStage::Route => ExecutionOwner::from_target(manifest.deployment.execution),
+        _ if manifest.deployment.execution.to_string() == "vercel-edge" => {
+            ExecutionOwner::ContainerRunner
+        }
+        _ => ExecutionOwner::from_target(manifest.deployment.execution),
     }
 }
 
@@ -222,7 +222,10 @@ fn enqueue_next_step(
     input: &Value,
     outcome: &Value,
 ) {
-    let Some(stage) = next_stage(&step.stage) else {
+    let Ok(current_stage) = step.stage.parse::<WorkflowStage>() else {
+        return;
+    };
+    let Some(stage) = next_stage(current_stage) else {
         return;
     };
 
@@ -241,7 +244,7 @@ fn enqueue_next_step(
         "browserMode".to_string(),
         input.get("browserMode").cloned().unwrap_or(json!("read")),
     );
-    next_input.insert("previousStage".to_string(), json!(step.stage));
+    next_input.insert("previousStage".to_string(), json!(current_stage.as_str()));
     next_input.insert("previousOutput".to_string(), outcome.clone());
 
     let _ = reducers.enqueue_workflow_step(
@@ -249,7 +252,7 @@ fn enqueue_next_step(
         step.run_id.clone(),
         step.agent_id.clone(),
         stage.to_string(),
-        owner_for_stage(manifest, stage, browser_required(input)),
+        owner_for_stage(manifest, stage, browser_required(input)).to_string(),
         serde_json::to_string(&next_input).unwrap_or_else(|_| "{}".to_string()),
         Some(step.step_id.clone()),
     );
@@ -447,7 +450,7 @@ fn process_workflow_step(
 
         record_retrieval(reducers, tables, manifest, step, &input);
 
-        if state.owner == "browser-worker" {
+        if state.owner == ExecutionOwner::BrowserWorker {
             let completed_task = tables
                 .browser_task()
                 .iter()
@@ -500,14 +503,18 @@ fn process_workflow_step(
             return Ok(());
         }
 
-        let outcome = execute_workflow_stage(manifest, &step.stage, &input);
+        let stage = step
+            .stage
+            .parse::<WorkflowStage>()
+            .map_err(|error| format!("Invalid workflow stage '{}': {error}", step.stage))?;
+        let outcome = execute_workflow_stage(manifest, stage, &input);
         reducers
             .record_tool_call(
                 format!("tool_{}", step.step_id),
                 step.run_id.clone(),
                 step.step_id.clone(),
                 step.agent_id.clone(),
-                format!("workflow::{}", step.stage),
+                format!("workflow::{}", stage),
                 "completed".to_string(),
                 step.input_json.clone(),
                 Some(outcome.output.to_string()),
@@ -517,11 +524,11 @@ fn process_workflow_step(
             .complete_workflow_step(step.step_id.clone(), outcome.output.to_string())
             .map_err(|error| error.to_string())?;
 
-        if step.stage == "summarize" {
+        if stage == WorkflowStage::Summarize {
             record_summary_message(reducers, manifest, step, &input, &outcome.output);
         }
 
-        if step.stage == "learn" {
+        if stage == WorkflowStage::Learn {
             persist_learning(reducers, manifest, step, &outcome.output);
         } else {
             enqueue_next_step(reducers, tables, manifest, step, &input, &outcome.output);
@@ -665,14 +672,14 @@ fn process_browser_task(
 }
 
 fn maybe_handle_step(reducers: &RemoteReducers, tables: &RemoteTables, state: &WorkerState, step: &WorkflowStep) {
-    if step.owner_execution != state.owner {
+    if step.owner_execution != state.owner.to_string() {
         return;
     }
 
     if step.status == "ready" {
         let _ = reducers.claim_workflow_step(
             step.step_id.clone(),
-            state.owner.clone(),
+            state.owner.to_string(),
             state.runner_id.clone(),
         );
         return;
@@ -684,7 +691,9 @@ fn maybe_handle_step(reducers: &RemoteReducers, tables: &RemoteTables, state: &W
 }
 
 fn maybe_handle_browser_task(reducers: &RemoteReducers, state: &WorkerState, task: &BrowserTask) {
-    if state.owner != "browser-worker" || task.owner_execution != "browser-worker" {
+    if state.owner != ExecutionOwner::BrowserWorker
+        || task.owner_execution != ExecutionOwner::BrowserWorker.to_string()
+    {
         return;
     }
 
@@ -827,10 +836,11 @@ fn run_worker(args: &[String]) -> Result<(), String> {
     let database = read_flag_or_env(args, "--database", "SPACETIMEDB_DATABASE", "starbridge-control");
     let manifest_dir = read_flag(args, "--manifest-dir").unwrap_or_else(default_manifest_directory);
     let manifests = Arc::new(load_manifest_directory(&manifest_dir)?);
+    let owner = owner.parse::<ExecutionOwner>()?;
     let runner_id = format!("{}@{}", owner, chrono_like_timestamp());
 
     let state = WorkerState {
-        owner: owner.clone(),
+        owner,
         runner_id: runner_id.clone(),
         manifests,
         active_steps: Arc::new(Mutex::new(HashSet::new())),
@@ -883,7 +893,7 @@ fn run_worker(args: &[String]) -> Result<(), String> {
         "{}",
         serde_json::to_string_pretty(&json!({
             "ok": true,
-            "owner": owner,
+            "owner": state.owner.to_string(),
             "runnerId": runner_id,
             "database": database,
             "baseUrl": base_url,

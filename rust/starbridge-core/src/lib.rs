@@ -1,6 +1,209 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::{fmt, str::FromStr};
 use tokio::sync::broadcast;
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum WorkflowStage {
+    Route,
+    Plan,
+    Gather,
+    Act,
+    Verify,
+    Summarize,
+    Learn,
+}
+
+impl WorkflowStage {
+    pub const ALL: [WorkflowStage; 7] = [
+        WorkflowStage::Route,
+        WorkflowStage::Plan,
+        WorkflowStage::Gather,
+        WorkflowStage::Act,
+        WorkflowStage::Verify,
+        WorkflowStage::Summarize,
+        WorkflowStage::Learn,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            WorkflowStage::Route => "route",
+            WorkflowStage::Plan => "plan",
+            WorkflowStage::Gather => "gather",
+            WorkflowStage::Act => "act",
+            WorkflowStage::Verify => "verify",
+            WorkflowStage::Summarize => "summarize",
+            WorkflowStage::Learn => "learn",
+        }
+    }
+
+    pub fn next(self) -> Option<Self> {
+        match self {
+            WorkflowStage::Route => Some(WorkflowStage::Plan),
+            WorkflowStage::Plan => Some(WorkflowStage::Gather),
+            WorkflowStage::Gather => Some(WorkflowStage::Act),
+            WorkflowStage::Act => Some(WorkflowStage::Verify),
+            WorkflowStage::Verify => Some(WorkflowStage::Summarize),
+            WorkflowStage::Summarize => Some(WorkflowStage::Learn),
+            WorkflowStage::Learn => None,
+        }
+    }
+}
+
+impl fmt::Display for WorkflowStage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for WorkflowStage {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "route" => Ok(WorkflowStage::Route),
+            "plan" => Ok(WorkflowStage::Plan),
+            "gather" => Ok(WorkflowStage::Gather),
+            "act" => Ok(WorkflowStage::Act),
+            "verify" => Ok(WorkflowStage::Verify),
+            "summarize" => Ok(WorkflowStage::Summarize),
+            "learn" => Ok(WorkflowStage::Learn),
+            _ => Err(format!("unsupported workflow stage '{value}'")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExecutionTarget {
+    LocalRunner,
+    VercelEdge,
+    ContainerRunner,
+    MaincloudRunner,
+}
+
+impl ExecutionTarget {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ExecutionTarget::LocalRunner => "local-runner",
+            ExecutionTarget::VercelEdge => "vercel-edge",
+            ExecutionTarget::ContainerRunner => "container-runner",
+            ExecutionTarget::MaincloudRunner => "maincloud-runner",
+        }
+    }
+}
+
+impl fmt::Display for ExecutionTarget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for ExecutionTarget {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "local-runner" => Ok(ExecutionTarget::LocalRunner),
+            "vercel-edge" => Ok(ExecutionTarget::VercelEdge),
+            "container-runner" => Ok(ExecutionTarget::ContainerRunner),
+            "maincloud-runner" => Ok(ExecutionTarget::MaincloudRunner),
+            _ => Err(format!("unsupported execution target '{value}'")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExecutionOwner {
+    LocalRunner,
+    VercelEdge,
+    ContainerRunner,
+    MaincloudRunner,
+    BrowserWorker,
+    LearningWorker,
+    ExternalAgent,
+}
+
+impl ExecutionOwner {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ExecutionOwner::LocalRunner => "local-runner",
+            ExecutionOwner::VercelEdge => "vercel-edge",
+            ExecutionOwner::ContainerRunner => "container-runner",
+            ExecutionOwner::MaincloudRunner => "maincloud-runner",
+            ExecutionOwner::BrowserWorker => "browser-worker",
+            ExecutionOwner::LearningWorker => "learning-worker",
+            ExecutionOwner::ExternalAgent => "external-agent",
+        }
+    }
+
+    pub fn from_target(target: ExecutionTarget) -> Self {
+        match target {
+            ExecutionTarget::LocalRunner => ExecutionOwner::LocalRunner,
+            ExecutionTarget::VercelEdge => ExecutionOwner::VercelEdge,
+            ExecutionTarget::ContainerRunner => ExecutionOwner::ContainerRunner,
+            ExecutionTarget::MaincloudRunner => ExecutionOwner::MaincloudRunner,
+        }
+    }
+}
+
+impl fmt::Display for ExecutionOwner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for ExecutionOwner {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "local-runner" => Ok(ExecutionOwner::LocalRunner),
+            "vercel-edge" => Ok(ExecutionOwner::VercelEdge),
+            "container-runner" => Ok(ExecutionOwner::ContainerRunner),
+            "maincloud-runner" => Ok(ExecutionOwner::MaincloudRunner),
+            "browser-worker" => Ok(ExecutionOwner::BrowserWorker),
+            "learning-worker" => Ok(ExecutionOwner::LearningWorker),
+            "external-agent" => Ok(ExecutionOwner::ExternalAgent),
+            _ => Err(format!("unsupported execution owner '{value}'")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
+pub enum RunState {
+    Queued,
+    Running,
+    Blocked,
+    WaitingApproval,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
+pub enum StepState {
+    Ready,
+    Claimed,
+    Running,
+    Blocked,
+    WaitingApproval,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolRisk {
+    Low,
+    Medium,
+    High,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -68,7 +271,7 @@ pub struct MemoryPolicy {
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentPolicy {
     pub control_plane: String,
-    pub execution: String,
+    pub execution: ExecutionTarget,
     pub workflow: String,
 }
 
@@ -77,7 +280,7 @@ pub struct DeploymentPolicy {
 pub struct WorkflowTemplate {
     pub id: String,
     pub description: String,
-    pub stages: Vec<String>,
+    pub stages: Vec<WorkflowStage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -93,7 +296,7 @@ pub struct HandoffRule {
     pub id: String,
     #[serde(default)]
     pub when_goal_includes: Vec<String>,
-    pub to: String,
+    pub to: ExecutionOwner,
     pub reason: String,
 }
 
@@ -150,15 +353,7 @@ impl AgentManifest {
         self.workflow_templates.first().cloned().unwrap_or(WorkflowTemplate {
             id: "default".to_string(),
             description: "Cadet default workflow".to_string(),
-            stages: vec![
-                "route".to_string(),
-                "plan".to_string(),
-                "gather".to_string(),
-                "act".to_string(),
-                "verify".to_string(),
-                "summarize".to_string(),
-                "learn".to_string(),
-            ],
+            stages: WorkflowStage::ALL.to_vec(),
         })
     }
 }
@@ -324,7 +519,7 @@ pub fn execute_local_job(manifest: &AgentManifest, job: &JobEnvelope) -> Executi
 
 pub fn execute_workflow_stage(
     manifest: &AgentManifest,
-    stage: &str,
+    stage: WorkflowStage,
     input: &Value,
 ) -> StageExecutionOutcome {
     let goal = input
@@ -337,15 +532,15 @@ pub fn execute_workflow_stage(
         .unwrap_or(false);
 
     let actions = match stage {
-        "route" => vec![
+        WorkflowStage::Route => vec![
             "Confirm the correct workflow template and ownership.".to_string(),
             "Capture browser and approval requirements before long-lived work starts.".to_string(),
         ],
-        "plan" => vec![
+        WorkflowStage::Plan => vec![
             "Convert the request into a typed execution plan.".to_string(),
             "Choose local, browser, or learning execution boundaries.".to_string(),
         ],
-        "gather" => {
+        WorkflowStage::Gather => {
             if browser_required {
                 vec![
                     "Collect the browser evidence required for the run.".to_string(),
@@ -358,23 +553,22 @@ pub fn execute_workflow_stage(
                 ]
             }
         }
-        "act" => vec![
+        WorkflowStage::Act => vec![
             "Execute the bounded task plan.".to_string(),
             "Persist tool calls, side effects, and approvals.".to_string(),
         ],
-        "verify" => vec![
+        WorkflowStage::Verify => vec![
             "Verify the result against the requested outcome.".to_string(),
             "Attach artifacts or browser traces for operator review.".to_string(),
         ],
-        "summarize" => vec![
+        WorkflowStage::Summarize => vec![
             "Write the operator-facing summary.".to_string(),
             "Publish the outbound message and delivery attempt.".to_string(),
         ],
-        "learn" => vec![
+        WorkflowStage::Learn => vec![
             "Compact the run into reusable memory.".to_string(),
             "Persist embeddings-backed retrieval material.".to_string(),
         ],
-        _ => vec!["Advance the workflow deterministically.".to_string()],
     };
 
     let summary = format!(
@@ -382,7 +576,7 @@ pub fn execute_workflow_stage(
         manifest.name, stage, goal
     );
     let memory_note = match stage {
-        "summarize" | "learn" => Some(format!("{}: {}", manifest.id, summary)),
+        WorkflowStage::Summarize | WorkflowStage::Learn => Some(format!("{}: {}", manifest.id, summary)),
         _ => None,
     };
 
@@ -392,7 +586,7 @@ pub fn execute_workflow_stage(
         actions: actions.clone(),
         memory_note,
         output: json!({
-            "stage": stage,
+            "stage": stage.as_str(),
             "goal": goal,
             "summary": summary,
             "actions": actions,
@@ -432,7 +626,7 @@ mod tests {
             runtime: "rust-core".to_string(),
             deployment: DeploymentPolicy {
                 control_plane: "local".to_string(),
-                execution: "local-runner".to_string(),
+                execution: ExecutionTarget::LocalRunner,
                 workflow: "research".to_string(),
             },
             tags: vec!["research".to_string()],
@@ -524,5 +718,22 @@ mod tests {
         let two = deterministic_embedding("cadet", 8);
         assert_eq!(one, two);
         assert_eq!(one.len(), 8);
+    }
+
+    #[test]
+    fn workflow_stage_roundtrips() {
+        let stage = WorkflowStage::from_str("verify").expect("valid stage");
+        assert_eq!(stage, WorkflowStage::Verify);
+        assert_eq!(stage.to_string(), "verify");
+        assert_eq!(WorkflowStage::Verify.next(), Some(WorkflowStage::Summarize));
+        assert_eq!(WorkflowStage::Learn.next(), None);
+    }
+
+    #[test]
+    fn execution_owner_from_target_roundtrips() {
+        let target = ExecutionTarget::from_str("container-runner").expect("valid target");
+        let owner = ExecutionOwner::from_target(target);
+        assert_eq!(owner, ExecutionOwner::ContainerRunner);
+        assert_eq!(owner.to_string(), "container-runner");
     }
 }
