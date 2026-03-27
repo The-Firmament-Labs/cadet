@@ -327,6 +327,46 @@ pub enum ToolRisk {
     High,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolCallState {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+}
+
+impl ToolCallState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ToolCallState::Pending => "pending",
+            ToolCallState::Running => "running",
+            ToolCallState::Completed => "completed",
+            ToolCallState::Failed => "failed",
+        }
+    }
+}
+
+impl fmt::Display for ToolCallState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for ToolCallState {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "pending" => Ok(ToolCallState::Pending),
+            "running" => Ok(ToolCallState::Running),
+            "completed" => Ok(ToolCallState::Completed),
+            "failed" => Ok(ToolCallState::Failed),
+            _ => Err(format!("unsupported tool call state '{value}'")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserToolPolicy {
@@ -875,5 +915,12 @@ mod tests {
         let state = BrowserTaskState::from_str("completed").expect("valid browser task state");
         assert_eq!(state, BrowserTaskState::Completed);
         assert_eq!(state.to_string(), "completed");
+    }
+
+    #[test]
+    fn tool_call_state_roundtrips() {
+        let state = ToolCallState::from_str("failed").expect("valid tool call state");
+        assert_eq!(state, ToolCallState::Failed);
+        assert_eq!(state.to_string(), "failed");
     }
 }

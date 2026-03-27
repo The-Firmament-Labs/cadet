@@ -25,7 +25,8 @@ use serde_json::{json, Value};
 use spacetimedb_sdk::{DbContext, Table, TableWithPrimaryKey};
 use starbridge_core::{
     compose_prompt, deterministic_embedding, execute_local_job, execute_workflow_stage, AgentManifest,
-    BrowserTaskState, EventBus, ExecutionOwner, JobEnvelope, RuntimeEvent, StepState, WorkflowStage,
+    BrowserTaskState, EventBus, ExecutionOwner, JobEnvelope, RuntimeEvent, StepState,
+    ToolCallState, WorkflowStage,
 };
 
 #[derive(Clone)]
@@ -529,7 +530,7 @@ fn process_workflow_step(
                 step.step_id.clone(),
                 step.agent_id.clone(),
                 format!("workflow::{}", stage),
-                "completed".to_string(),
+                ToolCallState::Completed.to_string(),
                 step.input_json.clone(),
                 Some(outcome.output.to_string()),
             )
@@ -637,7 +638,7 @@ fn process_browser_task(
                 task.step_id.clone(),
                 task.agent_id.clone(),
                 "browser".to_string(),
-                "completed".to_string(),
+                ToolCallState::Completed.to_string(),
                 task.request_json.clone(),
                 Some(result_json.to_string()),
             )
