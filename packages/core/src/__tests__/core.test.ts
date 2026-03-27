@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { filterAgentsByControlPlane } from "../catalog";
 import { executeEdgeAgent } from "../edge-agent";
+import { searchMemoryByEmbedding } from "../memory";
 import { parseAgentManifest } from "../agent-manifest";
 import { normalizeJobRequest } from "../job";
 import { composeRuntimePrompt } from "../prompt";
@@ -34,6 +35,16 @@ describe("parseAgentManifest", () => {
     expect(manifest.runtime).toBe("rust-core");
     expect(manifest.memory.maxNotes).toBe(200);
     expect(manifest.schedules).toEqual([]);
+    expect(manifest.tools.browser.enabled).toBe(true);
+    expect(manifest.workflowTemplates[0]?.stages).toEqual([
+      "route",
+      "plan",
+      "gather",
+      "act",
+      "verify",
+      "summarize",
+      "learn"
+    ]);
   });
 
   it("rejects invalid targets", () => {
@@ -60,6 +71,35 @@ describe("parseAgentManifest", () => {
         memory: { namespace: "research", maxNotes: 100, summarizeAfter: 10 }
       })
     ).toThrowError(/deployment.controlPlane/);
+  });
+
+  it("normalizes legacy browser flags into rich browser policy", () => {
+    const manifest = parseAgentManifest({
+      id: "operator",
+      name: "Operator",
+      description: "Ops agent",
+      system: "Stay crisp",
+      model: "gpt-5.4-mini",
+      runtime: "edge-function",
+      deployment: {
+        controlPlane: "cloud",
+        execution: "vercel-edge",
+        workflow: "ops"
+      },
+      tags: ["ops"],
+      tools: {
+        allowExec: false,
+        allowBrowser: true,
+        allowNetwork: true,
+        allowMcp: true
+      },
+      memory: { namespace: "ops", maxNotes: 100, summarizeAfter: 10 }
+    });
+
+    expect(manifest.tools.allowBrowser).toBe(true);
+    expect(manifest.tools.browser.enabled).toBe(true);
+    expect(manifest.tools.browser.defaultMode).toBe("read");
+    expect(manifest.tools.browser.requiresApprovalFor).toEqual(["form", "download"]);
   });
 });
 
@@ -245,8 +285,68 @@ describe("composeRuntimePrompt", () => {
 
     expect(prompt).toContain("Write a deployment plan");
     expect(prompt).toContain("exec=true");
+    expect(prompt).toContain("browserMode=read");
     expect(prompt).toContain("Control plane: local");
     expect(prompt).toContain('"stack": "solana"');
+  });
+});
+
+describe("searchMemoryByEmbedding", () => {
+  it("returns the highest scoring chunks first", () => {
+    const results = searchMemoryByEmbedding(
+      [1, 0],
+      [
+        {
+          chunkId: "chunk_1",
+          documentId: "doc_1",
+          agentId: "researcher",
+          namespace: "research",
+          ordinal: 0,
+          content: "Primary rollout note",
+          metadataJson: "{}",
+          createdAtMicros: 1
+        },
+        {
+          chunkId: "chunk_2",
+          documentId: "doc_1",
+          agentId: "researcher",
+          namespace: "research",
+          ordinal: 1,
+          content: "Secondary rollout note",
+          metadataJson: "{}",
+          createdAtMicros: 2
+        }
+      ],
+      [
+        {
+          embeddingId: "embedding_1",
+          chunkId: "chunk_1",
+          agentId: "researcher",
+          namespace: "research",
+          model: "text-embedding-3-small",
+          dimensions: 2,
+          vector: [0.99, 0.01],
+          checksum: "one",
+          createdAtMicros: 1
+        },
+        {
+          embeddingId: "embedding_2",
+          chunkId: "chunk_2",
+          agentId: "researcher",
+          namespace: "research",
+          model: "text-embedding-3-small",
+          dimensions: 2,
+          vector: [0, 1],
+          checksum: "two",
+          createdAtMicros: 2
+        }
+      ],
+      1
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.chunk.chunkId).toBe("chunk_1");
+    expect(results[0]?.score).toBeGreaterThan(0.99);
   });
 });
 

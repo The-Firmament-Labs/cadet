@@ -1,16 +1,19 @@
-import { spawn } from "node:child_process";
 import path from "node:path";
 
 import {
+  createStepId,
+  executeEdgeAgent,
   filterAgentsByControlPlane,
   isScheduleDue,
-  loadAgentManifestDirectory,
   normalizeJobRequest,
+  ownerExecutionForStage,
   schedulesForManifest,
+  seedWorkflowFromGoal,
   type AgentManifest,
   type JobRequest,
   type RegisteredScheduleRecord
 } from "@starbridge/core";
+import { loadAgentManifestDirectory } from "@starbridge/core/fs";
 import { StarbridgeControlClient } from "@starbridge/sdk";
 
 const port = Number(process.env.PORT ?? "3010");
@@ -18,23 +21,10 @@ const heartbeatIntervalMs = Number(process.env.STARBRIDGE_HEARTBEAT_INTERVAL_MS 
 const scheduleIntervalMs = Number(process.env.STARBRIDGE_SCHEDULE_INTERVAL_MS ?? "30000");
 const presenceTtlMs = Number(process.env.STARBRIDGE_PRESENCE_TTL_MS ?? "90000");
 
-interface LocalRunnerEnvelope {
-  manifest: AgentManifest;
-  job: {
-    job_id: string;
-    goal: string;
-  };
-  prompt: string;
-  result: {
-    summary: string;
-    actions: string[];
-    memory_note: string;
-  };
-}
-
 interface ScheduledRunResult {
   scheduleId: string;
   agentId: string;
+  runId?: string;
   jobId?: string;
   status: "dispatched" | "skipped" | "failed";
   reason?: string;
@@ -42,10 +32,6 @@ interface ScheduledRunResult {
 
 function defaultManifestDirectory(): string {
   return path.resolve(process.cwd(), "../../examples/agents");
-}
-
-function projectRoot(): string {
-  return path.resolve(process.cwd(), "../..");
 }
 
 function createControlClient(): StarbridgeControlClient {
@@ -56,7 +42,7 @@ function createControlClient(): StarbridgeControlClient {
   });
 }
 
-function runnerIdFor(agentId: string, role: "control" | "scheduler" | "runner"): string {
+function runnerIdFor(agentId: string, role: "control" | "scheduler" | "route"): string {
   return `${agentId}-${role}@local:${port}`;
 }
 
@@ -67,7 +53,9 @@ async function loadLocalCatalog(): Promise<AgentManifest[]> {
   return filterAgentsByControlPlane(manifests, "local");
 }
 
-async function syncLocalCatalog(catalog: AgentManifest[]): Promise<{ agents: number; schedules: number }> {
+async function syncLocalCatalog(
+  catalog: AgentManifest[]
+): Promise<{ agents: number; schedules: number }> {
   const client = createControlClient();
   let scheduleCount = 0;
 
@@ -91,11 +79,7 @@ async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Prom
   const nowMicros = Date.now() * 1_000;
 
   for (const presence of await client.listPresence()) {
-    if (presence.controlPlane !== controlPlane) {
-      continue;
-    }
-
-    if (presence.status === "stale") {
+    if (presence.controlPlane !== controlPlane || presence.status === "stale") {
       continue;
     }
 
@@ -103,12 +87,7 @@ async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Prom
       continue;
     }
 
-    await client.upsertPresence(
-      presence.agentId,
-      presence.runnerId,
-      controlPlane,
-      "stale"
-    );
+    await client.upsertPresence(presence.agentId, presence.runnerId, controlPlane, "stale");
     staleRunners.push(presence.runnerId);
   }
 
@@ -119,12 +98,7 @@ async function heartbeatLocalPresence(catalog: AgentManifest[]): Promise<void> {
   const client = createControlClient();
 
   for (const manifest of catalog) {
-    await client.upsertPresence(
-      manifest.id,
-      runnerIdFor(manifest.id, "control"),
-      "local",
-      "alive"
-    );
+    await client.upsertPresence(manifest.id, runnerIdFor(manifest.id, "control"), "local", "alive");
     await client.upsertPresence(
       manifest.id,
       runnerIdFor(manifest.id, "scheduler"),
@@ -134,120 +108,113 @@ async function heartbeatLocalPresence(catalog: AgentManifest[]): Promise<void> {
   }
 }
 
-async function executeLocalRunner(
+async function seedWorkflowFromJob(
   manifest: AgentManifest,
-  normalized: ReturnType<typeof normalizeJobRequest>
-): Promise<LocalRunnerEnvelope> {
-  const runnerBinary = process.env.STARBRIDGE_RUNNER_BIN;
-  const manifestPath = path.resolve(
-    process.env.STARBRIDGE_MANIFEST_DIR ?? defaultManifestDirectory(),
-    `${manifest.id}.agent.json`
-  );
-  const command = runnerBinary ?? "cargo";
-  const args = runnerBinary
-    ? [
-        "run-once",
-        "--agent-file",
-        manifestPath,
-        "--goal",
-        normalized.goal,
-        "--job-id",
-        normalized.jobId,
-        "--priority",
-        normalized.priority,
-        "--requested-by",
-        normalized.requestedBy,
-        "--created-at",
-        normalized.createdAt
-      ]
-    : [
-        "run",
-        "-p",
-        "starbridge-runner",
-        "--",
-        "run-once",
-        "--agent-file",
-        manifestPath,
-        "--goal",
-        normalized.goal,
-        "--job-id",
-        normalized.jobId,
-        "--priority",
-        normalized.priority,
-        "--requested-by",
-        normalized.requestedBy,
-        "--created-at",
-        normalized.createdAt
-      ];
-
-  return new Promise<LocalRunnerEnvelope>((resolve, reject) => {
-    const child = spawn(command, args, {
-      cwd: projectRoot(),
-      env: process.env
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk) => {
-      stdout += String(chunk);
-    });
-
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-
-    child.on("error", (error) => {
-      reject(error);
-    });
-
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || `Local runner exited with code ${code}`));
-        return;
-      }
-
-      try {
-        resolve(JSON.parse(stdout) as LocalRunnerEnvelope);
-      } catch (error) {
-        reject(
-          new Error(
-            `Failed to parse local runner output: ${
-              error instanceof Error ? error.message : "unknown error"
-            }`
-          )
-        );
-      }
-    });
+  job: ReturnType<typeof normalizeJobRequest>,
+  triggerSource: string,
+  channel: "web" | "system",
+  actor: string
+): Promise<{
+  runId: string;
+  threadId: string;
+  routeStepId: string;
+  channel: "web" | "system";
+  browserRequired: boolean;
+  browserMode: string;
+}> {
+  const client = createControlClient();
+  const seed = seedWorkflowFromGoal(manifest, {
+    channel,
+    channelThreadId: `${channel}_${job.jobId}`,
+    requestedBy: job.requestedBy,
+    actor,
+    goal: job.goal,
+    priority: job.priority,
+    triggerSource,
+    context: job.context,
+    createId: (prefix) => `${prefix}_${job.jobId}`
   });
+
+  await client.ingestMessage({
+    threadId: seed.message.threadId,
+    channel: seed.message.channel,
+    channelThreadId: seed.thread.channelThreadId,
+    title: seed.thread.title,
+    eventId: seed.message.eventId,
+    runId: seed.message.runId,
+    direction: seed.message.direction,
+    actor: seed.message.actor,
+    content: seed.message.content,
+    metadata: {
+      ...seed.message.metadata,
+      jobId: job.jobId
+    }
+  });
+  await client.startWorkflowRun(seed.run);
+  await client.enqueueWorkflowStep(seed.routeStep);
+
+  return {
+    runId: seed.run.runId,
+    threadId: seed.thread.threadId,
+    routeStepId: seed.routeStep.stepId,
+    channel,
+    browserRequired: seed.browser.required,
+    browserMode: seed.browser.mode
+  };
 }
 
-async function executeQueuedLocalJob(
+async function completeRouteTriage(
   manifest: AgentManifest,
-  normalized: ReturnType<typeof normalizeJobRequest>
-): Promise<LocalRunnerEnvelope> {
+  job: ReturnType<typeof normalizeJobRequest>,
+  workflow: {
+    runId: string;
+    threadId: string;
+    routeStepId: string;
+    channel: "web" | "system";
+    browserRequired: boolean;
+    browserMode: string;
+  }
+): Promise<void> {
   const client = createControlClient();
-  const runnerId = runnerIdFor(manifest.id, "runner");
+  const runnerId = runnerIdFor(manifest.id, "route");
 
   await client.upsertPresence(manifest.id, runnerId, "local", "running");
-  await client.markJobStarted(normalized.jobId, runnerId);
+  await client.claimWorkflowStep(workflow.routeStepId, manifest.deployment.execution, runnerId);
 
-  try {
-    const execution = await executeLocalRunner(manifest, normalized);
-    await client.remember(
-      manifest.id,
-      manifest.memory.namespace,
-      execution.result.memory_note
-    );
-    await client.markJobCompleted(normalized.jobId, execution.result.summary);
-    await client.upsertPresence(manifest.id, runnerId, "local", "idle");
-    return execution;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown local execution error";
-    await client.markJobFailed(normalized.jobId, message);
-    await client.upsertPresence(manifest.id, runnerId, "local", "failed");
-    throw error;
-  }
+  const routeResult = executeEdgeAgent(manifest, job);
+  await client.completeWorkflowStep(workflow.routeStepId, {
+    summary: routeResult.summary,
+    actions: routeResult.actions,
+    browserRequired: workflow.browserRequired,
+    browserMode: workflow.browserMode,
+    nextStage: "plan"
+  });
+
+  const planStepId = createStepId(workflow.runId, "plan");
+  await client.enqueueWorkflowStep({
+    stepId: planStepId,
+    runId: workflow.runId,
+    agentId: manifest.id,
+    stage: "plan",
+    ownerExecution: ownerExecutionForStage(manifest, "plan", workflow.browserRequired),
+    input: {
+      jobId: job.jobId,
+      runId: workflow.runId,
+      threadId: workflow.threadId,
+      channel: workflow.channel,
+      goal: job.goal,
+      context: job.context,
+      browserRequired: workflow.browserRequired,
+      browserMode: workflow.browserMode,
+      routeSummary: routeResult.summary,
+      routeActions: routeResult.actions
+    },
+    dependsOnStepId: workflow.routeStepId
+  });
+
+  await client.remember(manifest.id, manifest.memory.namespace, routeResult.memoryNote);
+  await client.markJobCompleted(job.jobId, `Workflow ${workflow.runId} seeded`);
+  await client.upsertPresence(manifest.id, runnerId, "local", "idle");
 }
 
 async function registerLocalAgents(payload: unknown): Promise<unknown> {
@@ -275,40 +242,44 @@ async function dispatchLocalJob(payload: unknown): Promise<unknown> {
   await syncLocalCatalog(catalog);
 
   const body = payload as Partial<JobRequest> & { agentId?: string };
-  const agentId = body.agentId ?? "";
-  const manifest = catalog.find((candidate) => candidate.id === agentId);
+  const manifest = catalog.find((candidate) => candidate.id === (body.agentId ?? ""));
 
   if (!manifest) {
-    throw new Error(`Local agent '${agentId}' is not registered in the local control plane`);
+    throw new Error("Local control plane only dispatches registered local agents");
   }
 
   const request: JobRequest = {
     agentId: manifest.id,
-    goal: body.goal ?? ""
+    goal: body.goal ?? "",
+    requestedBy: body.requestedBy ?? "local-control",
+    context: {
+      ...(body.context ?? {}),
+      controlPlane: manifest.deployment.controlPlane,
+      execution: manifest.deployment.execution,
+      workflow: manifest.deployment.workflow
+    }
   };
-
   if (body.priority !== undefined) {
     request.priority = body.priority;
   }
 
-  request.requestedBy = body.requestedBy ?? "local-control";
-  request.context = {
-    ...(body.context ?? {}),
-    controlPlane: manifest.deployment.controlPlane,
-    execution: manifest.deployment.execution,
-    workflow: manifest.deployment.workflow
-  };
-
   const normalized = normalizeJobRequest(request);
   const client = createControlClient();
   await client.enqueueJob(normalized);
-  const execution = await executeQueuedLocalJob(manifest, normalized);
+  const workflow = await seedWorkflowFromJob(
+    manifest,
+    normalized,
+    "local:dispatch",
+    "web",
+    normalized.requestedBy
+  );
+  await completeRouteTriage(manifest, normalized, workflow);
 
   return {
     plane: "local",
     manifest,
     job: normalized,
-    execution
+    workflow
   };
 }
 
@@ -363,12 +334,7 @@ async function reconcileLocalSchedules(): Promise<{
     const job = normalizeScheduledLocalJob(manifest, schedule);
 
     try {
-      await client.claimScheduledRun(
-        schedule.scheduleId,
-        "local",
-        schedule.nextRunAtMicros,
-        job
-      );
+      await client.claimScheduledRun(schedule.scheduleId, "local", schedule.nextRunAtMicros, job);
     } catch (error) {
       runs.push({
         scheduleId: schedule.scheduleId,
@@ -381,13 +347,21 @@ async function reconcileLocalSchedules(): Promise<{
     }
 
     try {
-      const execution = await executeQueuedLocalJob(manifest, job);
+      const workflow = await seedWorkflowFromJob(
+        manifest,
+        job,
+        "local:schedule",
+        "system",
+        schedule.requestedBy
+      );
+      await completeRouteTriage(manifest, job, workflow);
       runs.push({
         scheduleId: schedule.scheduleId,
         agentId: schedule.agentId,
         jobId: job.jobId,
+        runId: workflow.runId,
         status: "dispatched",
-        reason: execution.result.summary
+        reason: "Workflow seeded"
       });
     } catch (error) {
       runs.push({

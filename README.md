@@ -9,6 +9,19 @@ Cadet is an event-driven agent platform scaffold that blends:
 - Vercel as the operator-facing control plane and webhook/cron surface.
 - Rust for the runtime kernel and cloud runner.
 
+## Planning docs
+
+- [Conversation synthesis](/Users/home/Documents/New%20project/docs/CONVERSATION_SYNTHESIS.md)
+- [RALPH loop](/Users/home/Documents/New%20project/docs/RALPH_LOOP.md)
+- [Implementation phases](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
+- [Session tracker](/Users/home/Documents/New%20project/SESSION.md)
+
+## Guide docs
+
+- [Architecture guide](/Users/home/Documents/New%20project/docs/ARCHITECTURE_GUIDE.md)
+- [Agent manifests guide](/Users/home/Documents/New%20project/docs/AGENT_MANIFESTS.md)
+- [Dynamic agent UI](/Users/home/Documents/New%20project/docs/DYNAMIC_AGENT_UI.md)
+
 ## Repo layout
 
 ```text

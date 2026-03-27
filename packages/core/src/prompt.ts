@@ -7,7 +7,8 @@ export function composeRuntimePrompt(
 ): string {
   const policy = [
     `exec=${manifest.tools.allowExec}`,
-    `browser=${manifest.tools.allowBrowser}`,
+    `browser=${manifest.tools.browser.enabled}`,
+    `browserMode=${manifest.tools.browser.defaultMode}`,
     `network=${manifest.tools.allowNetwork}`,
     `mcp=${manifest.tools.allowMcp}`
   ].join(", ");
@@ -31,6 +32,7 @@ export function composeRuntimePrompt(
     `Control plane: ${manifest.deployment.controlPlane}`,
     `Execution: ${manifest.deployment.execution}`,
     `Memory namespace: ${manifest.memory.namespace}`,
+    `Workflow template: ${manifest.workflowTemplates[0]?.id ?? "default"}`,
     `Tool policy: ${policy}`,
     ``,
     `# Context`,

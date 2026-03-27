@@ -2,12 +2,11 @@ import path from "node:path";
 
 import {
   composeRuntimePrompt,
-  loadAgentManifestDirectory,
-  loadAgentManifestFile,
   normalizeJobRequest,
   type AgentManifest,
   type JobRequest
 } from "@starbridge/core";
+import { loadAgentManifestDirectory, loadAgentManifestFile } from "@starbridge/core/fs";
 
 export interface CommandIO {
   info: (message: string) => void;

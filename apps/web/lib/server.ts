@@ -1,12 +1,15 @@
-import { parseAgentManifest, type AgentManifest } from "@starbridge/core/agent-manifest";
-import { normalizeJobRequest, type JobRequest } from "@starbridge/core/job";
-import { composeRuntimePrompt } from "@starbridge/core/prompt";
 import {
-  isScheduleDue,
-  schedulesForManifest,
+  createStepId,
+  executeEdgeAgent,
+  normalizeJobRequest,
+  ownerExecutionForStage,
+  parseAgentManifest,
+  seedWorkflowFromGoal,
+  type AgentManifest,
+  type JobRequest,
   type RegisteredScheduleRecord
-} from "@starbridge/core/schedule";
-import { executeEdgeAgent } from "@starbridge/core/edge-agent";
+} from "@starbridge/core";
+import { isScheduleDue, schedulesForManifest } from "@starbridge/core/schedule";
 import { StarbridgeControlClient } from "@starbridge/sdk";
 
 import { cloudAgentCatalog } from "./cloud-agents";
@@ -17,6 +20,7 @@ const presenceTtlMs = Number(process.env.STARBRIDGE_PRESENCE_TTL_MS ?? "90000");
 interface CloudScheduledRunResult {
   scheduleId: string;
   agentId: string;
+  runId?: string;
   jobId?: string;
   status: "dispatched" | "skipped" | "failed";
   reason?: string;
@@ -32,7 +36,7 @@ export function createControlClient(): StarbridgeControlClient {
   });
 }
 
-function runnerIdFor(agentId: string, role: "edge" | "scheduler"): string {
+function runnerIdFor(agentId: string, role: "edge" | "scheduler" | "route"): string {
   return `${agentId}-${role}@cloud`;
 }
 
@@ -60,11 +64,7 @@ async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Prom
   const staleRunners: string[] = [];
 
   for (const presence of await client.listPresence()) {
-    if (presence.controlPlane !== controlPlane) {
-      continue;
-    }
-
-    if (presence.status === "stale") {
+    if (presence.controlPlane !== controlPlane || presence.status === "stale") {
       continue;
     }
 
@@ -72,12 +72,7 @@ async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Prom
       continue;
     }
 
-    await client.upsertPresence(
-      presence.agentId,
-      presence.runnerId,
-      controlPlane,
-      "stale"
-    );
+    await client.upsertPresence(presence.agentId, presence.runnerId, controlPlane, "stale");
     staleRunners.push(presence.runnerId);
   }
 
@@ -122,45 +117,116 @@ function buildCloudJobRequest(
   return request;
 }
 
-async function executeQueuedEdgeJob(
+async function seedWorkflowFromJob(
   manifest: AgentManifest,
-  job: ReturnType<typeof normalizeJobRequest>
+  job: ReturnType<typeof normalizeJobRequest>,
+  triggerSource: string,
+  channel: "web" | "github" | "slack" | "system",
+  actor: string
 ): Promise<{
-  plane: "cloud";
-  runtime: "edge";
-  manifest: AgentManifest;
-  job: ReturnType<typeof normalizeJobRequest>;
-  promptPreview: string;
-  execution: ReturnType<typeof executeEdgeAgent>;
+  runId: string;
+  threadId: string;
+  routeStepId: string;
+  channel: "web" | "github" | "slack" | "system";
+  browserRequired: boolean;
+  browserMode: string;
 }> {
   const client = createControlClient();
-  const runnerId = runnerIdFor(manifest.id, "edge");
+  const seed = seedWorkflowFromGoal(manifest, {
+    channel,
+    channelThreadId: `${channel}_${job.jobId}`,
+    requestedBy: job.requestedBy,
+    actor,
+    goal: job.goal,
+    priority: job.priority,
+    triggerSource,
+    context: job.context,
+    createId: (prefix) => `${prefix}_${job.jobId}`
+  });
+
+  await client.ingestMessage({
+    threadId: seed.message.threadId,
+    channel: seed.message.channel,
+    channelThreadId: seed.thread.channelThreadId,
+    title: seed.thread.title,
+    eventId: seed.message.eventId,
+    runId: seed.message.runId,
+    direction: seed.message.direction,
+    actor: seed.message.actor,
+    content: seed.message.content,
+    metadata: {
+      ...seed.message.metadata,
+      jobId: job.jobId
+    }
+  });
+  await client.startWorkflowRun(seed.run);
+  await client.enqueueWorkflowStep(seed.routeStep);
+
+  return {
+    runId: seed.run.runId,
+    threadId: seed.thread.threadId,
+    routeStepId: seed.routeStep.stepId,
+    channel,
+    browserRequired: seed.browser.required,
+    browserMode: seed.browser.mode
+  };
+}
+
+async function completeRouteTriage(
+  manifest: AgentManifest,
+  job: ReturnType<typeof normalizeJobRequest>,
+  workflow: {
+    runId: string;
+    threadId: string;
+    routeStepId: string;
+    channel: "web" | "github" | "slack" | "system";
+    browserRequired: boolean;
+    browserMode: string;
+  }
+): Promise<void> {
+  const client = createControlClient();
+  const runnerId = runnerIdFor(manifest.id, "route");
+  const routeOwner = manifest.deployment.execution === "vercel-edge"
+    ? "vercel-edge"
+    : manifest.deployment.execution;
 
   await client.upsertPresence(manifest.id, runnerId, "cloud", "running");
-  await client.markJobStarted(job.jobId, runnerId);
+  await client.claimWorkflowStep(workflow.routeStepId, routeOwner, runnerId);
 
-  try {
-    const execution = executeEdgeAgent(manifest, job);
-    await client.remember(manifest.id, manifest.memory.namespace, execution.memoryNote);
-    await client.markJobCompleted(job.jobId, execution.summary);
-    await client.upsertPresence(manifest.id, runnerId, "cloud", "idle");
+  const routeResult = executeEdgeAgent(manifest, job);
+  await client.completeWorkflowStep(workflow.routeStepId, {
+    summary: routeResult.summary,
+    actions: routeResult.actions,
+    browserRequired: workflow.browserRequired,
+    browserMode: workflow.browserMode,
+    nextStage: "plan"
+  });
 
-    return {
-      plane: "cloud",
-      runtime: "edge",
-      manifest,
-      job,
-      promptPreview: composeRuntimePrompt(manifest, job),
-      execution
-    };
-  } catch (error) {
-    await client.markJobFailed(
-      job.jobId,
-      error instanceof Error ? error.message : "Unknown edge dispatch error"
-    );
-    await client.upsertPresence(manifest.id, runnerId, "cloud", "failed");
-    throw error;
-  }
+  const planStepId = createStepId(workflow.runId, "plan");
+  await client.enqueueWorkflowStep({
+    stepId: planStepId,
+    runId: workflow.runId,
+    agentId: manifest.id,
+    stage: "plan",
+    ownerExecution: ownerExecutionForStage(manifest, "plan", workflow.browserRequired),
+    input: {
+      jobId: job.jobId,
+      runId: workflow.runId,
+      threadId: workflow.threadId,
+      channel: workflow.channel,
+      goal: job.goal,
+      context: job.context,
+      browserRequired: workflow.browserRequired,
+      browserMode: workflow.browserMode,
+      routeSummary: routeResult.summary,
+      routeActions: routeResult.actions
+    },
+    dependsOnStepId: workflow.routeStepId
+  });
+
+  await client.remember(manifest.id, manifest.memory.namespace, routeResult.memoryNote);
+  await client.markJobCompleted(job.jobId, `Workflow ${workflow.runId} seeded`);
+  await client.upsertPresence(manifest.id, runnerId, "cloud", "idle");
 }
 
 function normalizeScheduledCloudJob(
@@ -214,9 +280,24 @@ export async function dispatchJobFromPayload(payload: unknown): Promise<unknown>
     throw new Error("Cloud control plane only dispatches registered cloud agents");
   }
 
-  const normalized = normalizeJobRequest(buildCloudJobRequest(manifest, candidate, "cloud-control"));
-  await createControlClient().enqueueJob(normalized);
-  return normalized;
+  const normalized = normalizeJobRequest(
+    buildCloudJobRequest(manifest, candidate, "cloud-control")
+  );
+  const client = createControlClient();
+  await client.enqueueJob(normalized);
+  const workflow = await seedWorkflowFromJob(
+    manifest,
+    normalized,
+    "api:jobs.dispatch",
+    "web",
+    normalized.requestedBy
+  );
+  await completeRouteTriage(manifest, normalized, workflow);
+
+  return {
+    job: normalized,
+    workflow
+  };
 }
 
 export async function dispatchEdgeJobFromPayload(payload: unknown): Promise<unknown> {
@@ -236,7 +317,272 @@ export async function dispatchEdgeJobFromPayload(payload: unknown): Promise<unkn
 
   const job = normalizeJobRequest(buildCloudJobRequest(manifest, candidate, "cloud-control"));
   await createControlClient().enqueueJob(job);
-  return executeQueuedEdgeJob(manifest, job);
+  const workflow = await seedWorkflowFromJob(
+    manifest,
+    job,
+    "api:agents.edge.dispatch",
+    "web",
+    job.requestedBy
+  );
+  await completeRouteTriage(manifest, job, workflow);
+
+  return {
+    plane: "cloud",
+    runtime: "edge",
+    manifest,
+    job,
+    workflow
+  };
+}
+
+export async function ingestSlackEvent(payload: unknown): Promise<unknown> {
+  if (typeof payload !== "object" || payload === null) {
+    throw new Error("slack payload must be an object");
+  }
+
+  await syncCloudCatalog();
+
+  const body = payload as {
+    text?: string;
+    user?: string;
+    thread_ts?: string;
+    channel?: string;
+    agentId?: string;
+  };
+  const manifest = cloudAgentCatalog.find((entry) => entry.id === (body.agentId ?? "operator"));
+  if (!manifest) {
+    throw new Error("No matching cloud agent");
+  }
+
+  const job = normalizeJobRequest({
+    agentId: manifest.id,
+    goal: body.text ?? "",
+    requestedBy: body.user ?? "slack-user",
+    context: {
+      slackChannel: body.channel ?? "unknown",
+      slackThreadTs: body.thread_ts ?? "root"
+    }
+  });
+
+  await createControlClient().enqueueJob(job);
+  const workflow = await seedWorkflowFromJob(
+    manifest,
+    job,
+    "slack:webhook",
+    "slack",
+    body.user ?? "slack-user"
+  );
+  await completeRouteTriage(manifest, job, workflow);
+
+  return {
+    ok: true,
+    workflow
+  };
+}
+
+export async function ingestGitHubEvent(payload: unknown): Promise<unknown> {
+  if (typeof payload !== "object" || payload === null) {
+    throw new Error("github payload must be an object");
+  }
+
+  await syncCloudCatalog();
+
+  const body = payload as {
+    action?: string;
+    repository?: { full_name?: string };
+    issue?: { number?: number; title?: string; body?: string; user?: { login?: string } };
+    comment?: { body?: string; user?: { login?: string } };
+    agentId?: string;
+  };
+  const manifest = cloudAgentCatalog.find((entry) => entry.id === (body.agentId ?? "operator"));
+  if (!manifest) {
+    throw new Error("No matching cloud agent");
+  }
+
+  const goal =
+    body.comment?.body ??
+    body.issue?.body ??
+    body.issue?.title ??
+    `${body.action ?? "event"} in ${body.repository?.full_name ?? "github"}`;
+  const actor = body.comment?.user?.login ?? body.issue?.user?.login ?? "github-user";
+
+  const job = normalizeJobRequest({
+    agentId: manifest.id,
+    goal,
+    requestedBy: actor,
+    context: {
+      githubAction: body.action ?? "unknown",
+      repository: body.repository?.full_name ?? "unknown",
+      issueNumber: body.issue?.number ?? 0
+    }
+  });
+
+  await createControlClient().enqueueJob(job);
+  const workflow = await seedWorkflowFromJob(
+    manifest,
+    job,
+    "github:webhook",
+    "github",
+    actor
+  );
+  await completeRouteTriage(manifest, job, workflow);
+
+  return {
+    ok: true,
+    workflow
+  };
+}
+
+export async function loadInbox(): Promise<{
+  threads: Awaited<ReturnType<StarbridgeControlClient["listThreads"]>>;
+  runs: Awaited<ReturnType<StarbridgeControlClient["listWorkflowRuns"]>>;
+  approvals: Awaited<ReturnType<StarbridgeControlClient["listApprovalRequests"]>>;
+  browserTasks: Awaited<ReturnType<StarbridgeControlClient["listBrowserTasks"]>>;
+}> {
+  const client = createControlClient();
+  const [threads, runs, approvals, browserTasks] = await Promise.all([
+    client.listThreads(),
+    client.listWorkflowRuns(),
+    client.listApprovalRequests(),
+    client.listBrowserTasks()
+  ]);
+
+  return {
+    threads: [...threads].sort((left, right) => right.updatedAtMicros - left.updatedAtMicros),
+    runs: [...runs].sort((left, right) => right.updatedAtMicros - left.updatedAtMicros),
+    approvals: [...approvals].sort(
+      (left, right) => right.updatedAtMicros - left.updatedAtMicros
+    ),
+    browserTasks: [...browserTasks].sort(
+      (left, right) => right.updatedAtMicros - left.updatedAtMicros
+    )
+  };
+}
+
+export async function loadRunDetails(runId: string): Promise<{
+  run: Awaited<ReturnType<StarbridgeControlClient["listWorkflowRuns"]>>[number];
+  steps: Awaited<ReturnType<StarbridgeControlClient["listWorkflowSteps"]>>;
+  messages: Awaited<ReturnType<StarbridgeControlClient["listMessageEvents"]>>;
+  approvals: Awaited<ReturnType<StarbridgeControlClient["listApprovalRequests"]>>;
+  browserTasks: Awaited<ReturnType<StarbridgeControlClient["listBrowserTasks"]>>;
+  browserArtifacts: Awaited<ReturnType<StarbridgeControlClient["listBrowserArtifacts"]>>;
+  retrievalTraces: Awaited<ReturnType<StarbridgeControlClient["listRetrievalTraces"]>>;
+}> {
+  const client = createControlClient();
+  const [runs, steps, messages, approvals, browserTasks, browserArtifacts, retrievalTraces] =
+    await Promise.all([
+      client.listWorkflowRuns(),
+      client.listWorkflowSteps(),
+      client.listMessageEvents(),
+      client.listApprovalRequests(),
+      client.listBrowserTasks(),
+      client.listBrowserArtifacts(),
+      client.listRetrievalTraces()
+    ]);
+
+  const run = runs.find((candidate) => candidate.runId === runId);
+  if (!run) {
+    throw new Error(`Unknown workflow run '${runId}'`);
+  }
+
+  return {
+    run,
+    steps: steps.filter((candidate) => candidate.runId === runId),
+    messages: messages.filter((candidate) => candidate.runId === runId),
+    approvals: approvals.filter((candidate) => candidate.runId === runId),
+    browserTasks: browserTasks.filter((candidate) => candidate.runId === runId),
+    browserArtifacts: browserArtifacts.filter((candidate) => candidate.runId === runId),
+    retrievalTraces: retrievalTraces.filter((candidate) => candidate.runId === runId)
+  };
+}
+
+export async function resolveApprovalFromPayload(
+  approvalId: string,
+  payload: unknown
+): Promise<unknown> {
+  if (typeof payload !== "object" || payload === null) {
+    throw new Error("approval payload must be an object");
+  }
+
+  const body = payload as {
+    status?: "approved" | "rejected" | "expired";
+    resolvedBy?: string;
+    note?: string;
+  };
+
+  if (!body.status) {
+    throw new Error("approval status is required");
+  }
+
+  const client = createControlClient();
+  return client.resolveApproval(approvalId, body.status, {
+    resolvedBy: body.resolvedBy ?? "operator",
+    note: body.note ?? ""
+  });
+}
+
+export async function loadBrowserTask(taskId: string): Promise<{
+  task: Awaited<ReturnType<StarbridgeControlClient["listBrowserTasks"]>>[number];
+  artifacts: Awaited<ReturnType<StarbridgeControlClient["listBrowserArtifacts"]>>;
+}> {
+  const client = createControlClient();
+  const [tasks, artifacts] = await Promise.all([
+    client.listBrowserTasks(),
+    client.listBrowserArtifacts()
+  ]);
+  const task = tasks.find((candidate) => candidate.taskId === taskId);
+
+  if (!task) {
+    throw new Error(`Unknown browser task '${taskId}'`);
+  }
+
+  return {
+    task,
+    artifacts: artifacts.filter((candidate) => candidate.taskId === taskId)
+  };
+}
+
+export async function retryWorkflowRun(runId: string): Promise<unknown> {
+  const client = createControlClient();
+  const [runs, steps] = await Promise.all([
+    client.listWorkflowRuns(),
+    client.listWorkflowSteps()
+  ]);
+  const run = runs.find((candidate) => candidate.runId === runId);
+
+  if (!run) {
+    throw new Error(`Unknown workflow run '${runId}'`);
+  }
+
+  const failedStep =
+    [...steps]
+      .filter((candidate) => candidate.runId === runId)
+      .sort((left, right) => right.updatedAtMicros - left.updatedAtMicros)
+      .find((candidate) => candidate.status === "failed" || candidate.status === "blocked") ??
+    [...steps]
+      .filter((candidate) => candidate.runId === runId)
+      .sort((left, right) => right.updatedAtMicros - left.updatedAtMicros)[0];
+
+  if (!failedStep) {
+    throw new Error(`Run '${runId}' has no steps to retry`);
+  }
+
+  const retryStepId = `${failedStep.stepId}_retry_${Date.now().toString(36)}`;
+  await client.enqueueWorkflowStep({
+    stepId: retryStepId,
+    runId,
+    agentId: run.agentId,
+    stage: failedStep.stage,
+    ownerExecution: failedStep.ownerExecution,
+    input: JSON.parse(failedStep.inputJson) as Record<string, unknown>,
+    dependsOnStepId: failedStep.dependsOnStepId
+  });
+
+  return {
+    ok: true,
+    retryStepId,
+    stage: failedStep.stage
+  };
 }
 
 export async function reconcileCloudControlPlane(): Promise<{
@@ -271,12 +617,7 @@ export async function reconcileCloudControlPlane(): Promise<{
     const job = normalizeScheduledCloudJob(manifest, schedule);
 
     try {
-      await client.claimScheduledRun(
-        schedule.scheduleId,
-        "cloud",
-        schedule.nextRunAtMicros,
-        job
-      );
+      await client.claimScheduledRun(schedule.scheduleId, "cloud", schedule.nextRunAtMicros, job);
     } catch (error) {
       runs.push({
         scheduleId: schedule.scheduleId,
@@ -289,13 +630,21 @@ export async function reconcileCloudControlPlane(): Promise<{
     }
 
     try {
-      const execution = await executeQueuedEdgeJob(manifest, job);
+      const workflow = await seedWorkflowFromJob(
+        manifest,
+        job,
+        "cron:reconcile",
+        "system",
+        schedule.requestedBy
+      );
+      await completeRouteTriage(manifest, job, workflow);
       runs.push({
         scheduleId: schedule.scheduleId,
         agentId: schedule.agentId,
         jobId: job.jobId,
+        runId: workflow.runId,
         status: "dispatched",
-        reason: execution.execution.summary
+        reason: "Workflow seeded"
       });
     } catch (error) {
       runs.push({

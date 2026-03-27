@@ -1,5 +1,39 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use tokio::sync::broadcast;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserToolPolicy {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub allowed_domains: Vec<String>,
+    #[serde(default)]
+    pub blocked_domains: Vec<String>,
+    #[serde(default = "default_max_browser_sessions")]
+    pub max_concurrent_sessions: usize,
+    #[serde(default)]
+    pub allow_downloads: bool,
+    #[serde(default = "default_browser_mode")]
+    pub default_mode: String,
+    #[serde(default = "default_browser_approval_modes")]
+    pub requires_approval_for: Vec<String>,
+}
+
+impl Default for BrowserToolPolicy {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            allowed_domains: Vec::new(),
+            blocked_domains: Vec::new(),
+            max_concurrent_sessions: default_max_browser_sessions(),
+            allow_downloads: false,
+            default_mode: default_browser_mode(),
+            requires_approval_for: default_browser_approval_modes(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -8,6 +42,18 @@ pub struct ToolPolicy {
     pub allow_browser: bool,
     pub allow_network: bool,
     pub allow_mcp: bool,
+    #[serde(default)]
+    pub browser: BrowserToolPolicy,
+}
+
+impl ToolPolicy {
+    pub fn browser_policy(&self) -> BrowserToolPolicy {
+        let mut policy = self.browser.clone();
+        if self.allow_browser {
+            policy.enabled = true;
+        }
+        policy
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -27,6 +73,55 @@ pub struct DeploymentPolicy {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowTemplate {
+    pub id: String,
+    pub description: String,
+    pub stages: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolProfile {
+    pub id: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct HandoffRule {
+    pub id: String,
+    #[serde(default)]
+    pub when_goal_includes: Vec<String>,
+    pub to: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LearningPolicy {
+    #[serde(default = "default_learning_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_summarize_every_runs")]
+    pub summarize_every_runs: usize,
+    #[serde(default = "default_learning_enabled")]
+    pub embed_memory: bool,
+    #[serde(default = "default_max_retrieved_chunks")]
+    pub max_retrieved_chunks: usize,
+}
+
+impl Default for LearningPolicy {
+    fn default() -> Self {
+        Self {
+            enabled: default_learning_enabled(),
+            summarize_every_runs: default_summarize_every_runs(),
+            embed_memory: default_learning_enabled(),
+            max_retrieved_chunks: default_max_retrieved_chunks(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AgentManifest {
     pub id: String,
     pub name: String,
@@ -38,6 +133,34 @@ pub struct AgentManifest {
     pub tags: Vec<String>,
     pub tools: ToolPolicy,
     pub memory: MemoryPolicy,
+    #[serde(default)]
+    pub schedules: Vec<Value>,
+    #[serde(default)]
+    pub workflow_templates: Vec<WorkflowTemplate>,
+    #[serde(default)]
+    pub tool_profiles: Vec<ToolProfile>,
+    #[serde(default)]
+    pub handoff_rules: Vec<HandoffRule>,
+    #[serde(default)]
+    pub learning_policy: LearningPolicy,
+}
+
+impl AgentManifest {
+    pub fn primary_workflow_template(&self) -> WorkflowTemplate {
+        self.workflow_templates.first().cloned().unwrap_or(WorkflowTemplate {
+            id: "default".to_string(),
+            description: "Cadet default workflow".to_string(),
+            stages: vec![
+                "route".to_string(),
+                "plan".to_string(),
+                "gather".to_string(),
+                "act".to_string(),
+                "verify".to_string(),
+                "summarize".to_string(),
+                "learn".to_string(),
+            ],
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -57,10 +180,23 @@ pub struct ExecutionOutcome {
     pub memory_note: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StageExecutionOutcome {
+    pub stage: String,
+    pub summary: String,
+    pub actions: Vec<String>,
+    pub memory_note: Option<String>,
+    pub output: Value,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RuntimeEvent {
     JobQueued { job_id: String, agent_id: String },
     JobStarted { job_id: String, runner_id: String },
+    WorkflowStepClaimed { step_id: String, runner_id: String },
+    WorkflowStepCompleted { step_id: String, stage: String },
+    BrowserTaskQueued { task_id: String, step_id: String },
+    BrowserTaskCompleted { task_id: String, step_id: String },
     MemoryRecorded { agent_id: String, namespace: String },
     JobCompleted { job_id: String, summary: String },
     JobFailed { job_id: String, summary: String },
@@ -95,11 +231,37 @@ impl EventBus {
     }
 }
 
+fn default_browser_mode() -> String {
+    "read".to_string()
+}
+
+fn default_browser_approval_modes() -> Vec<String> {
+    vec!["form".to_string(), "download".to_string()]
+}
+
+fn default_max_browser_sessions() -> usize {
+    2
+}
+
+fn default_learning_enabled() -> bool {
+    true
+}
+
+fn default_summarize_every_runs() -> usize {
+    5
+}
+
+fn default_max_retrieved_chunks() -> usize {
+    8
+}
+
 pub fn compose_prompt(manifest: &AgentManifest, job: &JobEnvelope) -> String {
+    let browser = manifest.tools.browser_policy();
     let policy = format!(
-        "exec={}, browser={}, network={}, mcp={}",
+        "exec={}, browser={}, browserMode={}, network={}, mcp={}",
         manifest.tools.allow_exec,
-        manifest.tools.allow_browser,
+        browser.enabled,
+        browser.default_mode,
         manifest.tools.allow_network,
         manifest.tools.allow_mcp
     );
@@ -118,6 +280,7 @@ pub fn compose_prompt(manifest: &AgentManifest, job: &JobEnvelope) -> String {
         format!("Control plane: {}", manifest.deployment.control_plane),
         format!("Execution: {}", manifest.deployment.execution),
         format!("Memory namespace: {}", manifest.memory.namespace),
+        format!("Workflow template: {}", manifest.primary_workflow_template().id),
         format!("Tool policy: {}", policy),
     ]
     .join("\n")
@@ -159,6 +322,102 @@ pub fn execute_local_job(manifest: &AgentManifest, job: &JobEnvelope) -> Executi
     }
 }
 
+pub fn execute_workflow_stage(
+    manifest: &AgentManifest,
+    stage: &str,
+    input: &Value,
+) -> StageExecutionOutcome {
+    let goal = input
+        .get("goal")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown objective");
+    let browser_required = input
+        .get("browserRequired")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    let actions = match stage {
+        "route" => vec![
+            "Confirm the correct workflow template and ownership.".to_string(),
+            "Capture browser and approval requirements before long-lived work starts.".to_string(),
+        ],
+        "plan" => vec![
+            "Convert the request into a typed execution plan.".to_string(),
+            "Choose local, browser, or learning execution boundaries.".to_string(),
+        ],
+        "gather" => {
+            if browser_required {
+                vec![
+                    "Collect the browser evidence required for the run.".to_string(),
+                    "Persist the browser result as a task artifact.".to_string(),
+                ]
+            } else {
+                vec![
+                    "Gather the highest-signal local context and memory.".to_string(),
+                    "Persist retrieval traces for the prompt pack.".to_string(),
+                ]
+            }
+        }
+        "act" => vec![
+            "Execute the bounded task plan.".to_string(),
+            "Persist tool calls, side effects, and approvals.".to_string(),
+        ],
+        "verify" => vec![
+            "Verify the result against the requested outcome.".to_string(),
+            "Attach artifacts or browser traces for operator review.".to_string(),
+        ],
+        "summarize" => vec![
+            "Write the operator-facing summary.".to_string(),
+            "Publish the outbound message and delivery attempt.".to_string(),
+        ],
+        "learn" => vec![
+            "Compact the run into reusable memory.".to_string(),
+            "Persist embeddings-backed retrieval material.".to_string(),
+        ],
+        _ => vec!["Advance the workflow deterministically.".to_string()],
+    };
+
+    let summary = format!(
+        "{} completed the '{}' stage for '{}'.",
+        manifest.name, stage, goal
+    );
+    let memory_note = match stage {
+        "summarize" | "learn" => Some(format!("{}: {}", manifest.id, summary)),
+        _ => None,
+    };
+
+    StageExecutionOutcome {
+        stage: stage.to_string(),
+        summary: summary.clone(),
+        actions: actions.clone(),
+        memory_note,
+        output: json!({
+            "stage": stage,
+            "goal": goal,
+            "summary": summary,
+            "actions": actions,
+            "browserRequired": browser_required,
+        }),
+    }
+}
+
+pub fn deterministic_embedding(text: &str, dimensions: usize) -> Vec<f64> {
+    let dimensions = dimensions.max(4);
+    let mut vector = vec![0.0_f64; dimensions];
+
+    for (index, byte) in text.bytes().enumerate() {
+        let slot = index % dimensions;
+        vector[slot] += f64::from(byte) / 255.0;
+    }
+
+    let norm = vector.iter().map(|value| value * value).sum::<f64>().sqrt();
+    if norm == 0.0 {
+        return vector;
+    }
+
+    vector.into_iter().map(|value| value / norm).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,11 +441,30 @@ mod tests {
                 allow_browser: true,
                 allow_network: true,
                 allow_mcp: true,
+                browser: BrowserToolPolicy {
+                    enabled: true,
+                    allowed_domains: vec!["github.com".to_string()],
+                    blocked_domains: vec![],
+                    max_concurrent_sessions: 2,
+                    allow_downloads: false,
+                    default_mode: "read".to_string(),
+                    requires_approval_for: vec!["form".to_string(), "download".to_string()],
+                },
             },
             memory: MemoryPolicy {
                 namespace: "research".to_string(),
                 max_notes: 200,
                 summarize_after: 20,
+            },
+            schedules: vec![],
+            workflow_templates: vec![],
+            tool_profiles: vec![],
+            handoff_rules: vec![],
+            learning_policy: LearningPolicy {
+                enabled: true,
+                summarize_every_runs: 5,
+                embed_memory: true,
+                max_retrieved_chunks: 8,
             },
         }
     }
@@ -207,6 +485,7 @@ mod tests {
         let prompt = compose_prompt(&sample_manifest(), &sample_job());
         assert!(prompt.contains("Audit the release plan"));
         assert!(prompt.contains("exec=true"));
+        assert!(prompt.contains("browserMode=read"));
         assert!(prompt.contains("Control plane: local"));
         assert!(prompt.contains("Memory namespace: research"));
     }
@@ -237,5 +516,13 @@ mod tests {
                 agent_id: "researcher".to_string()
             }
         );
+    }
+
+    #[test]
+    fn deterministic_embedding_is_stable() {
+        let one = deterministic_embedding("cadet", 8);
+        let two = deterministic_embedding("cadet", 8);
+        assert_eq!(one, two);
+        assert_eq!(one.len(), 8);
     }
 }

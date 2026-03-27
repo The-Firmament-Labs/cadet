@@ -5,6 +5,16 @@ Starbridge takes the strongest reusable patterns from ElizaOS, Hermes, and OpenC
 - a local Bun control plane for laptop-side agents
 - a cloud Next.js control plane for Vercel, including an Edge-runtime dispatch path
 
+Roadmap and decision docs:
+
+- [Conversation synthesis](/Users/home/Documents/New%20project/docs/CONVERSATION_SYNTHESIS.md)
+- [RALPH loop](/Users/home/Documents/New%20project/docs/RALPH_LOOP.md)
+- [Implementation phases](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
+- [Session tracker](/Users/home/Documents/New%20project/SESSION.md)
+- [Architecture guide](/Users/home/Documents/New%20project/docs/ARCHITECTURE_GUIDE.md)
+- [Agent manifests guide](/Users/home/Documents/New%20project/docs/AGENT_MANIFESTS.md)
+- [Dynamic agent UI](/Users/home/Documents/New%20project/docs/DYNAMIC_AGENT_UI.md)
+
 ## Design goals
 
 - Character-style agent manifests with explicit tool and memory policy.
@@ -133,6 +143,7 @@ Vercel-ready control plane:
 
 - Run `apps/local-control` for local agents and laptop-side orchestration.
 - Deploy `apps/web` to Vercel with the project root set to `apps/web`.
+- Add a Cloudflare Worker ingress surface against the same SpacetimeDB-backed workflow contracts when cross-edge deployment parity is needed.
 - Run SpacetimeDB locally for development or publish the module to Maincloud.
 - Run `starbridge-runner` as a local process for `local-runner` agents or as a container/VM sidecar for heavier stateful work.
 - Treat Vercel cron as the cloud wakeup source and the Bun loop as the local wakeup source for scheduled tasks.

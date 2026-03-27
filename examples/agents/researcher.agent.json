@@ -15,12 +15,48 @@
     "allowExec": true,
     "allowBrowser": true,
     "allowNetwork": true,
-    "allowMcp": true
+    "allowMcp": true,
+    "browser": {
+      "enabled": true,
+      "allowedDomains": ["github.com", "vercel.com", "docs.anthropic.com", "openai.com"],
+      "blockedDomains": [],
+      "maxConcurrentSessions": 2,
+      "allowDownloads": false,
+      "defaultMode": "extract",
+      "requiresApprovalFor": ["form", "download"]
+    }
   },
   "memory": {
     "namespace": "research",
     "maxNotes": 400,
     "summarizeAfter": 32
+  },
+  "workflowTemplates": [
+    {
+      "id": "research-default",
+      "description": "Research with browser-backed gathering and durable learning.",
+      "stages": ["route", "plan", "gather", "act", "verify", "summarize", "learn"]
+    }
+  ],
+  "toolProfiles": [
+    {
+      "id": "research-browser",
+      "description": "Read-only browsing for research, docs, and verification."
+    }
+  ],
+  "handoffRules": [
+    {
+      "id": "research-browser-handoff",
+      "whenGoalIncludes": ["browser", "research", "docs", "audit", "verify"],
+      "to": "browser-worker",
+      "reason": "Browser evidence should flow through durable browser tasks."
+    }
+  ],
+  "learningPolicy": {
+    "enabled": true,
+    "summarizeEveryRuns": 3,
+    "embedMemory": true,
+    "maxRetrievedChunks": 8
   },
   "schedules": [
     {

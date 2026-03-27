@@ -22,10 +22,34 @@ function createManifest(id: string): AgentManifest {
       allowExec: true,
       allowBrowser: true,
       allowNetwork: true,
-      allowMcp: true
+      allowMcp: true,
+      browser: {
+        enabled: true,
+        allowedDomains: ["github.com"],
+        blockedDomains: [],
+        maxConcurrentSessions: 2,
+        allowDownloads: false,
+        defaultMode: "read",
+        requiresApprovalFor: ["form", "download"]
+      }
     },
     memory: { namespace: "research", maxNotes: 200, summarizeAfter: 20 },
-    schedules: []
+    schedules: [],
+    workflowTemplates: [
+      {
+        id: "default",
+        description: "default",
+        stages: ["route", "plan", "gather", "act", "verify", "summarize", "learn"]
+      }
+    ],
+    toolProfiles: [],
+    handoffRules: [],
+    learningPolicy: {
+      enabled: true,
+      summarizeEveryRuns: 5,
+      embedMemory: true,
+      maxRetrievedChunks: 8
+    }
   };
 }
 

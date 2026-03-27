@@ -27,6 +27,10 @@
       "types": "./src/catalog.ts",
       "default": "./src/catalog.ts"
     },
+    "./fs": {
+      "types": "./src/fs.ts",
+      "default": "./src/fs.ts"
+    },
     "./schedule": {
       "types": "./src/schedule.ts",
       "default": "./src/schedule.ts"

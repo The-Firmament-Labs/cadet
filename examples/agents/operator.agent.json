@@ -13,14 +13,50 @@
   "tags": ["ops", "deployments", "routing"],
   "tools": {
     "allowExec": false,
-    "allowBrowser": false,
+    "allowBrowser": true,
     "allowNetwork": true,
-    "allowMcp": true
+    "allowMcp": true,
+    "browser": {
+      "enabled": true,
+      "allowedDomains": ["github.com", "vercel.com", "spacetimedb.com", "status.openai.com"],
+      "blockedDomains": [],
+      "maxConcurrentSessions": 1,
+      "allowDownloads": false,
+      "defaultMode": "extract",
+      "requiresApprovalFor": ["form", "download"]
+    }
   },
   "memory": {
     "namespace": "operations",
     "maxNotes": 250,
     "summarizeAfter": 16
+  },
+  "workflowTemplates": [
+    {
+      "id": "ops-default",
+      "description": "Edge triage followed by durable ops execution and verification.",
+      "stages": ["route", "plan", "gather", "act", "verify", "summarize", "learn"]
+    }
+  ],
+  "toolProfiles": [
+    {
+      "id": "ops-browser",
+      "description": "Operational browsing for deployment and incident verification."
+    }
+  ],
+  "handoffRules": [
+    {
+      "id": "edge-to-container",
+      "whenGoalIncludes": ["incident", "deploy", "browser", "triage", "verify"],
+      "to": "container-runner",
+      "reason": "Cloud edge should route long-lived and browser-heavy ops work to durable workers."
+    }
+  ],
+  "learningPolicy": {
+    "enabled": true,
+    "summarizeEveryRuns": 4,
+    "embedMemory": true,
+    "maxRetrievedChunks": 8
   },
   "schedules": [
     {

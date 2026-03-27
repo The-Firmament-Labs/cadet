@@ -1,20 +1,68 @@
 import type { JobPriority } from "./job";
+import type { WorkflowStage } from "./workflow";
 
 export type ControlPlaneTarget = "local" | "cloud";
-export type ExecutionTarget = "local-runner" | "vercel-edge" | "container-runner" | "maincloud-runner";
+export type ExecutionTarget =
+  | "local-runner"
+  | "vercel-edge"
+  | "container-runner"
+  | "maincloud-runner";
 export type AgentRuntime = "rust-core" | "bun-sidecar" | "edge-function";
+
+export type BrowserMode = "read" | "extract" | "navigate" | "form" | "download" | "monitor";
+export type BrowserRisk = "low" | "medium" | "high";
+
+export interface BrowserToolPolicy {
+  enabled: boolean;
+  allowedDomains: string[];
+  blockedDomains: string[];
+  maxConcurrentSessions: number;
+  allowDownloads: boolean;
+  defaultMode: BrowserMode;
+  requiresApprovalFor: BrowserMode[];
+}
 
 export interface ToolPolicy {
   allowExec: boolean;
   allowBrowser: boolean;
   allowNetwork: boolean;
   allowMcp: boolean;
+  browser: BrowserToolPolicy;
 }
 
 export interface MemoryPolicy {
   namespace: string;
   maxNotes: number;
   summarizeAfter: number;
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  description: string;
+  stages: WorkflowStage[];
+}
+
+export interface ToolProfile {
+  id: string;
+  description: string;
+  allowExec?: boolean | undefined;
+  allowNetwork?: boolean | undefined;
+  allowMcp?: boolean | undefined;
+  browser?: Partial<BrowserToolPolicy> | undefined;
+}
+
+export interface HandoffRule {
+  id: string;
+  whenGoalIncludes: string[];
+  to: ExecutionTarget | "browser-worker" | "learning-worker";
+  reason: string;
+}
+
+export interface LearningPolicy {
+  enabled: boolean;
+  summarizeEveryRuns: number;
+  embedMemory: boolean;
+  maxRetrievedChunks: number;
 }
 
 export interface AgentScheduleDefinition {
@@ -42,6 +90,10 @@ export interface AgentManifest {
   tools: ToolPolicy;
   memory: MemoryPolicy;
   schedules: AgentScheduleDefinition[];
+  workflowTemplates: WorkflowTemplate[];
+  toolProfiles: ToolProfile[];
+  handoffRules: HandoffRule[];
+  learningPolicy: LearningPolicy;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -80,6 +132,100 @@ function expectPriority(value: unknown, path: string): JobPriority {
   return value;
 }
 
+function expectStringArray(value: unknown, path: string): string[] {
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
+    throw new Error(`${path} must be an array of strings`);
+  }
+
+  return value;
+}
+
+function expectBrowserMode(value: unknown, path: string): BrowserMode {
+  if (
+    value !== "read" &&
+    value !== "extract" &&
+    value !== "navigate" &&
+    value !== "form" &&
+    value !== "download" &&
+    value !== "monitor"
+  ) {
+    throw new Error(
+      `${path} must be read, extract, navigate, form, download, or monitor`
+    );
+  }
+
+  return value;
+}
+
+function expectWorkflowStage(value: unknown, path: string): WorkflowStage {
+  if (
+    value !== "route" &&
+    value !== "plan" &&
+    value !== "gather" &&
+    value !== "act" &&
+    value !== "verify" &&
+    value !== "summarize" &&
+    value !== "learn"
+  ) {
+    throw new Error(
+      `${path} must be route, plan, gather, act, verify, summarize, or learn`
+    );
+  }
+
+  return value;
+}
+
+function normalizeBrowserPolicy(tools: Record<string, unknown>): BrowserToolPolicy {
+  const browserPolicy = tools.browser;
+  const allowBrowser =
+    tools.allowBrowser === undefined
+      ? undefined
+      : expectBoolean(tools.allowBrowser, "tools.allowBrowser");
+
+  if (browserPolicy !== undefined && !isRecord(browserPolicy)) {
+    throw new Error("tools.browser must be an object when provided");
+  }
+
+  return {
+    enabled:
+      browserPolicy?.enabled === undefined
+        ? allowBrowser ?? false
+        : expectBoolean(browserPolicy.enabled, "tools.browser.enabled"),
+    allowedDomains:
+      browserPolicy?.allowedDomains === undefined
+        ? []
+        : expectStringArray(browserPolicy.allowedDomains, "tools.browser.allowedDomains"),
+    blockedDomains:
+      browserPolicy?.blockedDomains === undefined
+        ? []
+        : expectStringArray(browserPolicy.blockedDomains, "tools.browser.blockedDomains"),
+    maxConcurrentSessions:
+      browserPolicy?.maxConcurrentSessions === undefined
+        ? 2
+        : expectInteger(
+            browserPolicy.maxConcurrentSessions,
+            "tools.browser.maxConcurrentSessions"
+          ),
+    allowDownloads:
+      browserPolicy?.allowDownloads === undefined
+        ? false
+        : expectBoolean(browserPolicy.allowDownloads, "tools.browser.allowDownloads"),
+    defaultMode:
+      browserPolicy?.defaultMode === undefined
+        ? "read"
+        : expectBrowserMode(browserPolicy.defaultMode, "tools.browser.defaultMode"),
+    requiresApprovalFor:
+      browserPolicy?.requiresApprovalFor === undefined
+        ? ["form", "download"]
+        : expectStringArray(
+            browserPolicy.requiresApprovalFor,
+            "tools.browser.requiresApprovalFor"
+          ).map((mode, index) =>
+            expectBrowserMode(mode, `tools.browser.requiresApprovalFor[${index}]`)
+          )
+  };
+}
+
 export function parseAgentManifest(value: unknown): AgentManifest {
   if (!isRecord(value)) {
     throw new Error("Agent manifest must be an object");
@@ -90,6 +236,10 @@ export function parseAgentManifest(value: unknown): AgentManifest {
   const memory = value.memory;
   const tags = value.tags;
   const schedules = value.schedules;
+  const workflowTemplates = value.workflowTemplates;
+  const toolProfiles = value.toolProfiles;
+  const handoffRules = value.handoffRules;
+  const learningPolicy = value.learningPolicy;
 
   if (!isRecord(deployment)) {
     throw new Error("deployment must be an object");
@@ -113,6 +263,34 @@ export function parseAgentManifest(value: unknown): AgentManifest {
       !schedules.every((schedule) => typeof schedule === "object" && schedule !== null))
   ) {
     throw new Error("schedules must be an array of objects when provided");
+  }
+
+  if (
+    workflowTemplates !== undefined &&
+    (!Array.isArray(workflowTemplates) ||
+      !workflowTemplates.every((template) => typeof template === "object" && template !== null))
+  ) {
+    throw new Error("workflowTemplates must be an array of objects when provided");
+  }
+
+  if (
+    toolProfiles !== undefined &&
+    (!Array.isArray(toolProfiles) ||
+      !toolProfiles.every((profile) => typeof profile === "object" && profile !== null))
+  ) {
+    throw new Error("toolProfiles must be an array of objects when provided");
+  }
+
+  if (
+    handoffRules !== undefined &&
+    (!Array.isArray(handoffRules) ||
+      !handoffRules.every((rule) => typeof rule === "object" && rule !== null))
+  ) {
+    throw new Error("handoffRules must be an array of objects when provided");
+  }
+
+  if (learningPolicy !== undefined && !isRecord(learningPolicy)) {
+    throw new Error("learningPolicy must be an object when provided");
   }
 
   const runtime = expectString(value.runtime, "runtime");
@@ -158,6 +336,94 @@ export function parseAgentManifest(value: unknown): AgentManifest {
     }
   );
 
+  const browser = normalizeBrowserPolicy(tools);
+
+  const normalizedWorkflowTemplates: WorkflowTemplate[] = (workflowTemplates ?? []).map(
+    (template, index) => {
+      const candidate = template as Record<string, unknown>;
+      return {
+        id: expectString(candidate.id, `workflowTemplates[${index}].id`),
+        description:
+          candidate.description === undefined
+            ? "Cadet workflow template"
+            : expectString(candidate.description, `workflowTemplates[${index}].description`),
+        stages:
+          candidate.stages === undefined
+            ? ["route", "plan", "gather", "act", "verify", "summarize", "learn"]
+            : expectStringArray(candidate.stages, `workflowTemplates[${index}].stages`).map(
+                (stage, stageIndex) =>
+                  expectWorkflowStage(
+                    stage,
+                    `workflowTemplates[${index}].stages[${stageIndex}]`
+                  )
+              )
+      };
+    }
+  );
+
+  const normalizedToolProfiles: ToolProfile[] = (toolProfiles ?? []).map((profile, index) => {
+    const candidate = profile as Record<string, unknown>;
+    return {
+      id: expectString(candidate.id, `toolProfiles[${index}].id`),
+      description:
+        candidate.description === undefined
+          ? "Reusable Cadet tool profile"
+          : expectString(candidate.description, `toolProfiles[${index}].description`),
+      allowExec:
+        candidate.allowExec === undefined
+          ? undefined
+          : expectBoolean(candidate.allowExec, `toolProfiles[${index}].allowExec`),
+      allowNetwork:
+        candidate.allowNetwork === undefined
+          ? undefined
+          : expectBoolean(candidate.allowNetwork, `toolProfiles[${index}].allowNetwork`),
+      allowMcp:
+        candidate.allowMcp === undefined
+          ? undefined
+          : expectBoolean(candidate.allowMcp, `toolProfiles[${index}].allowMcp`),
+      browser:
+        candidate.browser === undefined
+          ? undefined
+          : normalizeBrowserPolicy({
+              allowBrowser: true,
+              browser: candidate.browser
+            })
+    };
+  });
+
+  const normalizedHandoffRules: HandoffRule[] = (handoffRules ?? []).map((rule, index) => {
+    const candidate = rule as Record<string, unknown>;
+    const destination = expectString(candidate.to, `handoffRules[${index}].to`);
+    if (
+      ![
+        "local-runner",
+        "vercel-edge",
+        "container-runner",
+        "maincloud-runner",
+        "browser-worker",
+        "learning-worker"
+      ].includes(destination)
+    ) {
+      throw new Error(`handoffRules[${index}].to is not a supported execution target`);
+    }
+
+    return {
+      id: expectString(candidate.id, `handoffRules[${index}].id`),
+      whenGoalIncludes:
+        candidate.whenGoalIncludes === undefined
+          ? []
+          : expectStringArray(
+              candidate.whenGoalIncludes,
+              `handoffRules[${index}].whenGoalIncludes`
+            ),
+      to: destination as HandoffRule["to"],
+      reason:
+        candidate.reason === undefined
+          ? "Manifest-defined handoff"
+          : expectString(candidate.reason, `handoffRules[${index}].reason`)
+    };
+  });
+
   return {
     id: expectString(value.id, "id"),
     name: expectString(value.name, "name"),
@@ -173,15 +439,52 @@ export function parseAgentManifest(value: unknown): AgentManifest {
     tags,
     tools: {
       allowExec: expectBoolean(tools.allowExec, "tools.allowExec"),
-      allowBrowser: expectBoolean(tools.allowBrowser, "tools.allowBrowser"),
+      allowBrowser: browser.enabled,
       allowNetwork: expectBoolean(tools.allowNetwork, "tools.allowNetwork"),
-      allowMcp: expectBoolean(tools.allowMcp, "tools.allowMcp")
+      allowMcp: expectBoolean(tools.allowMcp, "tools.allowMcp"),
+      browser
     },
     memory: {
       namespace: expectString(memory.namespace, "memory.namespace"),
       maxNotes: expectInteger(memory.maxNotes, "memory.maxNotes"),
       summarizeAfter: expectInteger(memory.summarizeAfter, "memory.summarizeAfter")
     },
-    schedules: normalizedSchedules
+    schedules: normalizedSchedules,
+    workflowTemplates:
+      normalizedWorkflowTemplates.length === 0
+        ? [
+            {
+              id: "default",
+              description: "Cadet default workflow",
+              stages: ["route", "plan", "gather", "act", "verify", "summarize", "learn"]
+            }
+          ]
+        : normalizedWorkflowTemplates,
+    toolProfiles: normalizedToolProfiles,
+    handoffRules: normalizedHandoffRules,
+    learningPolicy: {
+      enabled:
+        learningPolicy?.enabled === undefined
+          ? true
+          : expectBoolean(learningPolicy.enabled, "learningPolicy.enabled"),
+      summarizeEveryRuns:
+        learningPolicy?.summarizeEveryRuns === undefined
+          ? 5
+          : expectInteger(
+              learningPolicy.summarizeEveryRuns,
+              "learningPolicy.summarizeEveryRuns"
+            ),
+      embedMemory:
+        learningPolicy?.embedMemory === undefined
+          ? true
+          : expectBoolean(learningPolicy.embedMemory, "learningPolicy.embedMemory"),
+      maxRetrievedChunks:
+        learningPolicy?.maxRetrievedChunks === undefined
+          ? 8
+          : expectInteger(
+              learningPolicy.maxRetrievedChunks,
+              "learningPolicy.maxRetrievedChunks"
+            )
+    }
   };
 }
