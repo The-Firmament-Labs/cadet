@@ -1,0 +1,50 @@
+ui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/web/**"
+
+local-control:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/local-control/**"
+
+runtime-rust:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "rust/**"
+
+spacetimedb:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "spacetimedb/**"
+
+core-sdk-cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/**"
+
+agents:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "examples/agents/**"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "README.md"
+          - "ARCHITECTURE.md"
+          - "IMPLEMENTATION_PHASES.md"
+          - "SESSION.md"
+
+deployment:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docker/**"
+          - "scripts/**"
+          - ".vercel/**"

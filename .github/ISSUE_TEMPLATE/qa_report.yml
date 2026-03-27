@@ -1,0 +1,53 @@
+name: QA Report
+description: Structured QA feedback for Cadet
+labels: ["bug"]
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Test scenario
+      placeholder: What flow or feature were you testing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps performed
+      placeholder: |
+        1. Opened ...
+        2. Triggered ...
+        3. Verified ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Pass
+        - Fail
+        - Partial
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      placeholder: Include notable behavior, regressions, and evidence.
+    validations:
+      required: true

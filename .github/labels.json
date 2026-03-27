@@ -1,0 +1,97 @@
+[
+  {
+    "name": "agent-ready",
+    "color": "1d76db",
+    "description": "Ready for the implementation agent to open a draft PR."
+  },
+  {
+    "name": "agent-in-progress",
+    "color": "fbca04",
+    "description": "Currently being worked by the implementation agent."
+  },
+  {
+    "name": "agent-authored",
+    "color": "5319e7",
+    "description": "PR or branch content authored by Cadet automation."
+  },
+  {
+    "name": "needs-human-fix",
+    "color": "d93f0b",
+    "description": "Automation exhausted retries and needs manual intervention."
+  },
+  {
+    "name": "bug",
+    "color": "d73a4a",
+    "description": "Bug or regression."
+  },
+  {
+    "name": "security",
+    "color": "b60205",
+    "description": "Security-sensitive issue or change."
+  },
+  {
+    "name": "performance",
+    "color": "f9d0c4",
+    "description": "Performance-sensitive issue or change."
+  },
+  {
+    "name": "browser",
+    "color": "0e8a16",
+    "description": "Browser automation, scraping, or verification work."
+  },
+  {
+    "name": "workflow",
+    "color": "0052cc",
+    "description": "Workflow orchestration or step-graph work."
+  },
+  {
+    "name": "memory",
+    "color": "5319e7",
+    "description": "Memory, retrieval, or embedding work."
+  },
+  {
+    "name": "deployment",
+    "color": "c5def5",
+    "description": "Deployment, hosting, CI/CD, or infra work."
+  },
+  {
+    "name": "docs",
+    "color": "0075ca",
+    "description": "Documentation change."
+  },
+  {
+    "name": "ui",
+    "color": "bfdadc",
+    "description": "apps/web or user interface changes."
+  },
+  {
+    "name": "local-control",
+    "color": "d4c5f9",
+    "description": "Local control plane changes."
+  },
+  {
+    "name": "runtime-rust",
+    "color": "e99695",
+    "description": "Rust runtime or worker changes."
+  },
+  {
+    "name": "spacetimedb",
+    "color": "006b75",
+    "description": "SpacetimeDB schema or reducer changes."
+  },
+  {
+    "name": "core-sdk-cli",
+    "color": "c2e0c6",
+    "description": "Shared packages, SDK, or CLI changes."
+  },
+  {
+    "name": "agents",
+    "color": "7057ff",
+    "description": "Agent manifest or example agent changes."
+  },
+  {
+    "name": "ci",
+    "color": "ededed",
+    "description": "GitHub workflow, automation, or CI configuration changes."
+  }
+]

@@ -1,0 +1,2 @@
+# actionlint configuration for Cadet
+# Keep this file present so workflow-specific ignores can be added without changing CI structure.

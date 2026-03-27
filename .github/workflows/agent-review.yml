@@ -1,0 +1,80 @@
+name: Agent Review
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review-pr:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Run Claude review
+        uses: anthropics/claude-code-action@094bd24d575e7b30ac1576024817bf1a97c81262
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,LS,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git show:*),Bash(cat:*),Bash(head:*),Bash(tail:*)"
+          prompt: |
+            You are the code review agent for Cadet.
+
+            Review PR #${{ github.event.pull_request.number }} using the PR diff and the base checkout only.
+            Do not modify code. Do not suggest changes that require context outside this repository.
+
+            Prioritize:
+            - workflow and state regressions
+            - schema drift between SpacetimeDB, TypeScript SDK, and Rust
+            - bundling boundary mistakes between edge, web, and server modules
+            - unsafe browser/runtime behavior
+            - missing tests for behavioral changes
+
+            Use `gh pr diff ${{ github.event.pull_request.number }} --repo ${{ github.repository }}` to inspect the patch.
+            Leave a concise review comment on the PR with findings ordered by severity, or state that no material findings were found.
+
+  triage-issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude issue triage
+        uses: anthropics/claude-code-action@094bd24d575e7b30ac1576024817bf1a97c81262
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,LS,Bash(gh issue view:*),Bash(cat:*),Bash(head:*),Bash(tail:*)"
+          prompt: |
+            You are the issue triage agent for Cadet.
+
+            Triage issue #${{ github.event.issue.number }}.
+            Use `gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }}` to read it fully.
+
+            Your task:
+            - classify the issue scope for Cadet
+            - identify whether it is bug, docs, deployment, browser, workflow, memory, or feature work
+            - if the issue is underspecified, ask for the missing details in a concise issue comment
+            - if it is sufficiently specified, leave a short triage comment that captures likely implementation area and validation expectations

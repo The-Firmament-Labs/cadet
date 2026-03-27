@@ -191,12 +191,42 @@ SPACETIME_DELETE_DATA=1 bun run spacetime:publish
 
 ## GitHub Actions
 
-- `.github/workflows/ci.yml` is the required validation pipeline for pushes and pull requests.
+- `.github/workflows/ci.yml` is the required validation pipeline. It runs `actionlint`, `bun run typecheck`, `bun run test`, `bun run build`, `cargo test --workspace`, and `spacetime build`.
+- `.github/workflows/auto-label.yml` applies PR path labels and issue keyword labels.
+- `.github/workflows/sync-labels.yml` keeps the repository label set in sync with `.github/labels.json`.
+- `.github/workflows/agent-review.yml` handles PR review and issue triage using Claude.
+- `.github/workflows/agent-fix-ci.yml` attempts same-repo PR CI fixes up to three times before labeling the PR `needs-human-fix`.
+- `.github/workflows/agent-implement.yml` turns `agent-ready` issues into draft PRs on `agent/<issue>-<slug>` branches.
+- `.github/workflows/claude.yml` handles explicit `@claude` requests on issues and review comments.
 - `.github/workflows/vercel-deploy.yml` deploys `apps/web` to Vercel on `main` once these repository secrets are configured:
+  - `ANTHROPIC_API_KEY`
   - `VERCEL_TOKEN`
   - `VERCEL_ORG_ID`
   - `VERCEL_PROJECT_ID`
-- Until those three secrets exist, the deploy workflow exits cleanly in a skipped state so the repo stays green.
+- Optional secret:
+  - `GH_PAT` when the default `GITHUB_TOKEN` does not have enough permission to push agent-authored branches or open PRs under repository policy.
+- Until the Vercel secrets exist, the deploy workflow exits cleanly in a skipped state so the repo stays green.
+
+Branch conventions:
+
+- `main` is the only long-lived integration branch.
+- `codex/**` is reserved for manual agent/dev work.
+- `agent/<issue>-<slug>` is reserved for implementation-agent branches.
+
+Common automation labels:
+
+- `agent-ready`
+- `agent-in-progress`
+- `agent-authored`
+- `needs-human-fix`
+- `bug`
+- `security`
+- `performance`
+- `browser`
+- `workflow`
+- `memory`
+- `deployment`
+- `docs`
 
 ## SpacetimeDB notes
 

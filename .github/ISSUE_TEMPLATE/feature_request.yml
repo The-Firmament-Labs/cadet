@@ -1,0 +1,34 @@
+name: Feature Request
+description: Propose a new capability or workflow for Cadet
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      placeholder: What problem are you trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: Describe the desired behavior or workflow.
+    validations:
+      required: true
+
+  - type: textarea
+    id: success_criteria
+    attributes:
+      label: Success criteria
+      placeholder: How would we know this feature is done and correct?
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints or tradeoffs
+      placeholder: Deployment, browser, workflow, memory, or UX constraints.
+    validations:
+      required: false

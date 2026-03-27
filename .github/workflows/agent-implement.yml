@@ -1,0 +1,154 @@
+name: Agent Implement Issue
+
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: agent-implement-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  implement:
+    if: >-
+      github.event.label.name == 'agent-ready' &&
+      !contains(github.event.issue.labels.*.name, 'agent-in-progress') &&
+      github.event.issue.state == 'open'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Mark issue as in-progress
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              labels: ['agent-in-progress'],
+            });
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Create feature branch
+        id: branch
+        env:
+          ISSUE_NUM: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          SLUG=$(printf '%s' "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | head -c 50)
+          BRANCH="agent/${ISSUE_NUM}-${SLUG}"
+          git push origin --delete "$BRANCH" 2>/dev/null || true
+          git checkout -b "$BRANCH"
+          git push -u origin "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-cadet-workspace
+
+      - name: Run Claude to implement
+        uses: anthropics/claude-code-action@094bd24d575e7b30ac1576024817bf1a97c81262
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          BRANCH_NAME: ${{ steps.branch.outputs.branch }}
+          REPOSITORY: ${{ github.repository }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true
+          claude_args: |
+            --allowedTools "Bash(*),Read,Write,Edit,Glob,Grep,LS"
+          prompt: |
+            You are the implementation agent for Cadet. Implement issue #${{ github.event.issue.number }}.
+
+            Read the issue with:
+            `gh issue view $ISSUE_NUMBER --repo $REPOSITORY`
+
+            Rules:
+            - If the issue is underspecified, comment on the issue with the missing details and stop without creating a PR.
+            - If it is sufficiently specified, implement the change on the current branch.
+            - Run these validations before you finish:
+              - `bun run typecheck`
+              - `bun run test`
+              - `bun run build`
+              - `cargo test --workspace`
+            - Commit your changes and leave the branch ready for a PR.
+            - Never push directly to main.
+
+      - name: Push branch after implementation
+        env:
+          BRANCH: ${{ steps.branch.outputs.branch }}
+        run: git push origin "$BRANCH"
+
+      - name: Create draft PR when branch has changes
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          if [ "$(git rev-list --count origin/main..HEAD)" -eq 0 ]; then
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          EXISTING=$(gh pr list --repo "${{ github.repository }}" --head "$BRANCH" --json number --jq '.[0].number // ""')
+          if [ -n "$EXISTING" ]; then
+            echo "created=true" >> "$GITHUB_OUTPUT"
+            echo "number=$EXISTING" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          TITLE="feat: address #${ISSUE_NUMBER} ${ISSUE_TITLE}"
+          BODY=$(cat <<EOF
+          Implements #${ISSUE_NUMBER}.
+
+          This PR was opened by the Cadet issue implementation agent.
+          EOF
+          )
+
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base main \
+            --head "$BRANCH" \
+            --draft \
+            --title "$TITLE" \
+            --body "$BODY"
+
+          NUMBER=$(gh pr list --repo "${{ github.repository }}" --head "$BRANCH" --json number --jq '.[0].number // ""')
+          echo "created=true" >> "$GITHUB_OUTPUT"
+          echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Label PR as agent-authored
+        if: steps.pr.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: gh pr edit "${{ steps.pr.outputs.number }}" --repo "${{ github.repository }}" --add-label agent-authored
+
+      - name: Clear in-progress label
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                name: 'agent-in-progress',
+              });
+            } catch (error) {
+              core.info(`agent-in-progress label removal skipped: ${error.message}`);
+            }
