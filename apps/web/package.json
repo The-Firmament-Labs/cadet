@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@gsap/react": "^2.1.2",
     "@starbridge/core": "workspace:*",
     "@starbridge/sdk": "workspace:*",
+    "gsap": "^3.14.2",
     "next": "^15.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

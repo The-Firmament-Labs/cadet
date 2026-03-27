@@ -34,9 +34,9 @@ a {
 }
 
 .cosmosShell {
-  width: min(1200px, calc(100% - 40px));
+  width: min(1380px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 28px 0 96px;
+  padding: 24px 0 120px;
 }
 
 .poster,
@@ -46,19 +46,38 @@ a {
 }
 
 .poster {
-  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  display: grid;
+  grid-template-columns: minmax(0, 0.94fr) minmax(460px, 1.06fr);
   align-items: center;
-  min-height: min(92svh, 860px);
-  padding: clamp(24px, 4vw, 44px);
-  border: 1px solid rgba(160, 198, 255, 0.16);
+  gap: clamp(28px, 4vw, 58px);
+  min-height: min(94svh, 880px);
+  padding: clamp(26px, 4vw, 48px);
+  border: 1px solid rgba(160, 198, 255, 0.3);
   border-radius: 40px;
   background:
-    linear-gradient(135deg, rgba(12, 18, 34, 0.86), rgba(7, 11, 24, 0.42)),
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.06), transparent 36%);
-  box-shadow: var(--shadow);
+    radial-gradient(ellipse at center, transparent 30%, #02050d 100%),
+    url("/visuals/card-bg.png") center/cover no-repeat;
+  box-shadow: 0 0 80px rgba(11, 230, 255, 0.1), inset 0 0 100px rgba(0,0,0,0.8);
   overflow: hidden;
   position: relative;
   isolation: isolate;
+}
+
+.posterVisual {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 1000px;
+}
+
+.posterAstro {
+  width: 100%;
+  height: auto;
+  max-width: 600px;
+  will-change: transform;
+  filter: drop-shadow(0 40px 60px rgba(0,0,0,0.8));
 }
 
 .poster::after {
@@ -74,8 +93,8 @@ a {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 22px;
-  max-width: 560px;
+  gap: 24px;
+  max-width: 620px;
   animation: rise-in 900ms cubic-bezier(0.17, 0.84, 0.44, 1) both;
 }
 
@@ -90,17 +109,17 @@ a {
 
 .headline {
   margin: 0;
-  max-width: 11ch;
+  max-width: 8.4ch;
   font-family: var(--font-display), serif;
-  font-size: clamp(3.5rem, 9vw, 7.2rem);
-  line-height: 0.88;
+  font-size: clamp(3.25rem, 7vw, 6.5rem);
+  line-height: 0.9;
   letter-spacing: -0.04em;
 }
 
 .lede {
   margin: 0;
-  max-width: 58ch;
-  font-size: 1.08rem;
+  max-width: 60ch;
+  font-size: 1.1rem;
   line-height: 1.8;
   color: var(--muted);
 }
@@ -182,16 +201,39 @@ a {
   color: rgba(219, 228, 255, 0.84);
 }
 
+.cadetLanding {
+  position: relative;
+  z-index: 1;
+}
+
+.globalFloatingAstroContainer {
+  position: fixed;
+  top: -5vh;
+  left: -8vw;
+  width: min(60vw, 380px);
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0.95;
+  filter: drop-shadow(0 30px 40px rgba(0,0,0,0.6));
+  will-change: transform;
+}
+
+.globalFloatingAstro {
+  width: 100%;
+  height: auto;
+  will-change: transform;
+}
+
 .spaceScene {
   --scene-x: 0;
   --scene-y: 0;
   --scene-scroll: 0.45;
-  position: relative;
-  min-height: min(74vh, 620px);
-  border-radius: 34px;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  border-radius: 0;
   overflow: hidden;
   background: #02050d;
-  border: 1px solid rgba(170, 202, 255, 0.14);
   animation: float-in 1100ms cubic-bezier(0.17, 0.84, 0.44, 1) 120ms both;
 }
 
@@ -215,9 +257,11 @@ a {
 
 .spaceSceneNebula {
   background:
-    linear-gradient(155deg, rgba(2, 3, 11, 0.28), rgba(4, 8, 19, 0.14)),
-    url("/visuals/space-hero-alt.jpg") center/cover no-repeat;
-  filter: saturate(1.2) contrast(1.06);
+    radial-gradient(ellipse at 80% 20%, rgba(155, 245, 255, 0.12), transparent 40%),
+    radial-gradient(ellipse at 20% 80%, rgba(124, 39, 255, 0.15), transparent 40%),
+    linear-gradient(155deg, rgba(2, 3, 11, 0.5), rgba(4, 8, 19, 0.7)),
+    url("/visuals/modern-galaxy-bg.png") center/cover no-repeat;
+  filter: saturate(1.4) contrast(1.1);
   transform:
     translate3d(
       calc(var(--scene-x) * 34px),
@@ -229,11 +273,11 @@ a {
 
 .spaceSceneCurtain {
   background:
-    radial-gradient(circle at top left, rgba(15, 31, 71, 0.2), transparent 42%),
-    linear-gradient(135deg, rgba(255, 164, 87, 0.14), rgba(75, 119, 255, 0.12)),
-    url("/visuals/space-hero.jpg") center/cover no-repeat;
-  mix-blend-mode: screen;
-  opacity: 0.34;
+    radial-gradient(circle at top right, rgba(124, 39, 255, 0.15), transparent 50%),
+    radial-gradient(circle at bottom left, rgba(155, 245, 255, 0.12), transparent 50%),
+    url("/visuals/modern-stars-bg.png") center/cover no-repeat;
+  mix-blend-mode: color-dodge;
+  opacity: 0.6;
   transform:
     translate3d(
       calc(var(--scene-x) * -22px),
@@ -293,21 +337,74 @@ a {
 }
 
 .spaceSceneAstronaut {
-  right: -2%;
+  right: -4%;
   bottom: -6%;
-  width: min(58%, 430px);
-  max-width: 430px;
+  width: min(64%, 440px);
+  max-width: 440px;
   height: auto;
-  object-fit: cover;
-  filter: drop-shadow(0 26px 42px rgba(0, 0, 0, 0.44));
+  object-fit: contain;
+  filter:
+    drop-shadow(0 28px 42px rgba(0, 0, 0, 0.52))
+    drop-shadow(0 0 56px rgba(155, 245, 255, 0.25));
   transform:
     translate3d(
-      calc(var(--scene-x) * -44px),
-      calc(var(--scene-y) * -28px + (var(--scene-scroll) - 0.45) * -38px),
+      calc(var(--scene-x) * -30px),
+      calc(var(--scene-y) * -22px + (var(--scene-scroll) - 0.45) * -30px),
       0
     )
-    rotate(calc(var(--scene-x) * -8deg));
-  transform-origin: center top;
+    rotate(calc(-14deg + var(--scene-x) * -6deg));
+  transform-origin: center center;
+}
+
+.spaceSceneRetroAstro {
+  position: absolute;
+  left: 5%;
+  top: 15%;
+  width: 250px;
+  height: auto;
+  opacity: 0.8;
+  filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.5));
+  transform:
+    translate3d(
+      calc(var(--scene-x) * 15px),
+      calc(var(--scene-y) * 20px + (var(--scene-scroll) - 0.5) * -40px),
+      0
+    ) rotate(5deg);
+  pointer-events: none;
+}
+
+.spaceSceneSketchAstro {
+  position: absolute;
+  right: 15%;
+  top: 10%;
+  width: 200px;
+  height: auto;
+  opacity: 0.65;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
+  transform:
+    translate3d(
+      calc(var(--scene-x) * -25px),
+      calc(var(--scene-y) * -15px + (var(--scene-scroll) - 0.5) * 60px),
+      0
+    ) rotate(-15deg);
+  pointer-events: none;
+}
+
+.spaceSceneSatellite {
+  position: absolute;
+  left: 20%;
+  bottom: 15%;
+  width: 350px;
+  height: auto;
+  opacity: 0.5;
+  filter: drop-shadow(0 0 10px rgba(155, 245, 255, 0.4));
+  transform:
+    translate3d(
+      calc(var(--scene-x) * -12px),
+      calc(var(--scene-y) * -12px + (var(--scene-scroll) - 0.5) * 35px),
+      0
+    ) rotate(8deg);
+  pointer-events: none;
 }
 
 .sceneMarker {
@@ -359,14 +456,73 @@ a {
 }
 
 .section {
-  margin-top: 34px;
-  padding: clamp(24px, 4vw, 34px);
+  margin-top: 40px;
+  padding: clamp(26px, 4vw, 38px);
   border-radius: 34px;
   background: linear-gradient(180deg, var(--panel) 0%, rgba(6, 10, 22, 0.86) 100%);
   border: 1px solid var(--panel-border);
   box-shadow: var(--shadow);
   overflow: hidden;
   position: relative;
+}
+
+.section > :not(.orbitSprite):not(.missionBackdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+.orbitSection {
+  isolation: isolate;
+}
+
+.orbitSprite {
+  position: absolute;
+  z-index: 0;
+  width: 220px;
+  opacity: 0.72;
+  pointer-events: none;
+  will-change: transform, opacity;
+  filter:
+    drop-shadow(0 22px 34px rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 46px rgba(124, 39, 255, 0.25));
+}
+
+.orbitSprite img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.orbitSpriteFlight {
+  top: 18px;
+  right: -26px;
+  width: 240px;
+  opacity: 0.84;
+  transform: rotate(-14deg);
+}
+
+.orbitSpriteTelemetry {
+  top: 30%;
+  left: -34px;
+  width: 190px;
+  opacity: 0.36;
+  transform: scaleX(-1) rotate(18deg);
+}
+
+.orbitSpriteMission {
+  top: -18px;
+  right: 4%;
+  width: 230px;
+  opacity: 0.5;
+  transform: rotate(12deg);
+}
+
+.orbitSpriteFinal {
+  bottom: -34px;
+  left: 4%;
+  width: 210px;
+  opacity: 0.46;
+  transform: rotate(-12deg);
 }
 
 .sectionHeader,
@@ -466,11 +622,14 @@ a {
 
 .missionBackdrop {
   position: absolute;
-  inset: 0;
+  inset: -30%;
+  z-index: 0;
   background:
-    linear-gradient(90deg, rgba(4, 7, 16, 0.94) 0%, rgba(4, 7, 16, 0.38) 58%, rgba(4, 7, 16, 0.82) 100%),
-    url("/visuals/space-hero.jpg") center/cover no-repeat;
-  opacity: 0.32;
+    radial-gradient(ellipse at center, transparent 30%, #02050d 75%),
+    url("/visuals/blackhole-bg.png") center/cover no-repeat;
+  opacity: 0.9;
+  will-change: transform;
+  mix-blend-mode: screen;
 }
 
 .missionCopy,
@@ -523,7 +682,6 @@ a {
 }
 
 @media (max-width: 980px) {
-  .poster,
   .missionSection {
     grid-template-columns: 1fr;
   }
@@ -533,7 +691,34 @@ a {
   }
 
   .spaceScene {
-    min-height: 520px;
+    min-height: auto;
+  }
+
+  .orbitSpriteFlight {
+    right: -42px;
+    top: auto;
+    bottom: -24px;
+  }
+
+  .orbitSpriteTelemetry {
+    top: auto;
+    bottom: -18px;
+    left: auto;
+    right: -12px;
+    width: 170px;
+  }
+
+  .orbitSpriteMission {
+    top: auto;
+    bottom: -10px;
+    right: -16px;
+    width: 200px;
+  }
+
+  .orbitSpriteFinal {
+    left: auto;
+    right: -12px;
+    bottom: -30px;
   }
 }
 
@@ -553,14 +738,18 @@ a {
     gap: 16px;
   }
 
+  .poster {
+    gap: 18px;
+  }
+
   .missionStats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
   }
 
   .headline {
-    max-width: 8ch;
-    font-size: clamp(2.85rem, 13.2vw, 4rem);
+    max-width: 7.6ch;
+    font-size: clamp(2.9rem, 12vw, 4.3rem);
   }
 
   .lede {
@@ -585,12 +774,14 @@ a {
   }
 
   .spaceScene {
-    min-height: 280px;
-    margin-top: -4px;
+    min-height: 360px;
+    margin-top: -2px;
   }
 
   .spaceSceneAstronaut {
-    width: min(58%, 240px);
+    right: -6%;
+    bottom: -6%;
+    width: min(62%, 230px);
   }
 
   .spaceSceneReadout {
@@ -611,6 +802,25 @@ a {
   .sceneMarkerLocal,
   .sceneMarkerEdge,
   .sceneMarkerRust {
+    display: none;
+  }
+
+  .orbitSpriteFlight,
+  .orbitSpriteTelemetry,
+  .orbitSpriteMission,
+  .orbitSpriteFinal {
+    width: 128px;
+    opacity: 0.3;
+  }
+
+  .orbitSpriteFlight {
+    right: -22px;
+    bottom: -18px;
+  }
+
+  .orbitSpriteTelemetry,
+  .orbitSpriteMission,
+  .orbitSpriteFinal {
     display: none;
   }
 }
