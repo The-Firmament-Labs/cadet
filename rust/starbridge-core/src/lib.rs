@@ -274,6 +274,52 @@ impl FromStr for StepState {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
+pub enum BrowserTaskState {
+    Queued,
+    Claimed,
+    Running,
+    Blocked,
+    Completed,
+    Failed,
+}
+
+impl BrowserTaskState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            BrowserTaskState::Queued => "queued",
+            BrowserTaskState::Claimed => "claimed",
+            BrowserTaskState::Running => "running",
+            BrowserTaskState::Blocked => "blocked",
+            BrowserTaskState::Completed => "completed",
+            BrowserTaskState::Failed => "failed",
+        }
+    }
+}
+
+impl fmt::Display for BrowserTaskState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for BrowserTaskState {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "queued" => Ok(BrowserTaskState::Queued),
+            "claimed" => Ok(BrowserTaskState::Claimed),
+            "running" => Ok(BrowserTaskState::Running),
+            "blocked" => Ok(BrowserTaskState::Blocked),
+            "completed" => Ok(BrowserTaskState::Completed),
+            "failed" => Ok(BrowserTaskState::Failed),
+            _ => Err(format!("unsupported browser task state '{value}'")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum ToolRisk {
     Low,
@@ -822,5 +868,12 @@ mod tests {
         let step = StepState::from_str("blocked").expect("valid step state");
         assert_eq!(step, StepState::Blocked);
         assert_eq!(step.to_string(), "blocked");
+    }
+
+    #[test]
+    fn browser_task_state_roundtrips() {
+        let state = BrowserTaskState::from_str("completed").expect("valid browser task state");
+        assert_eq!(state, BrowserTaskState::Completed);
+        assert_eq!(state.to_string(), "completed");
     }
 }

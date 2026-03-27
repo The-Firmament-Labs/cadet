@@ -25,7 +25,7 @@ use serde_json::{json, Value};
 use spacetimedb_sdk::{DbContext, Table, TableWithPrimaryKey};
 use starbridge_core::{
     compose_prompt, deterministic_embedding, execute_local_job, execute_workflow_stage, AgentManifest,
-    EventBus, ExecutionOwner, JobEnvelope, RuntimeEvent, StepState, WorkflowStage,
+    BrowserTaskState, EventBus, ExecutionOwner, JobEnvelope, RuntimeEvent, StepState, WorkflowStage,
 };
 
 #[derive(Clone)]
@@ -454,7 +454,14 @@ fn process_workflow_step(
             let completed_task = tables
                 .browser_task()
                 .iter()
-                .find(|task| task.step_id == step.step_id && task.status == "completed");
+                .find(|task| {
+                    task.step_id == step.step_id
+                        && task
+                            .status
+                            .parse::<BrowserTaskState>()
+                            .map(|status| status == BrowserTaskState::Completed)
+                            .unwrap_or(false)
+                });
 
             if let Some(task) = completed_task {
                 let output = task
@@ -472,7 +479,14 @@ fn process_workflow_step(
             let existing_task = tables
                 .browser_task()
                 .iter()
-                .any(|task| task.step_id == step.step_id && task.status != "failed");
+                .any(|task| {
+                    task.step_id == step.step_id
+                        && task
+                            .status
+                            .parse::<BrowserTaskState>()
+                            .map(|status| status != BrowserTaskState::Failed)
+                            .unwrap_or(false)
+                });
             if !existing_task {
                 let request = json!({
                     "instructions": format!("{} {}", manifest.name, step.stage),
@@ -701,12 +715,18 @@ fn maybe_handle_browser_task(reducers: &RemoteReducers, state: &WorkerState, tas
         return;
     }
 
-    if task.status == "queued" {
+    let Ok(task_status) = task.status.parse::<BrowserTaskState>() else {
+        return;
+    };
+
+    if task_status == BrowserTaskState::Queued {
         let _ = reducers.claim_browser_task(task.task_id.clone(), state.runner_id.clone());
         return;
     }
 
-    if task.status == "running" && task.runner_id.as_deref() == Some(state.runner_id.as_str()) {
+    if task_status == BrowserTaskState::Running
+        && task.runner_id.as_deref() == Some(state.runner_id.as_str())
+    {
         process_browser_task(reducers, state, task);
     }
 }
