@@ -54,6 +54,16 @@ const BROWSER_TASK_STATUS_RUNNING: &str = "running";
 const BROWSER_TASK_STATUS_COMPLETED: &str = "completed";
 const BROWSER_TASK_STATUS_FAILED: &str = "failed";
 
+const JOB_STATUSES: &[&str] = &["queued", "running", "completed", "failed"];
+const JOB_STATUS_QUEUED: &str = "queued";
+const JOB_STATUS_RUNNING: &str = "running";
+const JOB_STATUS_COMPLETED: &str = "completed";
+const JOB_STATUS_FAILED: &str = "failed";
+
+const SCHEDULE_STATUSES: &[&str] = &["ready", "claimed"];
+const SCHEDULE_STATUS_READY: &str = "ready";
+const SCHEDULE_STATUS_CLAIMED: &str = "claimed";
+
 const EXECUTION_TARGET_BROWSER_WORKER: &str = "browser-worker";
 
 #[table(accessor = agent_record, public)]
@@ -486,6 +496,24 @@ fn validate_browser_task_status(value: String) -> Result<String, String> {
     }
 }
 
+fn validate_job_status(value: String) -> Result<String, String> {
+    let status = validate_text(value, "status")?;
+    if JOB_STATUSES.contains(&status.as_str()) {
+        Ok(status)
+    } else {
+        Err("invalid job status".to_string())
+    }
+}
+
+fn validate_schedule_status(value: String) -> Result<String, String> {
+    let status = validate_text(value, "status")?;
+    if SCHEDULE_STATUSES.contains(&status.as_str()) {
+        Ok(status)
+    } else {
+        Err("invalid schedule status".to_string())
+    }
+}
+
 fn validate_artifact_kind(value: String) -> Result<String, String> {
     let kind = validate_text(value, "kind")?;
     if ["screenshot", "text", "pdf", "html", "trace"].contains(&kind.as_str()) {
@@ -633,7 +661,7 @@ pub fn enqueue_job(
         requested_by,
         requested_by_identity: ctx.sender(),
         context_json,
-        status: "queued".to_string(),
+        status: JOB_STATUS_QUEUED.to_string(),
         runner_id: None,
         result_summary: None,
         created_at: ctx.timestamp,
@@ -650,7 +678,7 @@ pub fn start_job(ctx: &ReducerContext, job_id: String, runner_id: String) -> Res
 
     if let Some(job) = ctx.db.job_record().job_id().find(job_id) {
         ctx.db.job_record().job_id().update(JobRecord {
-            status: "running".to_string(),
+            status: validate_job_status(JOB_STATUS_RUNNING.to_string())?,
             runner_id: Some(runner_id),
             updated_at: ctx.timestamp,
             ..job
@@ -667,12 +695,12 @@ pub fn complete_job(
     job_id: String,
     summary: String,
 ) -> Result<(), String> {
-    transition_job(ctx, job_id, "completed".to_string(), Some(summary))
+    transition_job(ctx, job_id, JOB_STATUS_COMPLETED.to_string(), Some(summary))
 }
 
 #[reducer]
 pub fn fail_job(ctx: &ReducerContext, job_id: String, summary: String) -> Result<(), String> {
-    transition_job(ctx, job_id, "failed".to_string(), Some(summary))
+    transition_job(ctx, job_id, JOB_STATUS_FAILED.to_string(), Some(summary))
 }
 
 #[reducer]
@@ -766,7 +794,7 @@ pub fn register_schedule(
             next_run_at_micros: now_micros(ctx),
             last_run_at_micros: None,
             last_job_id: None,
-            status: "ready".to_string(),
+            status: SCHEDULE_STATUS_READY.to_string(),
             updated_at: ctx.timestamp,
         });
     }
@@ -821,7 +849,7 @@ pub fn claim_schedule_run(
         requested_by: schedule.requested_by.clone(),
         requested_by_identity: ctx.sender(),
         context_json,
-        status: "queued".to_string(),
+        status: JOB_STATUS_QUEUED.to_string(),
         runner_id: None,
         result_summary: None,
         created_at: ctx.timestamp,
@@ -832,7 +860,7 @@ pub fn claim_schedule_run(
         next_run_at_micros: now + interval_to_micros(schedule.interval_minutes),
         last_run_at_micros: Some(now),
         last_job_id: Some(job_id),
-        status: "claimed".to_string(),
+        status: validate_schedule_status(SCHEDULE_STATUS_CLAIMED.to_string())?,
         updated_at: ctx.timestamp,
         ..schedule
     });
@@ -1775,7 +1803,7 @@ fn transition_job(
 
     if let Some(job) = ctx.db.job_record().job_id().find(job_id) {
         ctx.db.job_record().job_id().update(JobRecord {
-            status,
+            status: validate_job_status(status)?,
             result_summary: summary,
             updated_at: ctx.timestamp,
             ..job
