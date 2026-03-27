@@ -547,6 +547,164 @@ pub struct StageExecutionOutcome {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowRunRecord {
+    pub run_id: String,
+    pub thread_id: String,
+    pub agent_id: String,
+    pub goal: String,
+    pub priority: String,
+    pub trigger_source: String,
+    pub requested_by: String,
+    pub current_stage: String,
+    pub status: String,
+    pub summary: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowStepRecord {
+    pub step_id: String,
+    pub run_id: String,
+    pub agent_id: String,
+    pub stage: String,
+    pub owner_execution: String,
+    pub status: String,
+    pub retry_count: u32,
+    pub depends_on_step_id: Option<String>,
+    pub runner_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserTaskRecord {
+    pub task_id: String,
+    pub run_id: String,
+    pub step_id: String,
+    pub agent_id: String,
+    pub mode: String,
+    pub risk: String,
+    pub status: String,
+    pub owner_execution: String,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryDocumentRecord {
+    pub document_id: String,
+    pub agent_id: String,
+    pub namespace: String,
+    pub source_kind: String,
+    pub title: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryChunkRecord {
+    pub chunk_id: String,
+    pub document_id: String,
+    pub agent_id: String,
+    pub namespace: String,
+    pub ordinal: u32,
+    pub content: String,
+    pub metadata_json: String,
+    pub created_at_micros: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryEmbeddingRecord {
+    pub embedding_id: String,
+    pub chunk_id: String,
+    pub agent_id: String,
+    pub namespace: String,
+    pub model: String,
+    pub dimensions: u32,
+    pub vector: Vec<f64>,
+    pub checksum: String,
+    pub created_at_micros: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RetrievalTraceRecord {
+    pub trace_id: String,
+    pub run_id: String,
+    pub step_id: String,
+    pub query_text: String,
+    pub query_embedding: Vec<f64>,
+    pub chunk_ids: Vec<String>,
+    pub metadata_json: String,
+    pub created_at_micros: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ApprovalRequestRecord {
+    pub approval_id: String,
+    pub run_id: String,
+    pub step_id: String,
+    pub agent_id: String,
+    pub title: String,
+    pub detail: String,
+    pub status: String,
+    pub risk: String,
+    pub requested_by: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatThreadRecord {
+    pub thread_id: String,
+    pub channel: String,
+    pub channel_thread_id: String,
+    pub title: String,
+    pub latest_message_at_micros: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageEventRecord {
+    pub event_id: String,
+    pub thread_id: String,
+    pub run_id: Option<String>,
+    pub channel: String,
+    pub direction: String,
+    pub actor: String,
+    pub content: String,
+    pub created_at_micros: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MissionControlSnapshot {
+    pub environment: String,
+    pub generated_at: String,
+    #[serde(default)]
+    pub workflow_runs: Vec<WorkflowRunRecord>,
+    #[serde(default)]
+    pub workflow_steps: Vec<WorkflowStepRecord>,
+    #[serde(default)]
+    pub browser_tasks: Vec<BrowserTaskRecord>,
+    #[serde(default)]
+    pub memory_documents: Vec<MemoryDocumentRecord>,
+    #[serde(default)]
+    pub memory_chunks: Vec<MemoryChunkRecord>,
+    #[serde(default)]
+    pub memory_embeddings: Vec<MemoryEmbeddingRecord>,
+    #[serde(default)]
+    pub retrieval_traces: Vec<RetrievalTraceRecord>,
+    #[serde(default)]
+    pub approval_requests: Vec<ApprovalRequestRecord>,
+    #[serde(default)]
+    pub threads: Vec<ChatThreadRecord>,
+    #[serde(default)]
+    pub message_events: Vec<MessageEventRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RuntimeEvent {
     JobQueued { job_id: String, agent_id: String },
     JobStarted { job_id: String, runner_id: String },
@@ -637,7 +795,10 @@ pub fn compose_prompt(manifest: &AgentManifest, job: &JobEnvelope) -> String {
         format!("Control plane: {}", manifest.deployment.control_plane),
         format!("Execution: {}", manifest.deployment.execution),
         format!("Memory namespace: {}", manifest.memory.namespace),
-        format!("Workflow template: {}", manifest.primary_workflow_template().id),
+        format!(
+            "Workflow template: {}",
+            manifest.primary_workflow_template().id
+        ),
         format!("Tool policy: {}", policy),
     ]
     .join("\n")
@@ -850,7 +1011,9 @@ mod tests {
     fn execute_local_job_returns_deterministic_actions() {
         let outcome = execute_local_job(&sample_manifest(), &sample_job());
         assert_eq!(outcome.actions.len(), 3);
-        assert!(outcome.summary.contains("executed 'Audit the release plan' locally"));
+        assert!(outcome
+            .summary
+            .contains("executed 'Audit the release plan' locally"));
         assert!(outcome.memory_note.contains("job_fixed"));
     }
 

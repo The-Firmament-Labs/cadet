@@ -1,0 +1,24 @@
+[package]
+name = "starbridge-dioxus"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dioxus = { version = "0.7.3", default-features = false, features = ["minimal", "ssr"] }
+dioxus-desktop = { version = "0.7.3", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+spacetimedb-sdk = "2.1.0"
+starbridge-control-client = { path = "../starbridge-control-client" }
+starbridge-core = { path = "../starbridge-core" }
+tokio = { version = "1.48", features = ["rt", "sync"] }
+
+[features]
+default = []
+desktop-ui = ["dioxus/desktop", "dep:dioxus-desktop"]
+
+[[bin]]
+name = "starbridge-dioxus-ui"
+path = "src/bin/starbridge_dioxus_ui.rs"
+required-features = ["desktop-ui"]

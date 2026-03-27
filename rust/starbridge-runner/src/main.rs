@@ -1,5 +1,3 @@
-mod generated;
-
 use std::{
     collections::{HashMap, HashSet},
     env, fs,
@@ -10,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use generated::cadet_control::{
+use starbridge_control_client::cadet_control::{
     append_learning_note, browser_task_table::BrowserTaskTableAccess, claim_browser_task,
     claim_workflow_step, complete_browser_task, complete_workflow_step, enqueue_browser_task,
     enqueue_workflow_step, fail_browser_task, fail_workflow_step, ingest_message,

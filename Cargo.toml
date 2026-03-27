@@ -1,5 +1,5 @@
 [workspace]
-members = ["rust/starbridge-core", "rust/starbridge-runner"]
+members = ["rust/starbridge-core", "rust/starbridge-control-client", "rust/starbridge-runner", "rust/starbridge-dioxus"]
 exclude = ["spacetimedb"]
 resolver = "2"
 

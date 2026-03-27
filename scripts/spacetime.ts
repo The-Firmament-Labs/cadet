@@ -109,7 +109,7 @@ async function buildModule(): Promise<void> {
 }
 
 async function publishModule(): Promise<void> {
-  const args = ["spacetime", "publish", "--server", server, "--project-path", projectPath];
+  const args = ["spacetime", "publish", "--server", server, "--module-path", projectPath];
 
   if (hasArg("--delete-data") || envValue("SPACETIME_DELETE_DATA") === "1") {
     args.push("--delete-data");
