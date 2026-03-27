@@ -45,6 +45,7 @@ export type BrowserTaskStatus =
   | "completed"
   | "failed";
 export type DeliveryStatus = "queued" | "sent" | "failed" | "retrying";
+export type BrowserToolResultStatus = "completed" | "failed";
 
 export const approvalStatuses: readonly ApprovalStatus[] = [
   "pending",
@@ -212,7 +213,7 @@ export interface BrowserToolRequest {
 
 export interface BrowserToolResult {
   taskId: string;
-  status: "completed" | "failed";
+  status: BrowserToolResultStatus;
   summary: string;
   content: string;
   artifacts: BrowserArtifactRef[];

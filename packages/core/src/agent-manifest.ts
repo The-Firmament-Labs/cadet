@@ -474,8 +474,8 @@ export function parseAgentManifest(value: unknown): AgentManifest {
     model: expectString(value.model, "model"),
     runtime,
     deployment: {
-      controlPlane: controlPlane as ControlPlaneTarget,
-      execution: execution as ExecutionTarget,
+      controlPlane: parseControlPlaneTarget(controlPlane, "deployment.controlPlane"),
+      execution: parseExecutionTarget(execution, "deployment.execution"),
       workflow: expectString(deployment.workflow, "deployment.workflow")
     },
     tags,
