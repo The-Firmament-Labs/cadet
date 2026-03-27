@@ -18,6 +18,22 @@ import type {
   WorkflowRunRecord,
   WorkflowStepRecord
 } from "@starbridge/core";
+import {
+  parseBrowserArtifactKind,
+  parseBrowserMode,
+  parseMessageChannel,
+  parseMessageDirection,
+  parseApprovalStatus,
+  parseBrowserRisk,
+  parseBrowserTaskStatus,
+  parseControlPlaneTarget,
+  parseJobPriority,
+  parseDeliveryStatus,
+  parseWorkflowExecutionTarget,
+  parseWorkflowRunStatus,
+  parseWorkflowStage,
+  parseWorkflowStepStatus
+} from "@starbridge/core";
 
 export interface StarbridgeControlClientOptions {
   baseUrl: string;
@@ -474,10 +490,13 @@ export class StarbridgeControlClient {
       rows.map((row) => ({
         scheduleId: asString(row.schedule_id, "schedule_id"),
         agentId: asString(row.agent_id, "agent_id"),
-        controlPlane: asString(row.control_plane, "control_plane") as ControlPlaneTarget,
+        controlPlane: parseControlPlaneTarget(
+          asString(row.control_plane, "control_plane"),
+          "control_plane"
+        ),
         goal: asString(row.goal, "goal"),
         intervalMinutes: asNumber(row.interval_minutes, "interval_minutes"),
-        priority: asString(row.priority, "priority") as RegisteredScheduleRecord["priority"],
+        priority: parseJobPriority(asString(row.priority, "priority"), "priority"),
         enabled: Boolean(row.enabled),
         requestedBy: asString(row.requested_by, "requested_by"),
         nextRunAtMicros: asNumber(row.next_run_at_micros, "next_run_at_micros"),
@@ -493,7 +512,10 @@ export class StarbridgeControlClient {
       rows.map((row) => ({
         runnerId: asString(row.runner_id, "runner_id"),
         agentId: asString(row.agent_id, "agent_id"),
-        controlPlane: asString(row.control_plane, "control_plane") as ControlPlaneTarget,
+        controlPlane: parseControlPlaneTarget(
+          asString(row.control_plane, "control_plane"),
+          "control_plane"
+        ),
         status: asString(row.status, "status"),
         lastSeenAtMicros: asNumber(row.last_seen_at, "last_seen_at")
       }))
@@ -504,7 +526,7 @@ export class StarbridgeControlClient {
     return this.selectAll("thread_record").then((rows) =>
       rows.map((row) => ({
         threadId: asString(row.thread_id, "thread_id"),
-        channel: asString(row.channel, "channel") as ThreadRecord["channel"],
+        channel: parseMessageChannel(asString(row.channel, "channel"), "channel"),
         channelThreadId: asString(row.channel_thread_id, "channel_thread_id"),
         title: asString(row.title, "title"),
         latestMessageAtMicros: asNumber(row.latest_message_at_micros, "latest_message_at_micros"),
@@ -520,8 +542,8 @@ export class StarbridgeControlClient {
         eventId: asString(row.event_id, "event_id"),
         threadId: asString(row.thread_id, "thread_id"),
         runId: asOptionalString(row.run_id),
-        channel: asString(row.channel, "channel") as MessageEventRecord["channel"],
-        direction: asString(row.direction, "direction") as MessageEventRecord["direction"],
+        channel: parseMessageChannel(asString(row.channel, "channel"), "channel"),
+        direction: parseMessageDirection(asString(row.direction, "direction"), "direction"),
         actor: asString(row.actor, "actor"),
         content: asString(row.content, "content"),
         metadataJson: asString(row.metadata_json, "metadata_json"),
@@ -537,11 +559,11 @@ export class StarbridgeControlClient {
         threadId: asString(row.thread_id, "thread_id"),
         agentId: asString(row.agent_id, "agent_id"),
         goal: asString(row.goal, "goal"),
-        priority: asString(row.priority, "priority") as WorkflowRunRecord["priority"],
+        priority: parseJobPriority(asString(row.priority, "priority"), "priority"),
         triggerSource: asString(row.trigger_source, "trigger_source"),
         requestedBy: asString(row.requested_by, "requested_by"),
-        currentStage: asString(row.current_stage, "current_stage") as WorkflowRunRecord["currentStage"],
-        status: asString(row.status, "status") as WorkflowRunRecord["status"],
+        currentStage: parseWorkflowStage(asString(row.current_stage, "current_stage"), "current_stage"),
+        status: parseWorkflowRunStatus(asString(row.status, "status"), "status"),
         summary: asOptionalString(row.summary),
         contextJson: asString(row.context_json, "context_json"),
         createdAtMicros: asNumber(row.created_at_micros, "created_at_micros"),
@@ -558,9 +580,12 @@ export class StarbridgeControlClient {
         stepId: asString(row.step_id, "step_id"),
         runId: asString(row.run_id, "run_id"),
         agentId: asString(row.agent_id, "agent_id"),
-        stage: asString(row.stage, "stage") as WorkflowStepRecord["stage"],
-        ownerExecution: asString(row.owner_execution, "owner_execution") as WorkflowStepRecord["ownerExecution"],
-        status: asString(row.status, "status") as WorkflowStepRecord["status"],
+        stage: parseWorkflowStage(asString(row.stage, "stage"), "stage"),
+        ownerExecution: parseWorkflowExecutionTarget(
+          asString(row.owner_execution, "owner_execution"),
+          "owner_execution"
+        ),
+        status: parseWorkflowStepStatus(asString(row.status, "status"), "status"),
         inputJson: asString(row.input_json, "input_json"),
         outputJson: asOptionalString(row.output_json),
         retryCount: asNumber(row.retry_count, "retry_count"),
@@ -586,8 +611,8 @@ export class StarbridgeControlClient {
         agentId: asString(row.agent_id, "agent_id"),
         title: asString(row.title, "title"),
         detail: asString(row.detail, "detail"),
-        status: asString(row.status, "status") as ApprovalRequestRecord["status"],
-        risk: asString(row.risk, "risk") as ApprovalRequestRecord["risk"],
+        status: parseApprovalStatus(asString(row.status, "status"), "status"),
+        risk: parseBrowserRisk(asString(row.risk, "risk"), "risk"),
         requestedBy: asString(row.requested_by, "requested_by"),
         resolutionJson: asOptionalString(row.resolution_json),
         createdAtMicros: asNumber(row.created_at_micros, "created_at_micros"),
@@ -603,9 +628,9 @@ export class StarbridgeControlClient {
         runId: asString(row.run_id, "run_id"),
         stepId: asString(row.step_id, "step_id"),
         agentId: asString(row.agent_id, "agent_id"),
-        mode: asString(row.mode, "mode") as BrowserTaskRecord["mode"],
-        risk: asString(row.risk, "risk") as BrowserTaskRecord["risk"],
-        status: asString(row.status, "status") as BrowserTaskRecord["status"],
+        mode: parseBrowserMode(asString(row.mode, "mode"), "mode"),
+        risk: parseBrowserRisk(asString(row.risk, "risk"), "risk"),
+        status: parseBrowserTaskStatus(asString(row.status, "status"), "status"),
         ownerExecution: "browser-worker",
         url: asString(row.url, "url"),
         requestJson: asString(row.request_json, "request_json"),
@@ -624,7 +649,7 @@ export class StarbridgeControlClient {
         taskId: asString(row.task_id, "task_id"),
         runId: asString(row.run_id, "run_id"),
         stepId: asString(row.step_id, "step_id"),
-        kind: asString(row.kind, "kind") as BrowserArtifactRecord["kind"],
+        kind: parseBrowserArtifactKind(asString(row.kind, "kind"), "kind"),
         title: asString(row.title, "title"),
         url: asString(row.url, "url"),
         metadataJson: asString(row.metadata_json, "metadata_json"),
@@ -639,9 +664,9 @@ export class StarbridgeControlClient {
         attemptId: asString(row.attempt_id, "attempt_id"),
         threadId: asString(row.thread_id, "thread_id"),
         runId: asOptionalString(row.run_id),
-        channel: asString(row.channel, "channel") as DeliveryAttemptRecord["channel"],
-        direction: asString(row.direction, "direction") as DeliveryAttemptRecord["direction"],
-        status: asString(row.status, "status") as DeliveryAttemptRecord["status"],
+        channel: parseMessageChannel(asString(row.channel, "channel"), "channel"),
+        direction: parseMessageDirection(asString(row.direction, "direction"), "direction"),
+        status: parseDeliveryStatus(asString(row.status, "status"), "status"),
         target: asString(row.target, "target"),
         payloadJson: asString(row.payload_json, "payload_json"),
         responseJson: asOptionalString(row.response_json),

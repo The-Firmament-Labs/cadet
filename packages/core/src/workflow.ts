@@ -46,6 +46,74 @@ export type BrowserTaskStatus =
   | "failed";
 export type DeliveryStatus = "queued" | "sent" | "failed" | "retrying";
 
+export const approvalStatuses: readonly ApprovalStatus[] = [
+  "pending",
+  "approved",
+  "rejected",
+  "expired"
+] as const;
+
+export const browserTaskStatuses: readonly BrowserTaskStatus[] = [
+  "queued",
+  "claimed",
+  "running",
+  "blocked",
+  "completed",
+  "failed"
+] as const;
+
+export const deliveryStatuses: readonly DeliveryStatus[] = [
+  "queued",
+  "sent",
+  "failed",
+  "retrying"
+] as const;
+
+export const messageDirections: readonly MessageDirection[] = [
+  "inbound",
+  "outbound",
+  "system"
+] as const;
+
+export const messageChannels: readonly MessageChannel[] = [
+  "web",
+  "slack",
+  "github",
+  "system"
+] as const;
+
+export const browserArtifactKinds: readonly BrowserArtifactRef["kind"][] = [
+  "screenshot",
+  "text",
+  "pdf",
+  "html",
+  "trace"
+] as const;
+
+export function isApprovalStatus(value: string): value is ApprovalStatus {
+  return (approvalStatuses as readonly string[]).includes(value);
+}
+
+export function isBrowserTaskStatus(value: string): value is BrowserTaskStatus {
+  return (browserTaskStatuses as readonly string[]).includes(value);
+}
+
+export function isDeliveryStatus(value: string): value is DeliveryStatus {
+  return (deliveryStatuses as readonly string[]).includes(value);
+}
+
+export function isMessageDirection(value: string): value is MessageDirection {
+  return (messageDirections as readonly string[]).includes(value);
+}
+
+export function isMessageChannel(value: string): value is MessageChannel {
+  return (messageChannels as readonly string[]).includes(value);
+}
+
+export function isBrowserArtifactKind(value: string): value is BrowserArtifactRef["kind"] {
+  return (browserArtifactKinds as readonly string[]).includes(value);
+}
+
 export interface ThreadRecord {
   threadId: string;
   channel: MessageChannel;
@@ -201,7 +269,7 @@ export interface WorkflowTemplateSeed {
   dependsOnStepId?: string | null;
 }
 
-export const workflowStages: WorkflowStage[] = [
+export const workflowStages: readonly WorkflowStage[] = [
   "route",
   "plan",
   "gather",
@@ -209,7 +277,149 @@ export const workflowStages: WorkflowStage[] = [
   "verify",
   "summarize",
   "learn"
-];
+] as const;
+
+export const workflowRunStates: readonly WorkflowRunStatus[] = [
+  "queued",
+  "running",
+  "blocked",
+  "awaiting-approval",
+  "completed",
+  "failed",
+  "cancelled"
+] as const;
+
+export const workflowStepStates: readonly WorkflowStepStatus[] = [
+  "ready",
+  "claimed",
+  "running",
+  "blocked",
+  "awaiting-approval",
+  "completed",
+  "failed",
+  "cancelled"
+] as const;
+
+export const workflowExecutionOwners: readonly WorkflowExecutionTarget[] = [
+  "local-runner",
+  "vercel-edge",
+  "container-runner",
+  "maincloud-runner",
+  "browser-worker",
+  "learning-worker"
+] as const;
+
+export function isWorkflowStage(value: string): value is WorkflowStage {
+  return (workflowStages as readonly string[]).includes(value);
+}
+
+export function isWorkflowExecutionTarget(value: string): value is WorkflowExecutionTarget {
+  return (workflowExecutionOwners as readonly string[]).includes(value);
+}
+
+export function isWorkflowRunStatus(value: string): value is WorkflowRunStatus {
+  return (workflowRunStates as readonly string[]).includes(value);
+}
+
+export function isWorkflowStepStatus(value: string): value is WorkflowStepStatus {
+  return (workflowStepStates as readonly string[]).includes(value);
+}
+
+export function nextWorkflowStage(stage: WorkflowStage): WorkflowStage | null {
+  const currentIndex = workflowStages.indexOf(stage);
+  if (currentIndex === -1 || currentIndex === workflowStages.length - 1) {
+    return null;
+  }
+  return workflowStages[currentIndex + 1] ?? null;
+}
+
+export function parseWorkflowStage(value: string, field = "workflow stage"): WorkflowStage {
+  if (!isWorkflowStage(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseWorkflowExecutionTarget(
+  value: string,
+  field = "workflow execution target"
+): WorkflowExecutionTarget {
+  if (!isWorkflowExecutionTarget(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseWorkflowRunStatus(
+  value: string,
+  field = "workflow run status"
+): WorkflowRunStatus {
+  if (!isWorkflowRunStatus(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseWorkflowStepStatus(
+  value: string,
+  field = "workflow step status"
+): WorkflowStepStatus {
+  if (!isWorkflowStepStatus(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseApprovalStatus(value: string, field = "approval status"): ApprovalStatus {
+  if (!isApprovalStatus(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseBrowserTaskStatus(
+  value: string,
+  field = "browser task status"
+): BrowserTaskStatus {
+  if (!isBrowserTaskStatus(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseDeliveryStatus(value: string, field = "delivery status"): DeliveryStatus {
+  if (!isDeliveryStatus(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseMessageDirection(
+  value: string,
+  field = "message direction"
+): MessageDirection {
+  if (!isMessageDirection(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseMessageChannel(value: string, field = "message channel"): MessageChannel {
+  if (!isMessageChannel(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseBrowserArtifactKind(
+  value: string,
+  field = "browser artifact kind"
+): BrowserArtifactRef["kind"] {
+  if (!isBrowserArtifactKind(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
 
 export function workflowOwnerForStage(
   stage: WorkflowStage,

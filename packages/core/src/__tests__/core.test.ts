@@ -7,6 +7,15 @@ import { parseAgentManifest } from "../agent-manifest";
 import { normalizeJobRequest } from "../job";
 import { composeRuntimePrompt } from "../prompt";
 import { isScheduleDue, schedulesForManifest } from "../schedule";
+import {
+  isWorkflowExecutionTarget,
+  isWorkflowStage,
+  nextWorkflowStage,
+  workflowExecutionOwners,
+  workflowRunStates,
+  workflowStages,
+  workflowStepStates
+} from "../workflow";
 
 describe("parseAgentManifest", () => {
   it("parses a valid manifest", () => {
@@ -390,5 +399,32 @@ describe("executeEdgeAgent", () => {
       "Publish a concise incident status update with next owner."
     ]);
     expect(result.summary).toContain("handled 'Triage the deploy incident'");
+  });
+});
+
+describe("workflow canonical vocabulary", () => {
+  it("exports stable workflow stages and transitions", () => {
+    expect(workflowStages).toEqual([
+      "route",
+      "plan",
+      "gather",
+      "act",
+      "verify",
+      "summarize",
+      "learn"
+    ]);
+    expect(isWorkflowStage("verify")).toBe(true);
+    expect(isWorkflowStage("unknown")).toBe(false);
+    expect(nextWorkflowStage("verify")).toBe("summarize");
+    expect(nextWorkflowStage("learn")).toBeNull();
+  });
+
+  it("exports stable execution owners and states", () => {
+    expect(workflowExecutionOwners).toContain("browser-worker");
+    expect(workflowExecutionOwners).toContain("learning-worker");
+    expect(isWorkflowExecutionTarget("container-runner")).toBe(true);
+    expect(isWorkflowExecutionTarget("external-agent")).toBe(false);
+    expect(workflowRunStates).toContain("awaiting-approval");
+    expect(workflowStepStates).toContain("claimed");
   });
 });

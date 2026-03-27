@@ -1,6 +1,7 @@
 import {
   createStepId,
   executeEdgeAgent,
+  nextWorkflowStage,
   normalizeJobRequest,
   ownerExecutionForStage,
   parseAgentManifest,
@@ -199,16 +200,20 @@ async function completeRouteTriage(
     actions: routeResult.actions,
     browserRequired: workflow.browserRequired,
     browserMode: workflow.browserMode,
-    nextStage: "plan"
+    nextStage: nextWorkflowStage("route")
   });
 
-  const planStepId = createStepId(workflow.runId, "plan");
+  const planStage = nextWorkflowStage("route");
+  if (!planStage) {
+    throw new Error("Cadet canonical workflow must advance from route to plan");
+  }
+  const planStepId = createStepId(workflow.runId, planStage);
   await client.enqueueWorkflowStep({
     stepId: planStepId,
     runId: workflow.runId,
     agentId: manifest.id,
-    stage: "plan",
-    ownerExecution: ownerExecutionForStage(manifest, "plan", workflow.browserRequired),
+    stage: planStage,
+    ownerExecution: ownerExecutionForStage(manifest, planStage, workflow.browserRequired),
     input: {
       jobId: job.jobId,
       runId: workflow.runId,

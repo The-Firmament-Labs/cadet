@@ -1,4 +1,17 @@
 export type JobPriority = "low" | "normal" | "high";
+
+export const jobPriorities: readonly JobPriority[] = ["low", "normal", "high"] as const;
+
+export function isJobPriority(value: string): value is JobPriority {
+  return (jobPriorities as readonly string[]).includes(value);
+}
+
+export function parseJobPriority(value: string, field = "job priority"): JobPriority {
+  if (!isJobPriority(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
 export type ScalarContextValue = string | number | boolean;
 
 export interface JobRequest {

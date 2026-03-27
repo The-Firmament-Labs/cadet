@@ -1,5 +1,6 @@
 import type { AgentManifest, BrowserMode, BrowserToolPolicy } from "./agent-manifest";
 import type { JobPriority } from "./job";
+import { nextWorkflowStage, workflowStages } from "./workflow";
 import type {
   MessageChannel,
   ThreadRecord,
@@ -45,7 +46,7 @@ export interface WorkflowSeed {
     stepId: string;
     runId: string;
     agentId: string;
-    stage: "route";
+    stage: WorkflowStage;
     ownerExecution: WorkflowExecutionTarget;
     input: Record<string, unknown>;
   };
@@ -85,15 +86,7 @@ const browserKeywords = [
   "audit"
 ];
 
-export const defaultWorkflowStages: WorkflowStage[] = [
-  "route",
-  "plan",
-  "gather",
-  "act",
-  "verify",
-  "summarize",
-  "learn"
-];
+export const defaultWorkflowStages: WorkflowStage[] = [...workflowStages];
 
 function defaultIdFactory(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -140,9 +133,7 @@ export function browserModeRequiresApproval(
 }
 
 export function routeOwnerForManifest(manifest: AgentManifest): WorkflowExecutionTarget {
-  return manifest.deployment.execution === "vercel-edge"
-    ? "vercel-edge"
-    : manifest.deployment.execution;
+  return manifest.deployment.execution;
 }
 
 export function titleForGoal(goal: string): string {
@@ -159,6 +150,11 @@ export function seedWorkflowFromGoal(
   const threadId = createId("thread");
   const runId = createId("run");
   const stepId = createId("step_route");
+  const routeStage = workflowStages[0];
+
+  if (!routeStage) {
+    throw new Error("Cadet canonical workflow stages are not initialized");
+  }
 
   return {
     thread: {
@@ -200,7 +196,7 @@ export function seedWorkflowFromGoal(
       stepId,
       runId,
       agentId: manifest.id,
-      stage: "route",
+      stage: routeStage,
       ownerExecution: routeOwnerForManifest(manifest),
       input: {
         goal: options.goal,
@@ -248,9 +244,5 @@ export function ownerExecutionForStage(
 }
 
 export function nextStage(stage: WorkflowStage): WorkflowStage | null {
-  const currentIndex = defaultWorkflowStages.indexOf(stage);
-  if (currentIndex === -1 || currentIndex === defaultWorkflowStages.length - 1) {
-    return null;
-  }
-  return defaultWorkflowStages[currentIndex + 1] ?? null;
+  return nextWorkflowStage(stage);
 }

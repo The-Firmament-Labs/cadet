@@ -1,5 +1,11 @@
-import type { JobPriority } from "./job";
-import type { WorkflowStage } from "./workflow";
+import { isJobPriority, type JobPriority } from "./job";
+import {
+  isWorkflowExecutionTarget,
+  isWorkflowStage,
+  workflowStages,
+  type WorkflowExecutionTarget,
+  type WorkflowStage
+} from "./workflow";
 
 export type ControlPlaneTarget = "local" | "cloud";
 export type ExecutionTarget =
@@ -11,6 +17,23 @@ export type AgentRuntime = "rust-core" | "bun-sidecar" | "edge-function";
 
 export type BrowserMode = "read" | "extract" | "navigate" | "form" | "download" | "monitor";
 export type BrowserRisk = "low" | "medium" | "high";
+
+export const controlPlaneTargets: readonly ControlPlaneTarget[] = ["local", "cloud"] as const;
+export const executionTargets: readonly ExecutionTarget[] = [
+  "local-runner",
+  "vercel-edge",
+  "container-runner",
+  "maincloud-runner"
+] as const;
+export const browserModes: readonly BrowserMode[] = [
+  "read",
+  "extract",
+  "navigate",
+  "form",
+  "download",
+  "monitor"
+] as const;
+export const browserRisks: readonly BrowserRisk[] = ["low", "medium", "high"] as const;
 
 export interface BrowserToolPolicy {
   enabled: boolean;
@@ -54,7 +77,7 @@ export interface ToolProfile {
 export interface HandoffRule {
   id: string;
   whenGoalIncludes: string[];
-  to: ExecutionTarget | "browser-worker" | "learning-worker";
+  to: WorkflowExecutionTarget;
   reason: string;
 }
 
@@ -125,7 +148,7 @@ function expectInteger(value: unknown, path: string): number {
 }
 
 function expectPriority(value: unknown, path: string): JobPriority {
-  if (value !== "low" && value !== "normal" && value !== "high") {
+  if (typeof value !== "string" || !isJobPriority(value)) {
     throw new Error(`${path} must be low, normal, or high`);
   }
 
@@ -141,35 +164,63 @@ function expectStringArray(value: unknown, path: string): string[] {
 }
 
 function expectBrowserMode(value: unknown, path: string): BrowserMode {
-  if (
-    value !== "read" &&
-    value !== "extract" &&
-    value !== "navigate" &&
-    value !== "form" &&
-    value !== "download" &&
-    value !== "monitor"
-  ) {
-    throw new Error(
-      `${path} must be read, extract, navigate, form, download, or monitor`
-    );
+  if (typeof value !== "string" || !isBrowserMode(value)) {
+    throw new Error(`${path} must be read, extract, navigate, form, download, or monitor`);
   }
 
   return value;
 }
 
+export function isControlPlaneTarget(value: string): value is ControlPlaneTarget {
+  return (controlPlaneTargets as readonly string[]).includes(value);
+}
+
+export function parseControlPlaneTarget(
+  value: string,
+  field = "control plane target"
+): ControlPlaneTarget {
+  if (!isControlPlaneTarget(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function isExecutionTarget(value: string): value is ExecutionTarget {
+  return (executionTargets as readonly string[]).includes(value);
+}
+
+export function parseExecutionTarget(value: string, field = "execution target"): ExecutionTarget {
+  if (!isExecutionTarget(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function isBrowserMode(value: string): value is BrowserMode {
+  return (browserModes as readonly string[]).includes(value);
+}
+
+export function parseBrowserMode(value: string, field = "browser mode"): BrowserMode {
+  if (!isBrowserMode(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function isBrowserRisk(value: string): value is BrowserRisk {
+  return (browserRisks as readonly string[]).includes(value);
+}
+
+export function parseBrowserRisk(value: string, field = "browser risk"): BrowserRisk {
+  if (!isBrowserRisk(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
 function expectWorkflowStage(value: unknown, path: string): WorkflowStage {
-  if (
-    value !== "route" &&
-    value !== "plan" &&
-    value !== "gather" &&
-    value !== "act" &&
-    value !== "verify" &&
-    value !== "summarize" &&
-    value !== "learn"
-  ) {
-    throw new Error(
-      `${path} must be route, plan, gather, act, verify, summarize, or learn`
-    );
+  if (typeof value !== "string" || !isWorkflowStage(value)) {
+    throw new Error(`${path} must be ${workflowStages.join(", ")}`);
   }
 
   return value;
@@ -299,12 +350,12 @@ export function parseAgentManifest(value: unknown): AgentManifest {
   }
 
   const controlPlane = expectString(deployment.controlPlane, "deployment.controlPlane");
-  if (!["local", "cloud"].includes(controlPlane)) {
+  if (!isControlPlaneTarget(controlPlane)) {
     throw new Error("deployment.controlPlane must be local or cloud");
   }
 
   const execution = expectString(deployment.execution, "deployment.execution");
-  if (!["local-runner", "vercel-edge", "container-runner", "maincloud-runner"].includes(execution)) {
+  if (!isExecutionTarget(execution)) {
     throw new Error(
       "deployment.execution must be local-runner, vercel-edge, container-runner, or maincloud-runner"
     );
@@ -349,7 +400,7 @@ export function parseAgentManifest(value: unknown): AgentManifest {
             : expectString(candidate.description, `workflowTemplates[${index}].description`),
         stages:
           candidate.stages === undefined
-            ? ["route", "plan", "gather", "act", "verify", "summarize", "learn"]
+            ? [...workflowStages]
             : expectStringArray(candidate.stages, `workflowTemplates[${index}].stages`).map(
                 (stage, stageIndex) =>
                   expectWorkflowStage(
@@ -394,16 +445,7 @@ export function parseAgentManifest(value: unknown): AgentManifest {
   const normalizedHandoffRules: HandoffRule[] = (handoffRules ?? []).map((rule, index) => {
     const candidate = rule as Record<string, unknown>;
     const destination = expectString(candidate.to, `handoffRules[${index}].to`);
-    if (
-      ![
-        "local-runner",
-        "vercel-edge",
-        "container-runner",
-        "maincloud-runner",
-        "browser-worker",
-        "learning-worker"
-      ].includes(destination)
-    ) {
+    if (!isWorkflowExecutionTarget(destination)) {
       throw new Error(`handoffRules[${index}].to is not a supported execution target`);
     }
 
@@ -416,7 +458,7 @@ export function parseAgentManifest(value: unknown): AgentManifest {
               candidate.whenGoalIncludes,
               `handoffRules[${index}].whenGoalIncludes`
             ),
-      to: destination as HandoffRule["to"],
+      to: destination,
       reason:
         candidate.reason === undefined
           ? "Manifest-defined handoff"
@@ -456,7 +498,7 @@ export function parseAgentManifest(value: unknown): AgentManifest {
             {
               id: "default",
               description: "Cadet default workflow",
-              stages: ["route", "plan", "gather", "act", "verify", "summarize", "learn"]
+              stages: [...workflowStages]
             }
           ]
         : normalizedWorkflowTemplates,
