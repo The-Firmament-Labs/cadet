@@ -191,7 +191,7 @@ export class StarbridgeControlClient {
     agentId: string,
     runnerId: string,
     controlPlane: ControlPlaneTarget,
-    status: string
+    status: RunnerPresenceStatus
   ): Promise<unknown> {
     return this.callReducer("upsert_presence", [agentId, runnerId, controlPlane, status]);
   }
