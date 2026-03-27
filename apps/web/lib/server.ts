@@ -96,7 +96,7 @@ async function heartbeatCloudPresence(): Promise<void> {
       manifest.id,
       runnerIdFor(manifest.id, "scheduler"),
       "cloud",
-      parseRunnerPresenceStatus("idle")
+      parseRunnerPresenceStatus("alive")
     );
   }
 }

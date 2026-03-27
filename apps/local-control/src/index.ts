@@ -117,7 +117,7 @@ async function heartbeatLocalPresence(catalog: AgentManifest[]): Promise<void> {
       manifest.id,
       runnerIdFor(manifest.id, "scheduler"),
       "local",
-      parseRunnerPresenceStatus("idle")
+      parseRunnerPresenceStatus("alive")
     );
   }
 }
