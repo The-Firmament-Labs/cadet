@@ -11,16 +11,18 @@ Cadet is an event-driven agent platform scaffold that blends:
 
 ## Planning docs
 
-- [Conversation synthesis](/Users/home/Documents/New%20project/docs/CONVERSATION_SYNTHESIS.md)
-- [RALPH loop](/Users/home/Documents/New%20project/docs/RALPH_LOOP.md)
-- [Implementation phases](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
-- [Session tracker](/Users/home/Documents/New%20project/SESSION.md)
+- [Conversation synthesis](docs/CONVERSATION_SYNTHESIS.md)
+- [RALPH loop](docs/RALPH_LOOP.md)
+- [Implementation phases](IMPLEMENTATION_PHASES.md)
+- [Session tracker](SESSION.md)
 
 ## Guide docs
 
-- [Architecture guide](/Users/home/Documents/New%20project/docs/ARCHITECTURE_GUIDE.md)
-- [Agent manifests guide](/Users/home/Documents/New%20project/docs/AGENT_MANIFESTS.md)
-- [Dynamic agent UI](/Users/home/Documents/New%20project/docs/DYNAMIC_AGENT_UI.md)
+- [Docs index](docs/README.md)
+- [Architecture guide](docs/ARCHITECTURE_GUIDE.md)
+- [Agent manifests guide](docs/AGENT_MANIFESTS.md)
+- [Dynamic agent UI](docs/DYNAMIC_AGENT_UI.md)
+- [GitHub automation guide](docs/GITHUB_AUTOMATION.md)
 
 ## Repo layout
 
@@ -125,7 +127,7 @@ examples/agents       Example agent manifests
 
 ## Environment
 
-Copy [.env.example](/Users/home/Documents/New%20project/.env.example) to `.env.local` for local work. The web app expects the same variables in `apps/web/.env.local` or your Vercel project settings:
+Copy [.env.example](.env.example) to `.env.local` for local work. The web app expects the same variables in `apps/web/.env.local` or your Vercel project settings:
 
 ```bash
 SPACETIMEDB_URL=http://127.0.0.1:3000

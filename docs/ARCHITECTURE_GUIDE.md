@@ -417,9 +417,11 @@ Planned next:
 
 ## 14. Related docs
 
-- [Conversation synthesis](/Users/home/Documents/New%20project/docs/CONVERSATION_SYNTHESIS.md)
-- [Agent manifests guide](/Users/home/Documents/New%20project/docs/AGENT_MANIFESTS.md)
-- [Dynamic agent UI](/Users/home/Documents/New%20project/docs/DYNAMIC_AGENT_UI.md)
-- [RALPH loop](/Users/home/Documents/New%20project/docs/RALPH_LOOP.md)
-- [Implementation phases](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
-- [Session tracker](/Users/home/Documents/New%20project/SESSION.md)
+- [Docs index](README.md)
+- [Conversation synthesis](CONVERSATION_SYNTHESIS.md)
+- [Agent manifests guide](AGENT_MANIFESTS.md)
+- [Dynamic agent UI](DYNAMIC_AGENT_UI.md)
+- [GitHub automation guide](GITHUB_AUTOMATION.md)
+- [RALPH loop](RALPH_LOOP.md)
+- [Implementation phases](../IMPLEMENTATION_PHASES.md)
+- [Session tracker](../SESSION.md)

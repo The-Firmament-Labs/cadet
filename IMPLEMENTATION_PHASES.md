@@ -9,9 +9,9 @@
 
 ## Planning anchors
 
-- Conversation synthesis: [docs/CONVERSATION_SYNTHESIS.md](/Users/home/Documents/New%20project/docs/CONVERSATION_SYNTHESIS.md)
-- Atomic execution method: [docs/RALPH_LOOP.md](/Users/home/Documents/New%20project/docs/RALPH_LOOP.md)
-- Current session tracker: [SESSION.md](/Users/home/Documents/New%20project/SESSION.md)
+- Conversation synthesis: [docs/CONVERSATION_SYNTHESIS.md](docs/CONVERSATION_SYNTHESIS.md)
+- Atomic execution method: [docs/RALPH_LOOP.md](docs/RALPH_LOOP.md)
+- Current session tracker: [SESSION.md](SESSION.md)
 
 ---
 

@@ -19,9 +19,9 @@ This guide explains how manifests are made, how Cadet uses them, and how to auth
 
 A manifest is a typed JSON document that Cadet parses and validates before the agent is registered or run.
 
-The current TypeScript source of truth is [packages/core/src/agent-manifest.ts](/Users/home/Documents/New%20project/packages/core/src/agent-manifest.ts).
+The current TypeScript source of truth is [packages/core/src/agent-manifest.ts](../packages/core/src/agent-manifest.ts).
 
-The current Rust runtime mirror is [rust/starbridge-core/src/lib.rs](/Users/home/Documents/New%20project/rust/starbridge-core/src/lib.rs).
+The current Rust runtime mirror is [rust/starbridge-core/src/lib.rs](../rust/starbridge-core/src/lib.rs).
 
 ## 2. Minimal manifest shape
 
@@ -332,8 +332,8 @@ Do not overload schedules for user-triggered behavior.
 
 See:
 
-- [examples/agents/researcher.agent.json](/Users/home/Documents/New%20project/examples/agents/researcher.agent.json)
-- [examples/agents/operator.agent.json](/Users/home/Documents/New%20project/examples/agents/operator.agent.json)
+- [examples/agents/researcher.agent.json](../examples/agents/researcher.agent.json)
+- [examples/agents/operator.agent.json](../examples/agents/operator.agent.json)
 
 ### Researcher
 
@@ -372,4 +372,4 @@ The next natural manifest extension is UI metadata:
 
 That keeps the manifest as the contract for both execution and operator experience.
 
-See [docs/DYNAMIC_AGENT_UI.md](/Users/home/Documents/New%20project/docs/DYNAMIC_AGENT_UI.md).
+See [docs/DYNAMIC_AGENT_UI.md](DYNAMIC_AGENT_UI.md).

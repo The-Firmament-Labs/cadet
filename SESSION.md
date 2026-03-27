@@ -3,7 +3,7 @@
 **Current Phase**: Phase 1 - Deployment Portability Layer  
 **Current Stage**: Planning / Implementation  
 **Last Checkpoint**: pending commit  
-**Planning Docs**: [IMPLEMENTATION_PHASES.md](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md), [docs/CONVERSATION_SYNTHESIS.md](/Users/home/Documents/New%20project/docs/CONVERSATION_SYNTHESIS.md), [docs/RALPH_LOOP.md](/Users/home/Documents/New%20project/docs/RALPH_LOOP.md), [ARCHITECTURE.md](/Users/home/Documents/New%20project/ARCHITECTURE.md)
+**Planning Docs**: [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md), [docs/CONVERSATION_SYNTHESIS.md](docs/CONVERSATION_SYNTHESIS.md), [docs/RALPH_LOOP.md](docs/RALPH_LOOP.md), [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
 
@@ -12,7 +12,7 @@
 **Summary**: SpacetimeDB owns workflow, browser, approval, delivery, and semantic-memory state; Rust workers subscribe and process durable work; web/local control planes seed runs instead of executing inline.
 
 ## Phase 1: Deployment Portability Layer 🔄
-**Spec**: [IMPLEMENTATION_PHASES.md](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
+**Spec**: [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
 
 **Progress**:
 - [x] Durable workflow schema and worker model implemented
@@ -24,13 +24,13 @@
 **Next Action**: Introduce a provider-neutral control-edge adapter in the web/control-plane layer, then add the first Cloudflare Worker ingress implementation against the existing `message_event -> workflow_run -> workflow_step` flow.
 
 **Key Files**:
-- [apps/web/lib/server.ts](/Users/home/Documents/New%20project/apps/web/lib/server.ts)
-- [packages/core/src/orchestration.ts](/Users/home/Documents/New%20project/packages/core/src/orchestration.ts)
-- [spacetimedb/src/lib.rs](/Users/home/Documents/New%20project/spacetimedb/src/lib.rs)
-- [rust/starbridge-runner/src/main.rs](/Users/home/Documents/New%20project/rust/starbridge-runner/src/main.rs)
+- [apps/web/lib/server.ts](apps/web/lib/server.ts)
+- [packages/core/src/orchestration.ts](packages/core/src/orchestration.ts)
+- [spacetimedb/src/lib.rs](spacetimedb/src/lib.rs)
+- [rust/starbridge-runner/src/main.rs](rust/starbridge-runner/src/main.rs)
 
 ## Phase 2: Chat Gateway And Operator Inbox 🔄
-**Spec**: [IMPLEMENTATION_PHASES.md](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
+**Spec**: [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
 
 **Progress**:
 - [x] Web inbox and run detail surfaces added
@@ -39,13 +39,13 @@
 - [ ] Wire retry and approval controls into the UI
 
 ## Phase 3: Dynamic Agent UI And Workflow Editor ⏸️
-**Spec**: [IMPLEMENTATION_PHASES.md](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
+**Spec**: [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
 
 ## Phase 4: Crate-Based Agent Ecosystem ⏸️
-**Spec**: [IMPLEMENTATION_PHASES.md](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
+**Spec**: [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
 
 ## Phase 5: Retrieval, Learning, And Memory Hardening 🔄
-**Spec**: [IMPLEMENTATION_PHASES.md](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
+**Spec**: [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
 
 **Progress**:
 - [x] Memory documents, chunks, embeddings, and retrieval traces added
@@ -54,7 +54,7 @@
 - [ ] Route prompt assembly through retrieval traces end-to-end
 
 ## Phase 6: CI/CD And Release Hardening 🔄
-**Spec**: [IMPLEMENTATION_PHASES.md](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
+**Spec**: [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
 
 **Progress**:
 - [x] Bun, Rust, SpacetimeDB, and web build gates are green locally

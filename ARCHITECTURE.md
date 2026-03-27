@@ -7,13 +7,15 @@ Starbridge takes the strongest reusable patterns from ElizaOS, Hermes, and OpenC
 
 Roadmap and decision docs:
 
-- [Conversation synthesis](/Users/home/Documents/New%20project/docs/CONVERSATION_SYNTHESIS.md)
-- [RALPH loop](/Users/home/Documents/New%20project/docs/RALPH_LOOP.md)
-- [Implementation phases](/Users/home/Documents/New%20project/IMPLEMENTATION_PHASES.md)
-- [Session tracker](/Users/home/Documents/New%20project/SESSION.md)
-- [Architecture guide](/Users/home/Documents/New%20project/docs/ARCHITECTURE_GUIDE.md)
-- [Agent manifests guide](/Users/home/Documents/New%20project/docs/AGENT_MANIFESTS.md)
-- [Dynamic agent UI](/Users/home/Documents/New%20project/docs/DYNAMIC_AGENT_UI.md)
+- [Conversation synthesis](docs/CONVERSATION_SYNTHESIS.md)
+- [RALPH loop](docs/RALPH_LOOP.md)
+- [Implementation phases](IMPLEMENTATION_PHASES.md)
+- [Session tracker](SESSION.md)
+- [Docs index](docs/README.md)
+- [Architecture guide](docs/ARCHITECTURE_GUIDE.md)
+- [Agent manifests guide](docs/AGENT_MANIFESTS.md)
+- [Dynamic agent UI](docs/DYNAMIC_AGENT_UI.md)
+- [GitHub automation guide](docs/GITHUB_AUTOMATION.md)
 
 ## Design goals
 
