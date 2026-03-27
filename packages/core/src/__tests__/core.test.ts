@@ -25,6 +25,8 @@ import {
   isWorkflowExecutionTarget,
   isWorkflowStage,
   nextWorkflowStage,
+  parseToolCallStatus,
+  toolCallStatuses,
   workflowExecutionOwners,
   workflowRunStates,
   workflowStages,
@@ -440,6 +442,8 @@ describe("workflow canonical vocabulary", () => {
     expect(isWorkflowExecutionTarget("external-agent")).toBe(false);
     expect(workflowRunStates).toContain("awaiting-approval");
     expect(workflowStepStates).toContain("claimed");
+    expect(toolCallStatuses).toEqual(["pending", "running", "completed", "failed"]);
+    expect(parseToolCallStatus("completed")).toBe("completed");
   });
 
   it("exports stable job and schedule statuses", () => {

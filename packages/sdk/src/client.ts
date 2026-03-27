@@ -16,6 +16,7 @@ import type {
   RunnerPresenceStatus,
   ScheduleRegistration,
   ThreadRecord,
+  ToolCallStatus,
   WorkflowRunRecord,
   WorkflowStepRecord
 } from "@starbridge/core";
@@ -27,6 +28,7 @@ import {
   parseApprovalStatus,
   parseBrowserRisk,
   parseBrowserTaskStatus,
+  parseToolCallStatus,
   parseControlPlaneTarget,
   parseJobPriority,
   parseScheduleStatus,
@@ -326,7 +328,7 @@ export class StarbridgeControlClient {
     stepId: string;
     agentId: string;
     toolName: string;
-    status: string;
+    status: ToolCallStatus;
     input: Record<string, unknown>;
     output?: Record<string, unknown> | null;
   }): Promise<unknown> {
@@ -336,7 +338,7 @@ export class StarbridgeControlClient {
       payload.stepId,
       payload.agentId,
       payload.toolName,
-      payload.status,
+      parseToolCallStatus(payload.status, "status"),
       JSON.stringify(payload.input),
       payload.output === undefined || payload.output === null
         ? null

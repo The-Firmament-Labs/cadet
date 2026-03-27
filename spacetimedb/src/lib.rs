@@ -65,6 +65,7 @@ const SCHEDULE_STATUS_READY: &str = "ready";
 const SCHEDULE_STATUS_CLAIMED: &str = "claimed";
 
 const RUNNER_PRESENCE_STATUSES: &[&str] = &["alive", "running", "idle", "stale"];
+const TOOL_CALL_STATUSES: &[&str] = &["pending", "running", "completed", "failed"];
 
 const EXECUTION_TARGET_BROWSER_WORKER: &str = "browser-worker";
 
@@ -522,6 +523,15 @@ fn validate_runner_presence_status(value: String) -> Result<String, String> {
         Ok(status)
     } else {
         Err("invalid runner presence status".to_string())
+    }
+}
+
+fn validate_tool_call_status(value: String) -> Result<String, String> {
+    let status = validate_text(value, "status")?;
+    if TOOL_CALL_STATUSES.contains(&status.as_str()) {
+        Ok(status)
+    } else {
+        Err("invalid tool call status".to_string())
     }
 }
 
@@ -1302,7 +1312,7 @@ pub fn record_tool_call(
     let step_id = validate_identifier(step_id, "step_id")?;
     let agent_id = validate_identifier(agent_id, "agent_id")?;
     let tool_name = validate_text(tool_name, "tool_name")?;
-    let status = validate_text(status, "status")?;
+    let status = validate_tool_call_status(status)?;
     let input_json = normalize_json_blob(input_json, "input_json")?;
     let output_json = match output_json {
         Some(candidate) => Some(normalize_json_blob(candidate, "output_json")?),

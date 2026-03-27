@@ -46,6 +46,7 @@ export type BrowserTaskStatus =
   | "failed";
 export type DeliveryStatus = "queued" | "sent" | "failed" | "retrying";
 export type BrowserToolResultStatus = "completed" | "failed";
+export type ToolCallStatus = "pending" | "running" | "completed" | "failed";
 
 export const approvalStatuses: readonly ApprovalStatus[] = [
   "pending",
@@ -59,6 +60,13 @@ export const browserTaskStatuses: readonly BrowserTaskStatus[] = [
   "claimed",
   "running",
   "blocked",
+  "completed",
+  "failed"
+] as const;
+
+export const toolCallStatuses: readonly ToolCallStatus[] = [
+  "pending",
+  "running",
   "completed",
   "failed"
 ] as const;
@@ -97,6 +105,10 @@ export function isApprovalStatus(value: string): value is ApprovalStatus {
 
 export function isBrowserTaskStatus(value: string): value is BrowserTaskStatus {
   return (browserTaskStatuses as readonly string[]).includes(value);
+}
+
+export function isToolCallStatus(value: string): value is ToolCallStatus {
+  return (toolCallStatuses as readonly string[]).includes(value);
 }
 
 export function isDeliveryStatus(value: string): value is DeliveryStatus {
@@ -383,6 +395,13 @@ export function parseBrowserTaskStatus(
   field = "browser task status"
 ): BrowserTaskStatus {
   if (!isBrowserTaskStatus(value)) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return value;
+}
+
+export function parseToolCallStatus(value: string, field = "tool call status"): ToolCallStatus {
+  if (!isToolCallStatus(value)) {
     throw new Error(`Invalid ${field}: ${value}`);
   }
   return value;
