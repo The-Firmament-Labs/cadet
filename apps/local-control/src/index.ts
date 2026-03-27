@@ -8,6 +8,7 @@ import {
   nextWorkflowStage,
   normalizeJobRequest,
   ownerExecutionForStage,
+  parseScheduleDispatchStatus,
   schedulesForManifest,
   seedWorkflowFromGoal,
   type AgentManifest,
@@ -331,7 +332,7 @@ async function reconcileLocalSchedules(): Promise<{
       runs.push({
         scheduleId: schedule.scheduleId,
         agentId: schedule.agentId,
-        status: "skipped",
+        status: parseScheduleDispatchStatus("skipped"),
         reason: "Local manifest no longer exists"
       });
       continue;
@@ -346,7 +347,7 @@ async function reconcileLocalSchedules(): Promise<{
         scheduleId: schedule.scheduleId,
         agentId: schedule.agentId,
         jobId: job.jobId,
-        status: "skipped",
+        status: parseScheduleDispatchStatus("skipped"),
         reason: error instanceof Error ? error.message : "Unknown schedule claim error"
       });
       continue;
@@ -366,7 +367,7 @@ async function reconcileLocalSchedules(): Promise<{
         agentId: schedule.agentId,
         jobId: job.jobId,
         runId: workflow.runId,
-        status: "dispatched",
+        status: parseScheduleDispatchStatus("dispatched"),
         reason: "Workflow seeded"
       });
     } catch (error) {
@@ -374,7 +375,7 @@ async function reconcileLocalSchedules(): Promise<{
         scheduleId: schedule.scheduleId,
         agentId: schedule.agentId,
         jobId: job.jobId,
-        status: "failed",
+        status: parseScheduleDispatchStatus("failed"),
         reason: error instanceof Error ? error.message : "Unknown scheduled execution error"
       });
     }

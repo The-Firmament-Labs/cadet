@@ -2,7 +2,7 @@
 
 **Current Phase**: Phase 0 - Canonical Architecture Consolidation  
 **Current Stage**: Planning / Implementation  
-**Last Checkpoint**: loop 0.16 landed locally  
+**Last Checkpoint**: loop 0.17 landed locally  
 **Planning Docs**: [MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md), [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md), [docs/CONVERSATION_SYNTHESIS.md](docs/CONVERSATION_SYNTHESIS.md), [docs/RALPH_LOOP.md](docs/RALPH_LOOP.md), [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
@@ -57,6 +57,7 @@ If the active user is `SYMBaiEX`, default to non-UI implementation work first un
 - [x] TypeScript manifest parsing no longer falls back to unchecked deployment target casts, and browser tool result status now has an explicit shared contract
 - [x] Control-plane scheduled run summaries now share a canonical dispatch status contract instead of duplicating local/web unions
 - [x] SpacetimeDB presence reducers now validate canonical runner liveness statuses instead of accepting arbitrary text
+- [x] Local and web control planes now construct scheduled run result statuses through the shared dispatch parser instead of raw literals
 - [ ] Replace additional raw-string workflow/runtime state usage across Rust and TS surfaces
 
 **Next Action**: Continue removing duplicated workflow/runtime literals from remaining operator/control-plane surfaces and residual test fixtures, then normalize inspection/recovery read models and any unchecked status decoding so storage, SDK, orchestration, and worker paths all speak one canonical state model.

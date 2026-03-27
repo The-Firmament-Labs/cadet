@@ -5,6 +5,7 @@ import {
   normalizeJobRequest,
   ownerExecutionForStage,
   parseAgentManifest,
+  parseScheduleDispatchStatus,
   seedWorkflowFromGoal,
   type AgentManifest,
   type JobRequest,
@@ -614,7 +615,7 @@ export async function reconcileCloudControlPlane(): Promise<{
       runs.push({
         scheduleId: schedule.scheduleId,
         agentId: schedule.agentId,
-        status: "skipped",
+        status: parseScheduleDispatchStatus("skipped"),
         reason: "Cloud manifest no longer exists"
       });
       continue;
@@ -629,7 +630,7 @@ export async function reconcileCloudControlPlane(): Promise<{
         scheduleId: schedule.scheduleId,
         agentId: schedule.agentId,
         jobId: job.jobId,
-        status: "skipped",
+        status: parseScheduleDispatchStatus("skipped"),
         reason: error instanceof Error ? error.message : "Unknown schedule claim error"
       });
       continue;
@@ -649,7 +650,7 @@ export async function reconcileCloudControlPlane(): Promise<{
         agentId: schedule.agentId,
         jobId: job.jobId,
         runId: workflow.runId,
-        status: "dispatched",
+        status: parseScheduleDispatchStatus("dispatched"),
         reason: "Workflow seeded"
       });
     } catch (error) {
@@ -657,7 +658,7 @@ export async function reconcileCloudControlPlane(): Promise<{
         scheduleId: schedule.scheduleId,
         agentId: schedule.agentId,
         jobId: job.jobId,
-        status: "failed",
+        status: parseScheduleDispatchStatus("failed"),
         reason: error instanceof Error ? error.message : "Unknown scheduled execution error"
       });
     }
