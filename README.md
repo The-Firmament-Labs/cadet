@@ -20,6 +20,7 @@ Cadet is an event-driven agent platform scaffold that blends:
 
 - [Docs index](docs/README.md)
 - [Architecture guide](docs/ARCHITECTURE_GUIDE.md)
+- [Dioxus + SpacetimeDB guide](docs/DIOXUS_SPACETIMEDB.md)
 - [Agent manifests guide](docs/AGENT_MANIFESTS.md)
 - [Dynamic agent UI](docs/DYNAMIC_AGENT_UI.md)
 - [GitHub automation guide](docs/GITHUB_AUTOMATION.md)

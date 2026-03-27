@@ -9,8 +9,9 @@ describe("DocsPage", () => {
 
     expect(markup).toContain("Cadet");
     expect(markup).toContain("Operator Guide");
+    expect(markup).toContain("Dioxus fits Cadet best as a Rust-first operator surface.");
     expect(markup).toContain("Browser use is a first-class capability");
     expect(markup).toContain("GitHub automation is part of the operator surface.");
-    expect(markup).toContain("https://github.com/Dexploarer/cadet/blob/main/docs/AGENT_MANIFESTS.md");
+    expect(markup).toContain("https://github.com/Dexploarer/cadet/blob/main/docs/DIOXUS_SPACETIMEDB.md");
   });
 });

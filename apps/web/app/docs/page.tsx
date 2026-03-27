@@ -16,6 +16,7 @@ const navGroups = [
     items: [
       { href: "#overview", label: "Overview" },
       { href: "#deployments", label: "Deployment targets" },
+      { href: "#dioxus", label: "Dioxus integration" },
       { href: "#commands", label: "CLI & commands" }
     ]
   },
@@ -130,6 +131,53 @@ const sections: GuideSection[] = [
                       -> browser_task / approval_request / tool_call_record
                       -> delivery_attempt + memory_document + retrieval_trace`}</code></pre>
         </div>
+      </>
+    )
+  },
+  {
+    id: "dioxus",
+    eyebrow: "UI Stack",
+    title: "Dioxus fits Cadet best as a Rust-first operator surface.",
+    intro:
+      "Dioxus and SpacetimeDB work well together. For Cadet, the strongest shapes are Dioxus desktop for mission control, or Dioxus fullstack if you want a Rust-first web control plane.",
+    body: (
+      <>
+        <div className="docsTableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Shape</th>
+                <th>Recommendation</th>
+                <th>Cadet role</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Dioxus desktop</code></td>
+                <td>Best fit</td>
+                <td>Mission control, inbox, approvals, browser-worker supervision</td>
+              </tr>
+              <tr>
+                <td><code>Dioxus fullstack</code></td>
+                <td>Strong option</td>
+                <td>Rust-first web control plane using server functions and Axum-side Spacetime access</td>
+              </tr>
+              <tr>
+                <td><code>Dioxus WASM only</code></td>
+                <td>Possible, not preferred</td>
+                <td>Browser-only UI with a thinner bridge at the data boundary</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="docsCallout docsCalloutTip">
+          <strong>Cadet recommendation</strong>
+          Keep the current Next/Vercel shell for channel and product surfaces, and add Dioxus desktop as the serious Rust-native operator app. That gives the most leverage with the least churn.
+        </div>
+        <p>
+          The detailed integration guide lives in{" "}
+          <a href="https://github.com/Dexploarer/cadet/blob/main/docs/DIOXUS_SPACETIMEDB.md">docs/DIOXUS_SPACETIMEDB.md</a>.
+        </p>
       </>
     )
   },
@@ -412,6 +460,7 @@ recordRetrievalTrace(runId, chunkRefs)`}</code></pre>
         {[
           ["docs/README.md", "Index of the architecture, manifests, automation, and planning pages."],
           ["docs/ARCHITECTURE_GUIDE.md", "Long-form architecture and runtime explanation."],
+          ["docs/DIOXUS_SPACETIMEDB.md", "Where Dioxus fits in Cadet and which integration shape to choose."],
           ["docs/AGENT_MANIFESTS.md", "Manifest schema and authoring rules."],
           ["docs/DYNAMIC_AGENT_UI.md", "json-render style dynamic UI strategy."],
           ["docs/GITHUB_AUTOMATION.md", "GitHub workflows, labels, and branch conventions."],
