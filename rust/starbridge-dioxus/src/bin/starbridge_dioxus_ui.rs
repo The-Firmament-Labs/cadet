@@ -122,6 +122,80 @@ const DESKTOP_STYLES: &str = r#"
     }
 "#;
 
+const SPLASH_STYLES: &str = r#"
+    .splash {
+        min-height: 100vh;
+        background: #c8d1c0;
+        background-image: radial-gradient(circle, rgba(28,27,27,0.06) 1px, transparent 1px);
+        background-size: 24px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+        font-family: "Space Grotesk", sans-serif;
+    }
+    .splash-logo {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 20px;
+    }
+    .splash-logo-hex {
+        fill: none;
+        stroke: #1C1B1B;
+        stroke-width: 2;
+    }
+    .splash-welcome {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #1C1B1B;
+        margin-bottom: 24px;
+    }
+    .splash-launch {
+        padding: 10px 32px;
+        background: #1C1B1B;
+        color: #FFFFFF;
+        border: none;
+        border-radius: 0;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .splash-launch:hover {
+        background: #AA3618;
+    }
+    .splash-massive {
+        position: absolute;
+        bottom: -60px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 280px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: rgba(28, 27, 27, 0.06);
+        white-space: nowrap;
+        pointer-events: none;
+        user-select: none;
+        line-height: 1;
+    }
+    .splash-version {
+        position: absolute;
+        bottom: 16px;
+        right: 20px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        color: rgba(28, 27, 27, 0.3);
+        letter-spacing: 0.06em;
+    }
+"#;
+
 #[derive(Clone)]
 struct DesktopBootstrap {
     options: LiveSnapshotOptions,
@@ -510,6 +584,40 @@ fn app() -> Element {
     } else {
         "status-dot status-dot-live"
     };
+
+    let mut show_splash = use_signal(|| true);
+
+    // Splash screen — Factory-style with massive "CADET" text
+    if show_splash() {
+        return rsx! {
+            style { "{DESKTOP_STYLES}" }
+            style { "{SPLASH_STYLES}" }
+            div { class: "splash",
+                // Hexagonal logo
+                svg {
+                    class: "splash-logo",
+                    view_box: "0 0 48 48",
+                    polygon { class: "splash-logo-hex", points: "24 2 44 14 44 34 24 46 4 34 4 14" }
+                    line { class: "splash-logo-hex", x1: "24", y1: "14", x2: "24", y2: "34" }
+                    line { class: "splash-logo-hex", x1: "14", y1: "20", x2: "34", y2: "20" }
+                    line { class: "splash-logo-hex", x1: "14", y1: "28", x2: "34", y2: "28" }
+                }
+
+                span { class: "splash-welcome", "WELCOME TO CADET" }
+
+                button {
+                    class: "splash-launch",
+                    onclick: move |_| show_splash.set(false),
+                    "LAUNCH"
+                }
+
+                // Massive "CADET" text bleeding off bottom
+                div { class: "splash-massive", "CADET" }
+
+                span { class: "splash-version", "v0.1.0 // ORBITAL.OPS" }
+            }
+        };
+    }
 
     rsx! {
         style { "{DESKTOP_STYLES}" }
