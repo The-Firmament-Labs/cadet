@@ -34,7 +34,7 @@ export default async function DashboardPage() {
   const pendingApprovalList = approvals.filter((a) => a.status === "pending").slice(0, 10)
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px]">
+    <div className="flex flex-col gap-6 w-full">
       {/* Stats strip — live-updating client component with SSR initial values */}
       <LiveMetrics
         initialMissions={runs.length}
