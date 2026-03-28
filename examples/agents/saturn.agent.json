@@ -20,53 +20,6 @@
       "learn": "workflows/autonomous-loop.md"
     }
   },
-  "contextTriggers": [
-    {
-      "id": "saturn-incident-response",
-      "event": "goal_received",
-      "conditions": [
-        { "type": "goal_contains", "value": ["incident", "outage", "down", "error", "failure", "crash", "broken"] }
-      ],
-      "actions": [
-        { "type": "inject_prompt", "target": "agents/saturn.md" },
-        { "type": "query_memory", "target": "operations", "maxChunks": 8 },
-        { "type": "inject_trajectory", "lastNSteps": 5 }
-      ],
-      "priority": 95
-    },
-    {
-      "id": "saturn-deploy-context",
-      "event": "goal_received",
-      "conditions": [
-        { "type": "goal_contains", "value": ["deploy", "rollout", "release", "promote", "rollback"] }
-      ],
-      "actions": [
-        { "type": "query_memory", "target": "operations", "maxChunks": 4 },
-        { "type": "inject_prompt", "target": "system/autonomy.md" }
-      ],
-      "priority": 90
-    },
-    {
-      "id": "saturn-step-trajectory",
-      "event": "step_completed",
-      "conditions": [],
-      "actions": [
-        { "type": "log_trajectory" }
-      ],
-      "priority": 50
-    },
-    {
-      "id": "saturn-run-consolidation",
-      "event": "run_completed",
-      "conditions": [
-        { "type": "step_count_at_least", "value": 4 }
-      ],
-      "actions": [
-        { "type": "consolidate_memory" }
-      ],
-      "priority": 40
-    }
-  ],
   "tools": {
     "allowExec": false,
     "allowBrowser": true,

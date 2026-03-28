@@ -309,9 +309,9 @@ describe("composeRuntimePrompt", () => {
     });
 
     expect(prompt).toContain("Write a deployment plan");
-    expect(prompt).toContain("exec=true");
-    expect(prompt).toContain("browserMode=read");
-    expect(prompt).toContain("Control plane: local");
+    expect(prompt).toContain("Researcher");
+    expect(prompt).toContain("Stay factual");
+    expect(prompt).toContain("query_memory");
     expect(prompt).toContain('"stack": "solana"');
   });
 });

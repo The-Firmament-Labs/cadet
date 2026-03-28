@@ -14,33 +14,6 @@ export const cloudAgentCatalog: AgentManifest[] = [
         learn: "workflows/autonomous-loop.md",
       },
     },
-    contextTriggers: [
-      {
-        id: "saturn-incident-response",
-        event: "goal_received",
-        conditions: [{ type: "goal_contains", value: ["incident", "outage", "down", "error", "failure"] }],
-        actions: [
-          { type: "inject_prompt", target: "agents/saturn.md" },
-          { type: "query_memory", target: "operations", maxChunks: 8 },
-          { type: "inject_trajectory", lastNSteps: 5 },
-        ],
-        priority: 95,
-      },
-      {
-        id: "saturn-step-trajectory",
-        event: "step_completed",
-        conditions: [],
-        actions: [{ type: "log_trajectory" }],
-        priority: 50,
-      },
-      {
-        id: "saturn-run-consolidation",
-        event: "run_completed",
-        conditions: [{ type: "step_count_at_least", value: 4 }],
-        actions: [{ type: "consolidate_memory" }],
-        priority: 40,
-      },
-    ],
     system:
       "You are an operations-focused agent. Prioritize safe changes, explicit rollouts, and typed incident records.",
     model: "gpt-5.4-mini",

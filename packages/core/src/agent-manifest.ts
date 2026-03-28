@@ -155,9 +155,7 @@ export interface AgentManifest {
   toolProfiles: ToolProfile[];
   handoffRules: HandoffRule[];
   learningPolicy: LearningPolicy;
-  /** Context triggers — programmatic rules for dynamic prompt/memory assembly */
-  contextTriggers?: ContextTrigger[] | undefined;
-  /** Prompt file references for this agent */
+  /** Prompt file references — tells the agent what context is available to load on demand */
   prompts?: AgentPrompts | undefined;
 }
 
@@ -570,7 +568,6 @@ export function parseAgentManifest(value: unknown): AgentManifest {
               "learningPolicy.maxRetrievedChunks"
             )
     },
-    contextTriggers: parseContextTriggers(value.contextTriggers),
     prompts: parseAgentPrompts(value.prompts),
   };
 }
