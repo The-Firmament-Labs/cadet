@@ -1343,3 +1343,231 @@ pub mod desktop {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── CadetConfig ─────────────────────────────────────────────────
+
+    #[test]
+    fn cadet_config_default_widget_enabled() {
+        let cfg = CadetConfig::default();
+        assert!(cfg.widget.enabled);
+    }
+
+    #[test]
+    fn cadet_config_default_has_four_actions() {
+        let cfg = CadetConfig::default();
+        assert_eq!(cfg.widget.actions.len(), 4);
+    }
+
+    #[test]
+    fn cadet_config_default_action_ids() {
+        let cfg = CadetConfig::default();
+        let ids: Vec<&str> = cfg.widget.actions.iter().map(|a| a.id.as_str()).collect();
+        assert!(ids.contains(&"research"));
+        assert!(ids.contains(&"followup"));
+        assert!(ids.contains(&"enhance"));
+        assert!(ids.contains(&"summarize"));
+    }
+
+    #[test]
+    fn cadet_config_default_agents() {
+        let cfg = CadetConfig::default();
+        assert_eq!(cfg.widget.default_agent, "saturn");
+        assert_eq!(cfg.widget.research_agent, "voyager");
+    }
+
+    #[test]
+    fn cadet_config_default_style() {
+        let cfg = CadetConfig::default();
+        assert_eq!(cfg.widget.style, "glass");
+    }
+
+    #[test]
+    fn cadet_config_load_from_nonexistent_returns_default() {
+        use std::path::PathBuf;
+        let cfg = CadetConfig::load_from(PathBuf::from("/nonexistent/path/config.toml"));
+        // Should silently fall back to default values.
+        assert!(cfg.widget.enabled);
+        assert_eq!(cfg.widget.default_agent, "saturn");
+        assert_eq!(cfg.widget.actions.len(), 4);
+    }
+
+    #[cfg(feature = "desktop-ui")]
+    #[test]
+    fn cadet_config_deserialize_toml_custom_values() {
+        let toml_str = r#"
+[widget]
+enabled = false
+default_agent = "atlas"
+research_agent = "titan"
+style = "solid"
+auto_dismiss_seconds = 10
+"#;
+        let cfg: CadetConfig = toml::from_str(toml_str).expect("valid toml");
+        assert!(!cfg.widget.enabled);
+        assert_eq!(cfg.widget.default_agent, "atlas");
+        assert_eq!(cfg.widget.research_agent, "titan");
+        assert_eq!(cfg.widget.style, "solid");
+        assert_eq!(cfg.widget.auto_dismiss_seconds, 10);
+    }
+
+    // ── WidgetBridge ────────────────────────────────────────────────
+
+    #[test]
+    fn widget_bridge_new_fields_empty() {
+        let bridge = WidgetBridge::new();
+        assert!(bridge.context_text.lock().unwrap().is_none());
+        assert!(bridge.chat_messages.lock().unwrap().is_empty());
+        assert!(bridge.dispatched_action.lock().unwrap().is_none());
+        assert!(bridge.recent_dispatches.lock().unwrap().is_empty());
+        assert!(bridge.toasts.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn widget_bridge_set_context_stores_text() {
+        let bridge = WidgetBridge::new();
+        bridge.set_context("hello".to_string());
+        let ctx = bridge.context_text.lock().unwrap();
+        assert_eq!(ctx.as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn widget_bridge_set_context_clears_chat_messages() {
+        let bridge = WidgetBridge::new();
+        bridge.chat_messages.lock().unwrap().push(ChatMessage {
+            role: "user".to_string(),
+            content: "old message".to_string(),
+        });
+        bridge.set_context("new context".to_string());
+        assert!(bridge.chat_messages.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn widget_bridge_dispatch_stores_action() {
+        let bridge = WidgetBridge::new();
+        bridge.dispatch("saturn".to_string(), "solve the world".to_string());
+        let action = bridge.dispatched_action.lock().unwrap();
+        assert_eq!(action.as_ref().map(|(a, _)| a.as_str()), Some("saturn"));
+        assert_eq!(action.as_ref().map(|(_, g)| g.as_str()), Some("solve the world"));
+    }
+
+    #[test]
+    fn widget_bridge_take_dispatch_returns_and_clears() {
+        let bridge = WidgetBridge::new();
+        bridge.dispatch("voyager".to_string(), "research goal".to_string());
+        let taken = bridge.take_dispatch();
+        assert_eq!(taken, Some(("voyager".to_string(), "research goal".to_string())));
+        // Second take should be None
+        assert!(bridge.take_dispatch().is_none());
+    }
+
+    #[test]
+    fn widget_bridge_take_dispatch_empty_returns_none() {
+        let bridge = WidgetBridge::new();
+        assert!(bridge.take_dispatch().is_none());
+    }
+
+    #[test]
+    fn widget_bridge_push_toast_adds_entry() {
+        let bridge = WidgetBridge::new();
+        bridge.push_toast("Title", "Body text", "success");
+        let toasts = bridge.toasts.lock().unwrap();
+        assert_eq!(toasts.len(), 1);
+    }
+
+    #[test]
+    fn widget_bridge_push_toast_multiple_accumulate() {
+        let bridge = WidgetBridge::new();
+        bridge.push_toast("Alert 1", "Body 1", "info");
+        bridge.push_toast("Alert 2", "Body 2", "warning");
+        bridge.push_toast("Alert 3", "Body 3", "danger");
+        let toasts = bridge.toasts.lock().unwrap();
+        assert_eq!(toasts.len(), 3);
+    }
+
+    #[test]
+    fn widget_bridge_push_toast_fields_correct() {
+        let bridge = WidgetBridge::new();
+        bridge.push_toast("My Title", "My Body", "success");
+        let toasts = bridge.toasts.lock().unwrap();
+        let t = &toasts[0];
+        assert!(!t.id.is_empty(), "toast id should not be empty");
+        assert_eq!(t.tone, "success");
+        assert_eq!(t.title, "My Title");
+        assert_eq!(t.body, "My Body");
+        assert!(!t.dismissed);
+    }
+
+    // ── HudMetrics ──────────────────────────────────────────────────
+
+    #[test]
+    fn hud_metrics_default_all_zeros() {
+        let m = HudMetrics::default();
+        assert_eq!(m.active_runs, 0);
+        assert_eq!(m.pending_approvals, 0);
+        assert_eq!(m.blocked_items, 0);
+        assert!(m.agents.is_empty());
+    }
+
+    // ── ChatMessage / RecentDispatch / Toast — derive coverage ──────
+
+    #[test]
+    fn chat_message_clone_roundtrip() {
+        let msg = ChatMessage {
+            role: "user".to_string(),
+            content: "hello world".to_string(),
+        };
+        let cloned = msg.clone();
+        assert_eq!(cloned.role, msg.role);
+        assert_eq!(cloned.content, msg.content);
+    }
+
+    #[test]
+    fn chat_message_serde_roundtrip() {
+        let msg = ChatMessage {
+            role: "assistant".to_string(),
+            content: "I can help with that".to_string(),
+        };
+        let json = serde_json::to_string(&msg).expect("serialize");
+        let back: ChatMessage = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.role, msg.role);
+        assert_eq!(back.content, msg.content);
+    }
+
+    #[test]
+    fn recent_dispatch_clone_and_serde() {
+        let rd = RecentDispatch {
+            agent_id: "saturn".to_string(),
+            goal: "summarize docs".to_string(),
+            status: "running".to_string(),
+            timestamp: "2026-03-28T00:00:00Z".to_string(),
+        };
+        let cloned = rd.clone();
+        let json = serde_json::to_string(&cloned).expect("serialize");
+        let back: RecentDispatch = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.agent_id, "saturn");
+        assert_eq!(back.goal, "summarize docs");
+        assert_eq!(back.status, "running");
+    }
+
+    #[test]
+    fn toast_clone_and_serde() {
+        let toast = Toast {
+            id: "toast-12345".to_string(),
+            tone: "info".to_string(),
+            title: "Done".to_string(),
+            body: "Task completed".to_string(),
+            timestamp_ms: 1711584000000,
+            dismissed: false,
+        };
+        let cloned = toast.clone();
+        let json = serde_json::to_string(&cloned).expect("serialize");
+        let back: Toast = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.id, "toast-12345");
+        assert_eq!(back.tone, "info");
+        assert!(!back.dismissed);
+    }
+}

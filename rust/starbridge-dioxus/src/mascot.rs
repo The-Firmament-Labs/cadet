@@ -84,6 +84,48 @@ function animate() {
 animate();
 </script>"#;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mascot_scene_html_is_not_empty() {
+        assert!(!MASCOT_SCENE_HTML.is_empty());
+    }
+
+    #[test]
+    fn mascot_scene_html_contains_three_js_import() {
+        assert!(
+            MASCOT_SCENE_HTML.contains("three"),
+            "expected Three.js reference in MASCOT_SCENE_HTML"
+        );
+    }
+
+    #[test]
+    fn mascot_scene_html_contains_gltf_loader() {
+        assert!(
+            MASCOT_SCENE_HTML.contains("GLTFLoader"),
+            "expected GLTFLoader reference in MASCOT_SCENE_HTML"
+        );
+    }
+
+    #[test]
+    fn mascot_scene_html_contains_model_path() {
+        assert!(
+            MASCOT_SCENE_HTML.contains("mascot.glb"),
+            "expected mascot.glb model path in MASCOT_SCENE_HTML"
+        );
+    }
+
+    #[test]
+    fn mascot_styles_contains_container_class() {
+        assert!(
+            MASCOT_STYLES.contains("mascot-container"),
+            "expected .mascot-container in MASCOT_STYLES"
+        );
+    }
+}
+
 // ── Dioxus component ───────────────────────────────────────────────
 
 #[cfg(feature = "desktop-ui")]

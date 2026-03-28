@@ -75,6 +75,188 @@ impl ClipboardHistory {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── ClipboardEntry ───────────────────────────────────────────────
+
+    #[test]
+    fn clipboard_entry_has_expected_fields() {
+        let entry = ClipboardEntry {
+            text: "hello".to_string(),
+            timestamp_micros: 1_000_000,
+            source_app: "test".to_string(),
+        };
+        assert_eq!(entry.text, "hello");
+        assert_eq!(entry.timestamp_micros, 1_000_000);
+        assert_eq!(entry.source_app, "test");
+    }
+
+    #[test]
+    fn clipboard_entry_clone() {
+        let entry = ClipboardEntry {
+            text: "copy me".to_string(),
+            timestamp_micros: 42,
+            source_app: "unknown".to_string(),
+        };
+        let cloned = entry.clone();
+        assert_eq!(cloned.text, entry.text);
+        assert_eq!(cloned.timestamp_micros, entry.timestamp_micros);
+        assert_eq!(cloned.source_app, entry.source_app);
+    }
+
+    // ── ClipboardHistory::new ────────────────────────────────────────
+
+    #[test]
+    fn clipboard_history_new_empty() {
+        let h = ClipboardHistory::new(5);
+        assert_eq!(h.max_entries, 5);
+        assert!(h.get_entries().is_empty());
+    }
+
+    // ── ClipboardHistory::push ───────────────────────────────────────
+
+    #[test]
+    fn push_single_entry_has_nonzero_timestamp() {
+        let h = ClipboardHistory::new(10);
+        h.push("hello".to_string());
+        let entries = h.get_entries();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].text, "hello");
+        assert!(entries[0].timestamp_micros > 0);
+    }
+
+    #[test]
+    fn push_deduplicates_consecutive_identical_text() {
+        let h = ClipboardHistory::new(10);
+        h.push("same".to_string());
+        h.push("same".to_string());
+        assert_eq!(h.get_entries().len(), 1);
+    }
+
+    #[test]
+    fn push_different_text_keeps_both() {
+        let h = ClipboardHistory::new(10);
+        h.push("first".to_string());
+        h.push("second".to_string());
+        assert_eq!(h.get_entries().len(), 2);
+    }
+
+    #[test]
+    fn push_dedup_checks_last_vec_element_not_newest() {
+        // Dedup compares against entries.last(), which is the oldest item
+        // (since new items are inserted at index 0).
+        // Sequence: push "a" → ["a"], push "b" → ["b","a"], push "a" →
+        // last() == "a" so it IS deduplicated and we stay at 2 entries.
+        let h = ClipboardHistory::new(10);
+        h.push("a".to_string());
+        h.push("b".to_string());
+        h.push("a".to_string());
+        assert_eq!(h.get_entries().len(), 2);
+    }
+
+    #[test]
+    fn push_trims_to_max_entries() {
+        let h = ClipboardHistory::new(5);
+        for i in 0..6 {
+            h.push(format!("entry-{}", i));
+        }
+        assert_eq!(h.get_entries().len(), 5);
+    }
+
+    #[test]
+    fn push_newest_first_ordering() {
+        let h = ClipboardHistory::new(10);
+        h.push("older".to_string());
+        h.push("newer".to_string());
+        let entries = h.get_entries();
+        // push inserts at index 0, so newest is first
+        assert_eq!(entries[0].text, "newer");
+        assert_eq!(entries[1].text, "older");
+    }
+
+    #[test]
+    fn push_oldest_trimmed_when_full() {
+        let h = ClipboardHistory::new(3);
+        h.push("first".to_string());
+        h.push("second".to_string());
+        h.push("third".to_string());
+        h.push("fourth".to_string()); // should evict "first"
+        let entries = h.get_entries();
+        assert_eq!(entries.len(), 3);
+        assert!(!entries.iter().any(|e| e.text == "first"));
+        assert!(entries.iter().any(|e| e.text == "fourth"));
+    }
+
+    // ── ClipboardHistory::get_entries ────────────────────────────────
+
+    #[test]
+    fn get_entries_returns_cloned_vec() {
+        let h = ClipboardHistory::new(5);
+        h.push("alpha".to_string());
+        h.push("beta".to_string());
+        let entries = h.get_entries();
+        assert_eq!(entries.len(), 2);
+    }
+
+    // ── ClipboardHistory::search ─────────────────────────────────────
+
+    #[test]
+    fn search_finds_matching_entry() {
+        let h = ClipboardHistory::new(10);
+        h.push("hello world".to_string());
+        h.push("goodbye".to_string());
+        let results = h.search("hello");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].text, "hello world");
+    }
+
+    #[test]
+    fn search_is_case_insensitive() {
+        let h = ClipboardHistory::new(10);
+        h.push("Hello World".to_string());
+        let results = h.search("HELLO");
+        assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn search_returns_empty_for_no_match() {
+        let h = ClipboardHistory::new(10);
+        h.push("something".to_string());
+        let results = h.search("nonexistent");
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn search_empty_query_returns_all() {
+        let h = ClipboardHistory::new(10);
+        h.push("one".to_string());
+        h.push("two".to_string());
+        let results = h.search("");
+        assert_eq!(results.len(), 2);
+    }
+
+    // ── Edge cases ───────────────────────────────────────────────────
+
+    #[test]
+    fn push_empty_string_is_accepted() {
+        let h = ClipboardHistory::new(5);
+        h.push("".to_string());
+        // Two consecutive empty strings should dedup
+        h.push("".to_string());
+        assert_eq!(h.get_entries().len(), 1);
+    }
+
+    #[test]
+    fn push_whitespace_entry_is_accepted() {
+        let h = ClipboardHistory::new(5);
+        h.push("   ".to_string());
+        assert_eq!(h.get_entries().len(), 1);
+        assert_eq!(h.get_entries()[0].source_app, "unknown");
+    }
+}
+
 // ── Background watcher ─────────────────────────────────────────────
 
 /// Spawns a background task that polls `arboard::Clipboard` every 500 ms.
