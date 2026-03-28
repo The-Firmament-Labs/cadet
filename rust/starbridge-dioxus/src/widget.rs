@@ -525,82 +525,24 @@ pub const WIDGET_STYLES: &str = r#"
         border-color: #58413C;
     }
 
-    /* ── LiveAgentHud ─────────────────────────────────────────── */
+    /* ── LiveAgentHud (gauge strip) ──────────────────────────── */
 
     .hud-strip {
-        backdrop-filter: blur(20px) saturate(1.3);
-        -webkit-backdrop-filter: blur(20px) saturate(1.3);
-        background: rgba(24, 24, 24, 0.78);
-        border: 1px solid rgba(255, 255, 255, 0.10);
-        border-radius: 28px;
-        box-shadow:
-            0 4px 16px rgba(0, 0, 0, 0.45),
-            0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-        padding: 0 14px;
+        background: #1C1B1B;
+        border-radius: 0;
         height: 100%;
         display: flex;
-        flex-direction: column;
+        align-items: center;
         justify-content: center;
-        gap: 2px;
-        overflow: hidden;
+        gap: 16px;
+        padding: 0 16px;
         cursor: grab;
         user-select: none;
-        -webkit-app-region: drag;
+        transition: background 0.15s;
     }
 
     .hud-strip:hover {
-        background: rgba(32, 32, 32, 0.85);
-        border-color: rgba(255, 255, 255, 0.15);
-    }
-
-    .hud-row {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-    }
-
-    .hud-metric {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
-        color: rgba(255, 255, 255, 0.75);
-        white-space: nowrap;
-    }
-
-    .hud-metric-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #5a8a5a;
-        box-shadow: 0 0 4px rgba(90, 138, 90, 0.5);
-        flex-shrink: 0;
-    }
-
-    .hud-metric-blocked .hud-metric-dot {
-        background: #c94a4a;
-        box-shadow: 0 0 4px rgba(201, 74, 74, 0.5);
-    }
-
-    .hud-agents {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .hud-agent-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 1px 8px;
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        font-size: 10px;
-        color: rgba(255, 255, 255, 0.6);
-        font-family: "JetBrains Mono", monospace;
-        white-space: nowrap;
+        background: #2a2a2a;
     }
 
     /* ── QuickDispatchPalette ─────────────────────────────────── */
@@ -1135,6 +1077,77 @@ pub mod desktop {
     #[cfg(target_os = "macos")]
     use dioxus_desktop::tao::platform::macos::WindowBuilderExtMacOS;
 
+    const HUD_GAUGE_STYLES: &str = r#"
+        .hud-gauge {
+            position: relative;
+            width: 52px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .hud-gauge-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-135deg);
+        }
+        .hud-gauge-track {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-width: 3;
+            stroke-dasharray: 84.8 113.1;
+            stroke-linecap: butt;
+        }
+        .hud-gauge-fill {
+            fill: none;
+            stroke: #526258;
+            stroke-width: 3;
+            stroke-linecap: butt;
+            transition: stroke-dasharray 0.3s;
+        }
+        .hud-gauge-warn {
+            stroke: #AA3618;
+        }
+        .hud-gauge-label {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1;
+        }
+        .hud-gauge-value {
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+        .hud-gauge-unit {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 8px;
+            letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+        }
+        .hud-status {
+            display: flex;
+            align-items: center;
+            padding-left: 8px;
+        }
+        .hud-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 0;
+        }
+        .hud-dot-ok {
+            background: #526258;
+        }
+        .hud-dot-warn {
+            background: #AA3618;
+        }
+    "#;
+
     /// Build the Config for the floating widget window.
     pub fn widget_window_config() -> Config {
         let mut wb = WindowBuilder::new()
@@ -1365,7 +1378,7 @@ pub mod desktop {
     // ── LiveAgentHud ───────────────────────────────────────────────────
 
     /// Build the Config for the LiveAgentHud strip window.
-    /// 400×56 px, borderless, transparent, always-on-top.
+    /// 320×72 px, borderless, transparent, always-on-top.
     pub fn widget_window_config_hud() -> Config {
         let mut wb = WindowBuilder::new()
             .with_title("Cadet HUD")
@@ -1373,7 +1386,7 @@ pub mod desktop {
             .with_transparent(true)
             .with_always_on_top(true)
             .with_resizable(false)
-            .with_inner_size(LogicalSize::new(400.0, 56.0));
+            .with_inner_size(LogicalSize::new(320.0, 72.0));
 
         #[cfg(target_os = "macos")]
         {
@@ -1393,25 +1406,34 @@ pub mod desktop {
         pub bridge: WidgetBridge,
     }
 
-    /// A tiny always-on-top strip showing live agent metrics.
+    /// Sleek minimal HUD with SVG arc gauges for RUNS and QUEUE.
     /// Hotkey: Ctrl+Shift+H (registered in the binary).
-    /// Click anywhere dispatches "show-dashboard" via WidgetBridge.
+    /// Click opens dashboard. Drag to reposition.
     #[component]
     pub fn LiveAgentHud(props: LiveAgentHudProps) -> Element {
         let bridge = props.bridge;
         let desktop = use_window();
 
         let metrics = bridge.metrics.lock().unwrap().clone();
-
         let active = metrics.active_runs;
         let pending = metrics.pending_approvals;
         let blocked = metrics.blocked_items;
-        let agents = metrics.agents.clone();
+
+        // Arc gauge: percentage of capacity (cap at 10 for visual scale)
+        let runs_pct = ((active as f64 / 10.0) * 100.0).min(100.0) as u32;
+        let queue_pct = (((pending + blocked) as f64 / 10.0) * 100.0).min(100.0) as u32;
+
+        // SVG arc path for a gauge (270-degree arc)
+        // Circumference of r=18 circle = 113.1, 270deg = 84.8
+        let arc_total = 84.8_f64;
+        let runs_dash = arc_total * (runs_pct as f64 / 100.0);
+        let queue_dash = arc_total * (queue_pct as f64 / 100.0);
 
         rsx! {
             style { "{WIDGET_STYLES}" }
+            style { "{HUD_GAUGE_STYLES}" }
             div {
-                style: "width: 100%; height: 100%; padding: 4px 6px; box-sizing: border-box;",
+                style: "width:100%;height:100%;padding:4px;box-sizing:border-box;",
                 div {
                     class: "hud-strip",
                     onmousedown: {
@@ -1425,30 +1447,41 @@ pub mod desktop {
                         }
                     },
 
-                    // Row 1: metric pills
-                    div { class: "hud-row",
-                        span { class: "hud-metric",
-                            span { class: "hud-metric-dot" }
-                            "{active} active"
+                    // Gauge: RUNS
+                    div { class: "hud-gauge",
+                        svg { class: "hud-gauge-svg", view_box: "0 0 44 44",
+                            circle { class: "hud-gauge-track", cx: "22", cy: "22", r: "18" }
+                            circle {
+                                class: "hud-gauge-fill",
+                                cx: "22", cy: "22", r: "18",
+                                style: "stroke-dasharray: {runs_dash} {arc_total};",
+                            }
                         }
-                        span { class: "hud-metric",
-                            "⏳ {pending} approvals"
-                        }
-                        span { class: "hud-metric hud-metric-blocked",
-                            span { class: "hud-metric-dot" }
-                            "{blocked} blocked"
+                        div { class: "hud-gauge-label",
+                            span { class: "hud-gauge-value", "{active}" }
+                            span { class: "hud-gauge-unit", "RUNS" }
                         }
                     }
 
-                    // Row 2: per-agent status pills
-                    if !agents.is_empty() {
-                        div { class: "hud-agents",
-                            for (agent_id, stage) in agents.iter() {
-                                span { class: "hud-agent-pill",
-                                    "{agent_id}: {stage}"
-                                }
+                    // Gauge: QUEUE
+                    div { class: "hud-gauge",
+                        svg { class: "hud-gauge-svg", view_box: "0 0 44 44",
+                            circle { class: "hud-gauge-track", cx: "22", cy: "22", r: "18" }
+                            circle {
+                                class: if blocked > 0 { "hud-gauge-fill hud-gauge-warn" } else { "hud-gauge-fill" },
+                                cx: "22", cy: "22", r: "18",
+                                style: "stroke-dasharray: {queue_dash} {arc_total};",
                             }
                         }
+                        div { class: "hud-gauge-label",
+                            span { class: "hud-gauge-value", "{pending + blocked}" }
+                            span { class: "hud-gauge-unit", "QUEUE" }
+                        }
+                    }
+
+                    // Status dot
+                    div { class: "hud-status",
+                        div { class: if blocked > 0 { "hud-dot hud-dot-warn" } else { "hud-dot hud-dot-ok" } }
                     }
                 }
             }
