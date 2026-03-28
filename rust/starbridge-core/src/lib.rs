@@ -3,6 +3,8 @@ use serde_json::{json, Value};
 use std::{fmt, str::FromStr};
 use tokio::sync::broadcast;
 
+pub mod context_engine;
+
 macro_rules! string_enum {
     (pub enum $name:ident { $($variant:ident => $value:literal),+ $(,)? }) => {
         #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
