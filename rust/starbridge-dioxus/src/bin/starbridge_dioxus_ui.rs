@@ -503,10 +503,10 @@ fn app() -> Element {
     let mut show_splash = use_signal(|| true);
     let spawned_flags = use_signal(|| std::collections::HashSet::<String>::new());
 
-    // SpacetimeDB connection form signals — must be unconditional (Dioxus hook rules)
-    let mut spacetime_url = use_signal(|| bootstrap.options.base_url.clone());
-    let mut spacetime_db = use_signal(|| bootstrap.options.database.clone());
-    let mut connection_status = use_signal(|| "checking".to_string());
+    // Unused signals kept for hook ordering stability
+    let _spacetime_url = use_signal(|| String::new());
+    let _spacetime_db = use_signal(|| String::new());
+    let _connection_status = use_signal(|| String::new());
 
     // Global keyboard shortcuts — each must be its own hook call (no loops!)
     // Dioxus hooks must be called unconditionally in the same order every render.
@@ -761,107 +761,20 @@ fn app() -> Element {
                 }
                 span { class: "splash-welcome", "WELCOME TO CADET" }
 
-                // SpacetimeDB connection form
-                div { class: "splash-conn-form",
-                    span { class: "splash-conn-title", "SPACETIMEDB CONNECTION" }
-
-                    div { class: "splash-conn-field",
-                        label { class: "splash-conn-label", "SERVER URL" }
-                        input {
-                            class: "splash-conn-input",
-                            r#type: "text",
-                            value: "{spacetime_url}",
-                            oninput: move |evt| spacetime_url.set(evt.value()),
-                        }
+                div { style: "display: flex; flex-direction: column; gap: 10px; align-items: center; z-index: 1;",
+                    button {
+                        class: "splash-launch",
+                        onclick: move |_| {
+                            let _ = std::process::Command::new("open")
+                                .arg("http://localhost:3001/login")
+                                .spawn();
+                        },
+                        "LOG IN"
                     }
-
-                    div { class: "splash-conn-field",
-                        label { class: "splash-conn-label", "DATABASE" }
-                        input {
-                            class: "splash-conn-input",
-                            r#type: "text",
-                            value: "{spacetime_db}",
-                            oninput: move |evt| spacetime_db.set(evt.value()),
-                        }
-                    }
-
-                    // Status indicator
-                    div { class: "splash-conn-status",
-                        div {
-                            class: {
-                                let s = connection_status();
-                                if s == "connected" {
-                                    "splash-status-dot splash-status-connected"
-                                } else if s == "failed" {
-                                    "splash-status-dot splash-status-failed"
-                                } else {
-                                    "splash-status-dot splash-status-checking"
-                                }
-                            }
-                        }
-                        span { class: "splash-status-text",
-                            {
-                                let s = connection_status();
-                                if s == "connected" {
-                                    "Connected"
-                                } else if s == "failed" {
-                                    "Connection failed"
-                                } else if s == "skipped" {
-                                    "Offline mode"
-                                } else {
-                                    "Not connected"
-                                }
-                            }
-                        }
-                    }
-
-                    // Action buttons row
-                    div { class: "splash-conn-actions",
-                        button {
-                            class: "splash-secondary",
-                            onclick: move |_| {
-                                let url = spacetime_url();
-                                let db = spacetime_db();
-                                connection_status.set("checking".to_string());
-                                spawn(async move {
-                                    let opts = LiveSnapshotOptions {
-                                        base_url: url,
-                                        database: db,
-                                    };
-                                    let result = tokio::task::spawn_blocking(move || {
-                                        load_live_snapshot(&opts)
-                                    }).await;
-                                    match result {
-                                        Ok(Ok(_)) => connection_status.set("connected".to_string()),
-                                        _ => connection_status.set("failed".to_string()),
-                                    }
-                                });
-                            },
-                            "CONNECT"
-                        }
-                        button {
-                            class: "splash-secondary splash-secondary-outline",
-                            onclick: move |_| connection_status.set("skipped".to_string()),
-                            "SKIP (OFFLINE)"
-                        }
-                        button {
-                            class: {
-                                let s = connection_status();
-                                let ready = s == "connected" || s == "skipped";
-                                if ready { "splash-launch" } else { "splash-launch splash-launch-disabled" }
-                            },
-                            disabled: {
-                                let s = connection_status();
-                                s != "connected" && s != "skipped"
-                            },
-                            onclick: move |_| {
-                                let s = connection_status();
-                                if s == "connected" || s == "skipped" {
-                                    show_splash.set(false);
-                                }
-                            },
-                            "LAUNCH"
-                        }
+                    button {
+                        class: "splash-secondary",
+                        onclick: move |_| show_splash.set(false),
+                        "CONTINUE OFFLINE"
                     }
                 }
 
