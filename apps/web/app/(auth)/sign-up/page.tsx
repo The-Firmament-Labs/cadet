@@ -58,7 +58,7 @@ export default function SignUpPage() {
         {/* Brand */}
         <div className="flex flex-col items-center mb-8 gap-3">
           <img
-            src="/icon.png"
+            src="/visuals/retro-astro.png"
             alt="Cadet"
             className="w-10 h-10"
           />
