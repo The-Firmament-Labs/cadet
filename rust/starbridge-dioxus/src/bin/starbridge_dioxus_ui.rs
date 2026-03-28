@@ -143,7 +143,7 @@ const DESKTOP_STYLES: &str = r#"
 const SPLASH_STYLES: &str = r#"
     .splash {
         min-height: 100vh;
-        background: #0a0a1a url('/assets/modern-stars-bg.png') center/cover no-repeat;
+        background: #0a0a1a url('cadet://localhost/modern-stars-bg.png') center/cover no-repeat;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -305,11 +305,28 @@ fn main() {
         load_error,
     };
 
+    // Embed images at compile time so they're always available
+    static RETRO_ASTRO: &[u8] = include_bytes!("../../assets/retro-astro.png");
+    static STARS_BG: &[u8] = include_bytes!("../../assets/modern-stars-bg.png");
+
     dioxus::LaunchBuilder::desktop()
         .with_cfg(
             Config::new()
                 .with_menu(build_app_menu())
                 .with_close_behaviour(WindowCloseBehaviour::WindowHides)
+                .with_custom_protocol("cadet", move |_wv_id, request| {
+                    use std::borrow::Cow;
+                    let path = request.uri().path();
+                    let (body, mime): (Cow<'static, [u8]>, &str) = match path {
+                        "/retro-astro.png" => (Cow::Borrowed(RETRO_ASTRO), "image/png"),
+                        "/modern-stars-bg.png" => (Cow::Borrowed(STARS_BG), "image/png"),
+                        _ => (Cow::Borrowed(b"404"), "text/plain"),
+                    };
+                    dioxus_desktop::wry::http::Response::builder()
+                        .header("Content-Type", mime)
+                        .body(body)
+                        .unwrap()
+                })
                 .with_window(
                     WindowBuilder::new()
                         .with_title("Cadet Mission Control")
@@ -610,7 +627,7 @@ fn app() -> Element {
                 // Retro astronaut
                 img {
                     class: "splash-astronaut",
-                    src: "/assets/retro-astro.png",
+                    src: "cadet://localhost/retro-astro.png",
                     alt: "Cadet astronaut",
                 }
 
