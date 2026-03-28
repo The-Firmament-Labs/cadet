@@ -2,6 +2,18 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
+vi.mock("../../../lib/auth", () => ({
+  requireOperatorPageSession: vi.fn(async () => ({
+    operatorId: "test",
+    displayName: "Test",
+    email: "test@cadet.dev",
+    role: "admin",
+  })),
+  getOperatorSession: vi.fn(async () => null),
+  getOperatorSpacetimeToken: vi.fn(() => undefined),
+  isOperatorAuthEnabled: vi.fn(() => false),
+}));
+
 vi.mock("../../../lib/server", () => ({
   loadRunDetails: vi.fn(async () => ({
     run: {

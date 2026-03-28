@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import React from "react";
 
 export function OperatorSessionActions({
   email
@@ -12,7 +12,10 @@ export function OperatorSessionActions({
       <span className="secondaryAction">{email ?? "Authenticated operator session"}</span>
       <button
         className="secondaryAction"
-        onClick={() => void signOut({ callbackUrl: "/" })}
+        onClick={async () => {
+          await fetch("/api/auth/logout", { method: "POST" });
+          window.location.href = "/";
+        }}
         type="button"
       >
         Sign out
