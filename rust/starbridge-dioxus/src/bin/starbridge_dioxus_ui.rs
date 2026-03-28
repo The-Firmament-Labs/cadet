@@ -29,8 +29,19 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 const DESKTOP_STYLES: &str = r#"
     .desktop-shell {
-        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
         background: #c8d1c0;
+    }
+
+    .desktop-shell > .app-shell {
+        flex: 1;
+        min-height: 0;
+        height: auto;
+        max-height: none;
     }
 
     .desktop-toolbar {
