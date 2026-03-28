@@ -143,9 +143,7 @@ const DESKTOP_STYLES: &str = r#"
 const SPLASH_STYLES: &str = r#"
     .splash {
         min-height: 100vh;
-        background: #c8d1c0;
-        background-image: radial-gradient(circle, rgba(28,27,27,0.06) 1px, transparent 1px);
-        background-size: 24px 24px;
+        background: #0a0a1a url('/assets/modern-stars-bg.png') center/cover no-repeat;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -381,8 +379,9 @@ fn app() -> Element {
     let widget_bridge = use_hook(WidgetBridge::new);
     let clipboard_history = use_hook(|| ClipboardHistory::new(100));
     let mut command_center_spawned = use_signal(|| false);
+    let mut show_splash = use_signal(|| true);
 
-    if cadet_config.widget.enabled {
+    if cadet_config.widget.enabled && !show_splash() {
         // Ctrl+Shift+Space — open the Command Center
         let bridge_cc = widget_bridge.clone();
         let _ = use_global_shortcut("Ctrl+Shift+Space", move |state| {
@@ -601,27 +600,17 @@ fn app() -> Element {
         "status-dot status-dot-live"
     };
 
-    let mut show_splash = use_signal(|| true);
-
     // Splash screen — space scene with retro astronaut
     if show_splash() {
-        // Resolve image paths from the project's web app public dir
-        let cwd = std::env::current_dir().unwrap_or_default();
-        let bg_path = cwd.join("apps/web/public/visuals/modern-stars-bg.png");
-        let astro_path = cwd.join("apps/web/public/visuals/retro-astro.png");
-        let bg_url = format!("file://{}", bg_path.display());
-        let astro_url = format!("file://{}", astro_path.display());
-
         return rsx! {
             style { "{DESKTOP_STYLES}" }
             style { "{SPLASH_STYLES}" }
             div { class: "splash",
-                style: "background-image: url('{bg_url}'); background-size: cover; background-position: center;",
 
                 // Retro astronaut
                 img {
                     class: "splash-astronaut",
-                    src: "{astro_url}",
+                    src: "/assets/retro-astro.png",
                     alt: "Cadet astronaut",
                 }
 
