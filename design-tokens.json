@@ -29,8 +29,8 @@
     "liveIndicator": "#e07b5a"
   },
   "font": {
-    "sans": "\"Geist\", \"Geist Fallback\", ui-sans-serif, system-ui, sans-serif",
-    "mono": "\"Geist Mono\", \"Geist Mono Fallback\", ui-monospace, monospace"
+    "sans": "\"Space Grotesk\", ui-sans-serif, system-ui, sans-serif",
+    "mono": "\"JetBrains Mono\", \"SFMono-Regular\", \"Cascadia Code\", ui-monospace, monospace"
   },
   "fontSize": {
     "xs": "10px",
