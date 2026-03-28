@@ -16,25 +16,34 @@ export default function SignInPage() {
     setError(null)
 
     try {
-      // TODO: Fetch authentication options from /api/auth/login/options
-      // const optionsRes = await fetch("/api/auth/login/options", { method: "POST" })
-      // const options = await optionsRes.json()
+      // Step 1: Get authentication options from server
+      const optionsRes = await fetch("/api/auth/login?step=options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "" }),
+      })
+      if (!optionsRes.ok) {
+        const err = await optionsRes.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to get authentication options")
+      }
+      const options = await optionsRes.json()
 
-      // TODO: Call startAuthentication with options from the server
-      // const credential = await startAuthentication(options)
+      // Step 2: Start WebAuthn authentication (browser passkey prompt)
+      const credential = await startAuthentication(options)
 
-      // TODO: Send credential to /api/auth/login/verify
-      // const verifyRes = await fetch("/api/auth/login/verify", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(credential),
-      // })
-      // if (!verifyRes.ok) throw new Error("Verification failed")
-      // router.push("/dashboard")
+      // Step 3: Verify credential with server
+      const verifyRes = await fetch("/api/auth/login?step=verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credential),
+      })
+      if (!verifyRes.ok) {
+        const err = await verifyRes.json().catch(() => ({}))
+        throw new Error(err.error || "Verification failed")
+      }
 
-      // Suppress unused import warning until API routes are built
-      void startAuthentication
-      throw new Error("Auth API routes not yet implemented")
+      // Success — redirect to dashboard
+      window.location.href = "/dashboard"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed")
     } finally {

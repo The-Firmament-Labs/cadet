@@ -20,29 +20,34 @@ export default function SignUpPage() {
     setError(null)
 
     try {
-      // TODO: Fetch registration options from /api/auth/register/options
-      // const optionsRes = await fetch("/api/auth/register/options", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ displayName, email }),
-      // })
-      // const options = await optionsRes.json()
+      // Step 1: Get registration options
+      const optionsRes = await fetch("/api/auth/register?step=options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: email.split("@")[0] || "operator", email }),
+      })
+      if (!optionsRes.ok) {
+        const err = await optionsRes.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to get registration options")
+      }
+      const options = await optionsRes.json()
 
-      // TODO: Call startRegistration with options from the server
-      // const credential = await startRegistration(options)
+      // Step 2: Create passkey (browser prompt)
+      const credential = await startRegistration(options)
 
-      // TODO: Send credential to /api/auth/register/verify
-      // const verifyRes = await fetch("/api/auth/register/verify", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ credential, displayName, email }),
-      // })
-      // if (!verifyRes.ok) throw new Error("Registration failed")
-      // router.push("/dashboard")
+      // Step 3: Verify with server
+      const verifyRes = await fetch("/api/auth/register?step=verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credential),
+      })
+      if (!verifyRes.ok) {
+        const err = await verifyRes.json().catch(() => ({}))
+        throw new Error(err.error || "Registration failed")
+      }
 
-      // Suppress unused import warning until API routes are built
-      void startRegistration
-      throw new Error("Auth API routes not yet implemented")
+      // Success — redirect to dashboard
+      window.location.href = "/dashboard"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed")
     } finally {
