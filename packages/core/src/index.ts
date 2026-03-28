@@ -7,4 +7,5 @@ export * from "./orchestration";
 export * from "./presence";
 export * from "./prompt";
 export * from "./schedule";
+export * from "./tools";
 export * from "./workflow";

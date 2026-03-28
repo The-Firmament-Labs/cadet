@@ -1,5 +1,6 @@
 import type { AgentManifest } from "./agent-manifest";
 import type { NormalizedJobRequest } from "./job";
+import { getAgentTools, formatToolsForPrompt } from "./tools";
 
 /**
  * Compose the runtime prompt for an agent step.
@@ -48,15 +49,11 @@ export function composeRuntimePrompt(
     ""
   );
 
-  // Context tools — how to get what you need
+  // Tools — what you can call
+  const tools = getAgentTools(manifest);
   sections.push(
-    "# Context Tools",
-    "You have these tools to pull context on demand:",
-    "- query_memory(namespace, query, max_chunks) — search your memory for relevant prior knowledge",
-    "- load_context(path) — load a prompt or knowledge file from .cadet/prompts/",
-    "- get_trajectory(run_id, last_n_steps) — review your recent execution history",
-    "- log_step(entry) — log this step for trajectory training",
-    ""
+    "# Available Tools",
+    formatToolsForPrompt(tools),
   );
 
   // Available prompts — what you can load
