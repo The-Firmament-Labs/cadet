@@ -343,6 +343,126 @@ pub struct AuthChallenge {
     expires_at_micros: i64,
 }
 
+// ── Message Bus ─────────────────────────────────────────────────────
+// Every message (inbound + outbound) flows through SpacetimeDB.
+// 3 extraction layers: Raw → Structured → Embedded
+// All entities tracked with UUIDs.
+
+/// Layer 0: Raw inbound message — exactly as received from any channel.
+#[table(accessor = raw_message, public)]
+pub struct RawMessage {
+    #[primary_key]
+    message_id: String,           // UUID
+    channel: String,              // slack, discord, github, telegram, web, email, system
+    direction: String,            // inbound, outbound
+    sender_entity_id: String,     // UUID → MessageEntity
+    receiver_entity_id: Option<String>, // UUID → MessageEntity (None for broadcasts)
+    thread_id: Option<String>,    // FK → ThreadRecord (if threaded)
+    run_id: Option<String>,       // FK → WorkflowRun (if agent-initiated)
+    raw_payload: String,          // Original payload (JSON string)
+    content_text: String,         // Extracted plain text
+    content_type: String,         // text, markdown, html, card, attachment
+    platform_message_id: Option<String>, // Platform-native ID (slack ts, github comment id)
+    platform_thread_id: Option<String>,  // Platform-native thread ID
+    status: String,               // received, processing, processed, delivered, failed
+    created_at_micros: i64,
+    processed_at_micros: Option<i64>,
+}
+
+/// Layer 1: Structured extraction — parsed entities, intents, and metadata.
+#[table(accessor = message_extraction, public)]
+pub struct MessageExtraction {
+    #[primary_key]
+    extraction_id: String,        // UUID
+    message_id: String,           // FK → RawMessage
+    extraction_type: String,      // intent, entity, sentiment, summary, action_item, reference
+    label: String,                // The extracted label (e.g., "deploy_request", "person:dex", "positive")
+    value: String,                // Extracted value/text span
+    confidence: f64,              // 0.0–1.0 confidence score
+    metadata_json: String,        // Additional structured data
+    created_at_micros: i64,
+}
+
+/// Layer 2: Entity resolution — unique identities across all channels.
+#[table(accessor = message_entity, public)]
+pub struct MessageEntity {
+    #[primary_key]
+    entity_id: String,            // UUID
+    entity_type: String,          // user, bot, agent, channel, org, system
+    display_name: String,
+    // Platform-specific identifiers
+    slack_user_id: Option<String>,
+    discord_user_id: Option<String>,
+    github_username: Option<String>,
+    telegram_user_id: Option<String>,
+    email_address: Option<String>,
+    operator_id: Option<String>,  // FK → OperatorAccount (if linked)
+    agent_id: Option<String>,     // FK → AgentRecord (if an agent)
+    metadata_json: String,
+    created_at_micros: i64,
+    updated_at_micros: i64,
+}
+
+/// Layer 3: Embedded message — vector representation for semantic search.
+#[table(accessor = message_embedding, public)]
+pub struct MessageEmbeddingRecord {
+    #[primary_key]
+    embedding_id: String,         // UUID
+    message_id: String,           // FK → RawMessage
+    extraction_id: Option<String>, // FK → MessageExtraction (if embedding an extraction)
+    entity_id: Option<String>,    // FK → MessageEntity (if embedding entity context)
+    model: String,                // Embedding model used
+    dimensions: u32,
+    vector_json: String,          // Serialized float array
+    content_hash: String,         // For dedup
+    created_at_micros: i64,
+}
+
+/// Cross-channel conversation mapping — links messages across platforms.
+#[table(accessor = conversation_link, public)]
+pub struct ConversationLink {
+    #[primary_key]
+    link_id: String,              // UUID
+    conversation_id: String,      // Shared conversation UUID across channels
+    message_id: String,           // FK → RawMessage
+    thread_id: Option<String>,    // FK → ThreadRecord
+    channel: String,
+    platform_thread_id: Option<String>,
+    created_at_micros: i64,
+}
+
+/// Message routing rule — determines which agent handles which messages.
+#[table(accessor = message_route, public)]
+pub struct MessageRoute {
+    #[primary_key]
+    route_id: String,             // UUID
+    channel: String,              // * for all, or specific channel
+    entity_type: String,          // * for all, or specific entity type
+    keyword_pattern: String,      // Regex or keyword list (JSON array)
+    target_agent_id: String,      // FK → AgentRecord
+    priority: u32,
+    enabled: bool,
+    created_at_micros: i64,
+}
+
+/// Trajectory log — persisted to SpacetimeDB for training data.
+#[table(accessor = trajectory_log, public)]
+pub struct TrajectoryLog {
+    #[primary_key]
+    trajectory_id: String,        // UUID
+    run_id: String,               // FK → WorkflowRun
+    step_id: String,              // FK → WorkflowStep
+    agent_id: String,
+    stage: String,
+    instruction: String,
+    context_toon: String,         // TOON-encoded context that was assembled
+    output: String,               // Agent's response
+    tool_calls_json: String,      // JSON array of tool calls
+    success: bool,
+    duration_ms: u64,
+    created_at_micros: i64,
+}
+
 fn validate_identifier(value: String, field: &str) -> Result<String, String> {
     let trimmed = value.trim().to_string();
     if trimmed.is_empty() {
@@ -1887,5 +2007,264 @@ pub fn delete_expired_challenges(
     for id in expired {
         ctx.db.auth_challenge().challenge_id().delete(&id);
     }
+    Ok(())
+}
+
+// ── Message Bus ─────────────────────────────────────────────────────
+
+#[reducer]
+pub fn ingest_raw_message(
+    ctx: &ReducerContext,
+    message_id: String,
+    channel: String,
+    direction: String,
+    sender_entity_id: String,
+    receiver_entity_id: Option<String>,
+    thread_id: Option<String>,
+    run_id: Option<String>,
+    raw_payload: String,
+    content_text: String,
+    content_type: String,
+    platform_message_id: Option<String>,
+    platform_thread_id: Option<String>,
+) -> Result<(), String> {
+    let message_id = validate_identifier(message_id, "message_id")?;
+    let channel = validate_identifier(channel, "channel")?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    ctx.db.raw_message().insert(RawMessage {
+        message_id,
+        channel,
+        direction,
+        sender_entity_id,
+        receiver_entity_id,
+        thread_id,
+        run_id,
+        raw_payload,
+        content_text,
+        content_type,
+        platform_message_id,
+        platform_thread_id,
+        status: "received".to_string(),
+        created_at_micros: now,
+        processed_at_micros: None,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn add_message_extraction(
+    ctx: &ReducerContext,
+    extraction_id: String,
+    message_id: String,
+    extraction_type: String,
+    label: String,
+    value: String,
+    confidence: f64,
+    metadata_json: String,
+) -> Result<(), String> {
+    let extraction_id = validate_identifier(extraction_id, "extraction_id")?;
+    let message_id = validate_identifier(message_id, "message_id")?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    ctx.db.message_extraction().insert(MessageExtraction {
+        extraction_id,
+        message_id,
+        extraction_type,
+        label,
+        value,
+        confidence,
+        metadata_json,
+        created_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn upsert_message_entity(
+    ctx: &ReducerContext,
+    entity_id: String,
+    entity_type: String,
+    display_name: String,
+    slack_user_id: Option<String>,
+    discord_user_id: Option<String>,
+    github_username: Option<String>,
+    telegram_user_id: Option<String>,
+    email_address: Option<String>,
+    operator_id: Option<String>,
+    agent_id: Option<String>,
+    metadata_json: String,
+) -> Result<(), String> {
+    let entity_id = validate_identifier(entity_id, "entity_id")?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    let row = MessageEntity {
+        entity_id: entity_id.clone(),
+        entity_type,
+        display_name,
+        slack_user_id,
+        discord_user_id,
+        github_username,
+        telegram_user_id,
+        email_address,
+        operator_id,
+        agent_id,
+        metadata_json,
+        created_at_micros: now,
+        updated_at_micros: now,
+    };
+
+    if ctx.db.message_entity().entity_id().find(&entity_id).is_some() {
+        ctx.db.message_entity().entity_id().update(MessageEntity {
+            updated_at_micros: now,
+            ..row
+        });
+    } else {
+        ctx.db.message_entity().insert(row);
+    }
+    Ok(())
+}
+
+#[reducer]
+pub fn embed_message(
+    ctx: &ReducerContext,
+    embedding_id: String,
+    message_id: String,
+    extraction_id: Option<String>,
+    entity_id: Option<String>,
+    model: String,
+    dimensions: u32,
+    vector_json: String,
+    content_hash: String,
+) -> Result<(), String> {
+    let embedding_id = validate_identifier(embedding_id, "embedding_id")?;
+    let message_id = validate_identifier(message_id, "message_id")?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    ctx.db.message_embedding().insert(MessageEmbeddingRecord {
+        embedding_id,
+        message_id,
+        extraction_id,
+        entity_id,
+        model,
+        dimensions,
+        vector_json,
+        content_hash,
+        created_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn link_conversation(
+    ctx: &ReducerContext,
+    link_id: String,
+    conversation_id: String,
+    message_id: String,
+    thread_id: Option<String>,
+    channel: String,
+    platform_thread_id: Option<String>,
+) -> Result<(), String> {
+    let link_id = validate_identifier(link_id, "link_id")?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    ctx.db.conversation_link().insert(ConversationLink {
+        link_id,
+        conversation_id,
+        message_id,
+        thread_id,
+        channel,
+        platform_thread_id,
+        created_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn set_message_route(
+    ctx: &ReducerContext,
+    route_id: String,
+    channel: String,
+    entity_type: String,
+    keyword_pattern: String,
+    target_agent_id: String,
+    priority: u32,
+    enabled: bool,
+) -> Result<(), String> {
+    let route_id = validate_identifier(route_id, "route_id")?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    let row = MessageRoute {
+        route_id: route_id.clone(),
+        channel,
+        entity_type,
+        keyword_pattern,
+        target_agent_id,
+        priority,
+        enabled,
+        created_at_micros: now,
+    };
+
+    if ctx.db.message_route().route_id().find(&route_id).is_some() {
+        ctx.db.message_route().route_id().update(row);
+    } else {
+        ctx.db.message_route().insert(row);
+    }
+    Ok(())
+}
+
+#[reducer]
+pub fn update_message_status(
+    ctx: &ReducerContext,
+    message_id: String,
+    status: String,
+) -> Result<(), String> {
+    let message_id = validate_identifier(message_id, "message_id")?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    if let Some(msg) = ctx.db.raw_message().message_id().find(&message_id) {
+        ctx.db.raw_message().message_id().update(RawMessage {
+            status,
+            processed_at_micros: Some(now),
+            ..msg
+        });
+        Ok(())
+    } else {
+        Err(format!("Message {message_id} not found"))
+    }
+}
+
+#[reducer]
+pub fn log_trajectory(
+    ctx: &ReducerContext,
+    trajectory_id: String,
+    run_id: String,
+    step_id: String,
+    agent_id: String,
+    stage: String,
+    instruction: String,
+    context_toon: String,
+    output: String,
+    tool_calls_json: String,
+    success: bool,
+    duration_ms: u64,
+) -> Result<(), String> {
+    let trajectory_id = validate_identifier(trajectory_id, "trajectory_id")?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    ctx.db.trajectory_log().insert(TrajectoryLog {
+        trajectory_id,
+        run_id,
+        step_id,
+        agent_id,
+        stage,
+        instruction,
+        context_toon,
+        output,
+        tool_calls_json,
+        success,
+        duration_ms,
+        created_at_micros: now,
+    });
     Ok(())
 }
