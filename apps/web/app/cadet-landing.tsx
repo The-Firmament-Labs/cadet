@@ -266,14 +266,17 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
           </p>
 
           <div className="posterActions">
-            <a className="primaryAction" href="#flight-stack">
-              Access Archive →
+            <a className="primaryAction" href="/sign-up">
+              Get Started →
+            </a>
+            <a className="secondaryAction" href="/sign-in">
+              Sign In
+            </a>
+            <a className="secondaryAction" href="/dashboard">
+              Dashboard
             </a>
             <a className="secondaryAction" href="/docs">
-              View Telemetry
-            </a>
-            <a className="secondaryAction" href="#mission-log">
-              Mission Log
+              Docs
             </a>
           </div>
 
