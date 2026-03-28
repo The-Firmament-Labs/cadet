@@ -1826,7 +1826,7 @@ pub fn register_operator(
 
     ctx.db.operator_account().insert(OperatorAccount {
         operator_id: operator_id.clone(),
-        identity: ctx.sender,
+        identity: ctx.sender(),
         display_name,
         email,
         role: "operator".to_string(),
@@ -1878,7 +1878,7 @@ pub fn delete_auth_challenge(
 pub fn delete_expired_challenges(
     ctx: &ReducerContext,
 ) -> Result<(), String> {
-    let now_micros = ctx.timestamp.to_duration_since_unix_epoch().as_micros() as i64;
+    let now_micros = ctx.timestamp.to_micros_since_unix_epoch();
     let expired: Vec<String> = ctx.db.auth_challenge()
         .iter()
         .filter(|c| c.expires_at_micros < now_micros)
