@@ -319,6 +319,7 @@ pub struct OperatorAccount {
     display_name: String,
     email: String,
     role: String,
+    ssh_public_key: Option<String>,
     created_at: Timestamp,
     updated_at: Timestamp,
 }
@@ -1939,6 +1940,7 @@ pub fn register_operator(
         display_name,
         email,
         role: "operator".to_string(),
+        ssh_public_key: None,
         created_at: ctx.timestamp,
         updated_at: ctx.timestamp,
     });
@@ -1953,6 +1955,27 @@ pub fn register_operator(
     });
 
     Ok(())
+}
+
+#[reducer]
+pub fn store_operator_ssh_key(
+    ctx: &ReducerContext,
+    operator_id: String,
+    ssh_public_key: String,
+) -> Result<(), String> {
+    let operator_id = validate_identifier(operator_id, "operator_id")?;
+    let ssh_public_key = validate_text(ssh_public_key, "ssh_public_key")?;
+
+    if let Some(op) = ctx.db.operator_account().operator_id().find(operator_id) {
+        ctx.db.operator_account().operator_id().update(OperatorAccount {
+            ssh_public_key: Some(ssh_public_key),
+            updated_at: ctx.timestamp,
+            ..op
+        });
+        Ok(())
+    } else {
+        Err("Operator not found".to_string())
+    }
 }
 
 #[reducer]

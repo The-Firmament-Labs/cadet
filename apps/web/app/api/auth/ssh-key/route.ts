@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateKeyPairSync } from "node:crypto";
 import { requireOperatorApiSession } from "@/lib/auth";
+import { createControlClient } from "@/lib/server";
 
 /**
  * POST /api/auth/ssh-key — Generate an ed25519 SSH key pair for the operator.
@@ -25,8 +26,13 @@ export async function POST(request: Request) {
 
     const sshPublicKey = `ssh-ed25519 ${publicKeyBase64} cadet-operator-${operatorId}`;
 
-    // TODO: Store sshPublicKey in SpacetimeDB operator record
-    // await storeOperatorSshKey(operatorId, sshPublicKey);
+    // Store public key in SpacetimeDB operator record
+    try {
+      const client = createControlClient();
+      await client.callReducer("store_operator_ssh_key", [operatorId, sshPublicKey]);
+    } catch {
+      // Non-fatal: key still returned even if storage fails
+    }
 
     return NextResponse.json({
       ok: true,
