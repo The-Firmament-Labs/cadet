@@ -2,6 +2,8 @@ import path from "node:path";
 
 import {
   composeRuntimePrompt,
+  parseControlPlaneTarget,
+  parseExecutionTarget,
   normalizeJobRequest,
   type AgentManifest,
   type JobRequest
@@ -65,6 +67,8 @@ export async function runCli(
   io: CommandIO = defaultIO,
   deps: CommandDependencies = {}
 ): Promise<number> {
+  const localControlPlaneTarget = parseControlPlaneTarget("local");
+  const vercelEdgeExecutionTarget = parseExecutionTarget("vercel-edge");
   const loadDirectory = deps.loadAgentManifestDirectory ?? loadAgentManifestDirectory;
   const loadFile = deps.loadAgentManifestFile ?? loadAgentManifestFile;
   const fetchImpl = deps.fetchImpl ?? fetch;
@@ -72,11 +76,11 @@ export async function runCli(
   const [command, subcommand, ...rest] = argv;
 
   const resolveDispatchPath = (manifest: AgentManifest): string => {
-    if (manifest.deployment.controlPlane === "local") {
+    if (manifest.deployment.controlPlane === localControlPlaneTarget) {
       return "/agents/local/dispatch";
     }
 
-    if (manifest.deployment.execution === "vercel-edge") {
+    if (manifest.deployment.execution === vercelEdgeExecutionTarget) {
       return "/api/agents/edge/dispatch";
     }
 

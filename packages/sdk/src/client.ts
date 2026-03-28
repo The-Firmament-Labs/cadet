@@ -203,12 +203,12 @@ export class StarbridgeControlClient {
 
   public async ingestMessage(payload: {
     threadId: string;
-    channel: "web" | "slack" | "github" | "system";
+    channel: MessageEventRecord["channel"];
     channelThreadId: string;
     title: string;
     eventId: string;
-    runId?: string | null;
-    direction: "inbound" | "outbound" | "system";
+    runId?: MessageEventRecord["runId"];
+    direction: MessageEventRecord["direction"];
     actor: string;
     content: string;
     metadata?: Record<string, unknown>;
