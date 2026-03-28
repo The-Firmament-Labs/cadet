@@ -1,0 +1,47 @@
+# Cadet Desktop Configuration
+# This file controls the floating context widget and system-wide integration.
+
+[widget]
+# Enable the floating context widget (Ctrl+Shift+Space to trigger)
+enabled = true
+
+# Default agent for context actions
+default_agent = "saturn"
+
+# Research agent for deep exploration
+research_agent = "voyager"
+
+# Widget appearance: "glass" | "solid" | "minimal"
+style = "glass"
+
+# Auto-dismiss after sending an action (seconds, 0 = stay open)
+auto_dismiss_seconds = 0
+
+# Quick actions shown in the widget
+[[widget.actions]]
+id = "research"
+label = "Research"
+icon = "🔍"
+description = "Deep dive into this topic"
+agent = "voyager"
+
+[[widget.actions]]
+id = "followup"
+label = "Follow Up"
+icon = "💬"
+description = "Ask a follow-up question"
+agent = "saturn"
+
+[[widget.actions]]
+id = "enhance"
+label = "Enhance Prompt"
+icon = "✨"
+description = "Improve and expand this text"
+agent = "voyager"
+
+[[widget.actions]]
+id = "summarize"
+label = "Summarize"
+icon = "📋"
+description = "Condense into key points"
+agent = "saturn"

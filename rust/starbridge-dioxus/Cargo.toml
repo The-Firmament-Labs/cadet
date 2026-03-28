@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+arboard = { version = "3.4", optional = true }
 dioxus = { version = "0.7.3", default-features = false, features = ["minimal", "ssr"] }
 dioxus-desktop = { version = "0.7.3", optional = true }
 serde = { version = "1.0", features = ["derive"] }
@@ -13,10 +14,11 @@ spacetimedb-sdk = "2.1.0"
 starbridge-control-client = { path = "../starbridge-control-client" }
 starbridge-core = { path = "../starbridge-core" }
 tokio = { version = "1.48", features = ["rt", "sync"] }
+toml = { version = "0.8", optional = true }
 
 [features]
 default = []
-desktop-ui = ["dioxus/desktop", "dep:dioxus-desktop"]
+desktop-ui = ["dioxus/desktop", "dep:dioxus-desktop", "dep:arboard", "dep:toml"]
 
 [[bin]]
 name = "starbridge-dioxus-ui"

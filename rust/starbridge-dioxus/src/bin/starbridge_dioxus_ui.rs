@@ -13,8 +13,9 @@ use dioxus_desktop::{
 };
 use starbridge_core::MissionControlSnapshot;
 use starbridge_dioxus::{
-    load_live_snapshot, sample_snapshot, subscribe_live_snapshots, LiveSnapshotOptions,
-    MenuAction, MissionControlApp, OperatorRuntimeContext,
+    load_live_snapshot, sample_snapshot, subscribe_live_snapshots, CadetConfig, LiveSnapshotOptions,
+    MenuAction, MissionControlApp, OperatorRuntimeContext, WidgetBridge,
+    widget::desktop::{FloatingWidget, widget_window_config},
 };
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
@@ -275,6 +276,45 @@ fn app() -> Element {
                 signal.set(Some(id.clone()));
             }
         });
+    }
+
+    // Widget bridge + hotkey (Ctrl+Shift+Space)
+    let cadet_config = use_hook(CadetConfig::load);
+    let widget_bridge = use_hook(WidgetBridge::new);
+    let mut widget_spawned = use_signal(|| false);
+
+    if cadet_config.widget.enabled {
+        let bridge_for_hotkey = widget_bridge.clone();
+        let config_for_widget = cadet_config.widget.clone();
+        let _ = use_global_shortcut("Ctrl+Shift+Space", move |state| {
+            if state == HotKeyState::Pressed {
+                // Read clipboard
+                if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                    if let Ok(text) = clipboard.get_text() {
+                        if !text.trim().is_empty() {
+                            bridge_for_hotkey.set_context(text);
+                        }
+                    }
+                }
+            }
+        });
+
+        // Spawn the floating widget window once (hidden by default, shown on hotkey)
+        if !widget_spawned() {
+            let bridge_for_window = widget_bridge.clone();
+            let config_for_window = config_for_widget.clone();
+            spawn(async move {
+                let dom = VirtualDom::new_with_props(
+                    FloatingWidget,
+                    starbridge_dioxus::widget::desktop::FloatingWidgetProps {
+                        bridge: bridge_for_window,
+                        config: config_for_window,
+                    },
+                );
+                let _ctx = dioxus_desktop::window().new_window(dom, widget_window_config()).await;
+            });
+            widget_spawned.set(true);
+        }
     }
 
     let mut snapshot = use_signal(|| bootstrap.snapshot.clone());
