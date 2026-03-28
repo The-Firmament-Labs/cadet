@@ -47,6 +47,7 @@ export async function generateRegistration(
       transports: ["internal" as AuthenticatorTransportFuture],
     })),
     authenticatorSelection: {
+      authenticatorAttachment: "platform",
       residentKey: "preferred",
       userVerification: "preferred",
     },
