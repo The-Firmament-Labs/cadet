@@ -378,6 +378,7 @@ fn app() -> Element {
     let clipboard_history = use_hook(|| ClipboardHistory::new(100));
     let mut command_center_spawned = use_signal(|| false);
     let mut show_splash = use_signal(|| true);
+    let spawned_flags = use_signal(|| std::collections::HashSet::<String>::new());
 
     // Global keyboard shortcuts — each must be its own hook call (no loops!)
     // Dioxus hooks must be called unconditionally in the same order every render.
@@ -453,9 +454,6 @@ fn app() -> Element {
 
         // On-demand widget spawning: watch widget_toggles and spawn windows
         // when a widget is switched on for the first time.
-        // Each widget tracks its own "has been spawned" flag.
-        let spawned_flags = use_signal(|| std::collections::HashSet::<String>::new());
-
         {
             let bridge_ref = widget_bridge.clone();
             let h = clipboard_history.clone();
