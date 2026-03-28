@@ -4,6 +4,7 @@ use std::{fmt, str::FromStr};
 use tokio::sync::broadcast;
 
 pub mod context_engine;
+pub mod subscriptions;
 
 macro_rules! string_enum {
     (pub enum $name:ident { $($variant:ident => $value:literal),+ $(,)? }) => {

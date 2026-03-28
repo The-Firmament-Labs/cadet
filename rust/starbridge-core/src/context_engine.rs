@@ -215,6 +215,195 @@ pub const AGENT_CONTEXT_TOOLS: &[&str] = &[
     "log_step",
 ];
 
+// ── TOON Prompt Builder ─────────────────────────────────────────────
+// Pre-fetched data bundle for building a complete agent prompt.
+// The caller queries SpacetimeDB and passes this in — context_engine
+// stays pure (no I/O). build_prompt() encodes and fits to token budget.
+
+/// Pre-fetched data for building a TOON-encoded agent prompt.
+/// The caller queries SpacetimeDB and assembles this; we just encode.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptData {
+    // Agent identity
+    pub agent_id: String,
+    pub agent_name: String,
+    pub agent_runtime: String,
+    pub namespace: String,
+    pub system_prompt: String,
+
+    // Mission
+    pub run_id: String,
+    pub goal: String,
+    pub priority: String,
+    pub current_stage: String,
+    pub requested_by: String,
+
+    // Sender context
+    pub sender_name: Option<String>,
+    pub sender_channel: Option<String>,
+    pub sender_entity_id: Option<String>,
+
+    // Thread history (most recent messages)
+    pub thread_history: Vec<ThreadMessage>,
+
+    // Memory context (relevant chunks from vector search)
+    pub memory_chunks: Vec<MemoryChunk>,
+
+    // Previous step output for continuity
+    pub previous_step_output: Option<String>,
+
+    // Recent trajectories for self-awareness
+    pub recent_trajectories: Vec<TrajectoryEntry>,
+
+    // Active routes this agent monitors
+    pub active_routes: Vec<ActiveRoute>,
+
+    // Available tools (pre-filtered by manifest permissions)
+    pub tools: Vec<ToolSummary>,
+
+    // Available prompt files the agent can load
+    pub loadable_prompts: Vec<String>,
+
+    // Token budget for the entire prompt
+    pub token_budget: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadMessage {
+    pub sender: String,
+    pub text: String,
+    pub timestamp_micros: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryChunk {
+    pub title: String,
+    pub content: String,
+    pub similarity: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveRoute {
+    pub channel: String,
+    pub filter: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolSummary {
+    pub name: String,
+    pub category: String,
+    pub requires_approval: bool,
+}
+
+/// Build a complete TOON-encoded prompt from pre-fetched data.
+/// Returns the assembled prompt string, fitted to the token budget.
+pub fn build_prompt(data: &PromptData) -> String {
+    let mut fragments: Vec<ContextFragment> = Vec::new();
+
+    // 1. Agent identity (highest priority — always included)
+    let identity = encode_nested("agent", &[
+        ("id", &data.agent_id),
+        ("name", &data.agent_name),
+        ("runtime", &data.agent_runtime),
+        ("namespace", &data.namespace),
+    ]);
+    fragments.push(ContextFragment::new("agent-identity", identity));
+
+    // System prompt as its own fragment
+    if !data.system_prompt.is_empty() {
+        fragments.push(ContextFragment::new("system-prompt", data.system_prompt.clone()));
+    }
+
+    // 2. Mission
+    let mission = encode_nested("mission", &[
+        ("run_id", &data.run_id),
+        ("goal", &data.goal),
+        ("priority", &data.priority),
+        ("stage", &data.current_stage),
+        ("requested_by", &data.requested_by),
+    ]);
+    fragments.push(ContextFragment::new("mission", mission));
+
+    // 3. Sender context (if present)
+    if let Some(ref name) = data.sender_name {
+        let mut fields: Vec<(&str, &str)> = vec![("name", name.as_str())];
+        if let Some(ref ch) = data.sender_channel {
+            fields.push(("channel", ch.as_str()));
+        }
+        if let Some(ref eid) = data.sender_entity_id {
+            fields.push(("entity_id", eid.as_str()));
+        }
+        fragments.push(ContextFragment::new("sender", encode_nested("sender", &fields)));
+    }
+
+    // 4. Thread history as TOON table
+    if !data.thread_history.is_empty() {
+        let rows: Vec<Vec<String>> = data.thread_history.iter().map(|m| {
+            vec![m.sender.clone(), m.text.clone(), m.timestamp_micros.to_string()]
+        }).collect();
+        let table = encode_table("thread_history", &["sender", "text", "ts"], &rows);
+        fragments.push(ContextFragment::new("thread-history", table));
+    }
+
+    // 5. Memory chunks as TOON table
+    if !data.memory_chunks.is_empty() {
+        let rows: Vec<Vec<String>> = data.memory_chunks.iter().map(|c| {
+            vec![c.title.clone(), c.content.clone()]
+        }).collect();
+        let table = encode_table("memory_context", &["title", "content"], &rows);
+        fragments.push(ContextFragment::new("memory-context", table));
+    }
+
+    // 6. Tools as TOON table
+    if !data.tools.is_empty() {
+        let rows: Vec<Vec<String>> = data.tools.iter().map(|t| {
+            let approval = if t.requires_approval { "yes" } else { "no" };
+            vec![t.name.clone(), t.category.clone(), approval.to_string()]
+        }).collect();
+        let table = encode_table("tools", &["name", "category", "approval"], &rows);
+        fragments.push(ContextFragment::new("tools", table));
+    }
+
+    // 7. Previous step output
+    if let Some(ref prev) = data.previous_step_output {
+        let section = encode_nested("previous_step", &[("output", prev.as_str())]);
+        fragments.push(ContextFragment::new("previous-step", section));
+    }
+
+    // 8. Recent trajectories
+    if !data.recent_trajectories.is_empty() {
+        let rows: Vec<Vec<String>> = data.recent_trajectories.iter().map(|t| {
+            vec![
+                t.stage.clone(),
+                if t.success { "ok".to_string() } else { "fail".to_string() },
+                t.duration_ms.to_string(),
+            ]
+        }).collect();
+        let table = encode_table("recent_trajectory", &["stage", "result", "ms"], &rows);
+        fragments.push(ContextFragment::new("trajectories", table));
+    }
+
+    // 9. Active routes
+    if !data.active_routes.is_empty() {
+        let rows: Vec<Vec<String>> = data.active_routes.iter().map(|r| {
+            vec![r.channel.clone(), r.filter.clone()]
+        }).collect();
+        let table = encode_table("active_routes", &["channel", "filter"], &rows);
+        fragments.push(ContextFragment::new("active-routes", table));
+    }
+
+    // 10. Loadable prompts
+    if !data.loadable_prompts.is_empty() {
+        let list = data.loadable_prompts.join(", ");
+        let section = format!("loadable_prompts: {}\n", list);
+        fragments.push(ContextFragment::new("loadable-prompts", section));
+    }
+
+    // Fit to budget and assemble
+    let fitted = fit_to_budget(&fragments, data.token_budget);
+    assemble(&fitted)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,5 +529,138 @@ mod tests {
         assert!(result.contains("agent_id: saturn"));
         assert!(result.contains("tool_calls[1]{tool,success}:"));
         assert!(result.contains("  query_memory,true"));
+    }
+
+    #[test]
+    fn build_prompt_basic() {
+        let data = PromptData {
+            agent_id: "saturn".into(),
+            agent_name: "Saturn".into(),
+            agent_runtime: "edge-function".into(),
+            namespace: "operations".into(),
+            system_prompt: "You are an operations agent.".into(),
+            run_id: "run_01".into(),
+            goal: "Triage the deploy incident".into(),
+            priority: "high".into(),
+            current_stage: "verify".into(),
+            requested_by: "dex".into(),
+            sender_name: Some("Dex".into()),
+            sender_channel: Some("slack".into()),
+            sender_entity_id: Some("ent_abc".into()),
+            thread_history: vec![
+                ThreadMessage { sender: "dex".into(), text: "Deploy broken".into(), timestamp_micros: 1711612800000000 },
+                ThreadMessage { sender: "saturn".into(), text: "Checking now".into(), timestamp_micros: 1711612860000000 },
+            ],
+            memory_chunks: vec![
+                MemoryChunk { title: "Deploy checklist".into(), content: "Check health endpoint".into(), similarity: 0.92 },
+            ],
+            previous_step_output: Some("Health check returning 503".into()),
+            recent_trajectories: vec![],
+            active_routes: vec![
+                ActiveRoute { channel: "slack".into(), filter: "ops-alerts".into() },
+            ],
+            tools: vec![
+                ToolSummary { name: "vercel_logs".into(), category: "platform".into(), requires_approval: false },
+                ToolSummary { name: "vercel_deploy".into(), category: "platform".into(), requires_approval: true },
+            ],
+            loadable_prompts: vec!["system/core.md".into(), "agents/saturn.md".into()],
+            token_budget: 4000,
+        };
+
+        let result = build_prompt(&data);
+
+        // Verify key sections are present
+        assert!(result.contains("agent:"));
+        assert!(result.contains("id: saturn"));
+        assert!(result.contains("name: Saturn"));
+        assert!(result.contains("mission:"));
+        assert!(result.contains("goal: Triage the deploy incident"));
+        assert!(result.contains("sender:"));
+        assert!(result.contains("thread_history[2]{sender,text,ts}:"));
+        assert!(result.contains("memory_context[1]{title,content}:"));
+        assert!(result.contains("tools[2]{name,category,approval}:"));
+        assert!(result.contains("previous_step:"));
+        assert!(result.contains("active_routes[1]{channel,filter}:"));
+        assert!(result.contains("loadable_prompts:"));
+    }
+
+    #[test]
+    fn build_prompt_minimal() {
+        let data = PromptData {
+            agent_id: "voyager".into(),
+            agent_name: "Voyager".into(),
+            agent_runtime: "rust-core".into(),
+            namespace: "research".into(),
+            system_prompt: String::new(),
+            run_id: "run_02".into(),
+            goal: "Research TOON format".into(),
+            priority: "normal".into(),
+            current_stage: "gather".into(),
+            requested_by: "scheduler".into(),
+            sender_name: None,
+            sender_channel: None,
+            sender_entity_id: None,
+            thread_history: vec![],
+            memory_chunks: vec![],
+            previous_step_output: None,
+            recent_trajectories: vec![],
+            active_routes: vec![],
+            tools: vec![],
+            loadable_prompts: vec![],
+            token_budget: 2000,
+        };
+
+        let result = build_prompt(&data);
+
+        // Identity and mission always present
+        assert!(result.contains("agent:"));
+        assert!(result.contains("id: voyager"));
+        assert!(result.contains("mission:"));
+        assert!(result.contains("goal: Research TOON format"));
+
+        // Optional sections absent
+        assert!(!result.contains("sender:"));
+        assert!(!result.contains("thread_history"));
+        assert!(!result.contains("memory_context"));
+    }
+
+    #[test]
+    fn build_prompt_respects_token_budget() {
+        let big_memory = (0..50).map(|i| MemoryChunk {
+            title: format!("Memory chunk {}", i),
+            content: format!("This is a very long piece of content for chunk {} that takes up many tokens in the prompt and should eventually be cut by the budget", i),
+            similarity: 0.5,
+        }).collect();
+
+        let data = PromptData {
+            agent_id: "saturn".into(),
+            agent_name: "Saturn".into(),
+            agent_runtime: "edge-function".into(),
+            namespace: "operations".into(),
+            system_prompt: "System prompt.".into(),
+            run_id: "run_03".into(),
+            goal: "Test budget".into(),
+            priority: "low".into(),
+            current_stage: "act".into(),
+            requested_by: "test".into(),
+            sender_name: None,
+            sender_channel: None,
+            sender_entity_id: None,
+            thread_history: vec![],
+            memory_chunks: big_memory,
+            previous_step_output: None,
+            recent_trajectories: vec![],
+            active_routes: vec![],
+            tools: vec![],
+            loadable_prompts: vec![],
+            token_budget: 200, // Very tight budget
+        };
+
+        let result = build_prompt(&data);
+        let tokens = estimate_tokens(&result);
+        assert!(tokens <= 200, "Prompt exceeded budget: {} tokens", tokens);
+        // Identity and mission should still be there (highest priority)
+        assert!(result.contains("agent:"));
+        assert!(result.contains("mission:"));
     }
 }
