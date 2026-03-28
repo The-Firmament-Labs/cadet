@@ -22,6 +22,22 @@ pub fn SurfacesView(snapshot: MissionControlSnapshot) -> Element {
 
     rsx! {
         div { class: "{page_class}",
+            // Mode toggle lives OUTSIDE both panels so it's always visible
+            div { class: "surfaces-toolbar",
+                div { class: "segmented",
+                    button {
+                        class: segmented_button_class(focus() == SurfaceFocus::Split),
+                        onclick: move |_| focus.set(SurfaceFocus::Split),
+                        "Split"
+                    }
+                    button {
+                        class: segmented_button_class(focus() == SurfaceFocus::Preview),
+                        onclick: move |_| focus.set(SurfaceFocus::Preview),
+                        "Preview"
+                    }
+                }
+            }
+
             if focus() == SurfaceFocus::Split {
                 section { class: "panel",
                     div { class: "panel-head",
@@ -29,18 +45,6 @@ pub fn SurfacesView(snapshot: MissionControlSnapshot) -> Element {
                             p { class: "section-eyebrow", "Schema editor" }
                             h3 { class: "card-title", "JSON contract" }
                             p { class: "row-copy", "Edit the constrained surface spec that drives native operator widgets." }
-                        }
-                        div { class: "segmented",
-                            button {
-                                class: segmented_button_class(focus() == SurfaceFocus::Split),
-                                onclick: move |_| focus.set(SurfaceFocus::Split),
-                                "Split"
-                            }
-                            button {
-                                class: segmented_button_class(focus() == SurfaceFocus::Preview),
-                                onclick: move |_| focus.set(SurfaceFocus::Preview),
-                                "Preview"
-                            }
                         }
                     }
                     div { class: "editor-body",

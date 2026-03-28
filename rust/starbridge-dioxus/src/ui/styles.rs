@@ -792,6 +792,13 @@ pub const APP_STYLES: &str = r#"
         grid-template-columns: minmax(0, 1fr) 280px;
     }
 
+    .surfaces-toolbar {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: flex-end;
+        padding: 8px 12px 0;
+    }
+
     /* --- Memory grid --- */
     .page-grid-memory {
         grid-template-columns: 260px minmax(0, 1fr) 300px;

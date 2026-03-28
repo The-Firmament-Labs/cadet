@@ -6,6 +6,56 @@ use starbridge_core::{
 
 use crate::ui::models::UiNodeSpec;
 
+/// Format a microsecond Unix timestamp as a human-readable relative or absolute time.
+pub fn format_timestamp_micros(micros: i64) -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now_micros = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_micros() as i64)
+        .unwrap_or(micros);
+    let delta_secs = (now_micros - micros) / 1_000_000;
+    if delta_secs < 0 {
+        return "just now".to_string();
+    }
+    match delta_secs {
+        0..=59 => format!("{}s ago", delta_secs),
+        60..=3599 => format!("{}m ago", delta_secs / 60),
+        3600..=86399 => format!("{}h ago", delta_secs / 3600),
+        _ => {
+            // Absolute UTC: "Mar 28 10:30"
+            let total_secs = micros / 1_000_000;
+            let days_since_epoch = total_secs / 86400;
+            let time_of_day = total_secs % 86400;
+            let hours = time_of_day / 3600;
+            let minutes = (time_of_day % 3600) / 60;
+
+            // Approximate month/day from days since epoch
+            let (_year, month, day) = days_to_ymd(days_since_epoch);
+            let month_name = match month {
+                1 => "Jan", 2 => "Feb", 3 => "Mar", 4 => "Apr",
+                5 => "May", 6 => "Jun", 7 => "Jul", 8 => "Aug",
+                9 => "Sep", 10 => "Oct", 11 => "Nov", _ => "Dec",
+            };
+            format!("{} {} {:02}:{:02}", month_name, day, hours, minutes)
+        }
+    }
+}
+
+fn days_to_ymd(days_since_epoch: i64) -> (i64, u32, u32) {
+    // Civil calendar conversion from days since 1970-01-01
+    let z = days_since_epoch + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let doe = (z - era * 146097) as u32;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if m <= 2 { y + 1 } else { y };
+    (year, m, d)
+}
+
 #[component]
 pub fn SidebarNavButton(
     icon: String,
@@ -108,7 +158,7 @@ pub fn ThreadListItem(
                 span { class: "pill pill-subtle", "{thread.channel}" }
             }
             p { class: "list-item-meta", "{thread.channel_thread_id}" }
-            p { class: "list-item-copy", "Latest message micros {thread.latest_message_at_micros}" }
+            p { class: "list-item-copy", "{format_timestamp_micros(thread.latest_message_at_micros)}" }
         }
     }
 }

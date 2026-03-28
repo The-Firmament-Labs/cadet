@@ -27,6 +27,10 @@ pub fn render_preview(snapshot: MissionControlSnapshot) -> String {
     })
 }
 
+/// Menu action signal provided by the desktop binary for cross-component navigation.
+#[derive(Clone, Debug)]
+pub struct MenuAction(pub Signal<Option<String>>);
+
 #[component]
 pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
     let metrics = queue_metrics(&snapshot);
@@ -34,6 +38,24 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
     let mut page = use_signal(|| WorkspacePage::Overview);
     let mut sidebar_expanded = use_signal(|| false);
     let mut show_command_palette = use_signal(|| false);
+
+    // Consume menu actions from the desktop shell (if running as desktop app)
+    if let Some(menu_ctx) = try_use_context::<MenuAction>() {
+        if let Some(action) = (menu_ctx.0)() {
+            let mut signal = menu_ctx.0;
+            signal.set(None);
+            match action.as_str() {
+                "view-overview" => page.set(WorkspacePage::Overview),
+                "view-conversations" => page.set(WorkspacePage::Conversations),
+                "view-workflow" => page.set(WorkspacePage::Workflow),
+                "view-surfaces" => page.set(WorkspacePage::Surfaces),
+                "view-memory" => page.set(WorkspacePage::Memory),
+                "toggle-sidebar" => sidebar_expanded.set(!sidebar_expanded()),
+                "toggle-palette" => show_command_palette.set(!show_command_palette()),
+                _ => {}
+            }
+        }
+    }
 
     let sidebar_class = if sidebar_expanded() {
         "sidebar sidebar-expanded"
@@ -53,6 +75,7 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                     show_command_palette.set(false);
                 },
                 on_close: move |_| show_command_palette.set(false),
+                show: show_command_palette,
             }
         }
 
@@ -161,8 +184,10 @@ fn CommandPalette(
     current_page: WorkspacePage,
     on_navigate: EventHandler<WorkspacePage>,
     on_close: EventHandler<MouseEvent>,
+    mut show: Signal<bool>,
 ) -> Element {
-    let nav_items: &[(WorkspacePage, &str, &str)] = &[
+    let mut query = use_signal(String::new);
+    let nav_items: Vec<(WorkspacePage, &str, &str)> = vec![
         (WorkspacePage::Overview,      "⊞", "Overview"),
         (WorkspacePage::Conversations, "💬", "Conversations"),
         (WorkspacePage::Workflow,      "▶", "Workflow Studio"),
@@ -170,22 +195,35 @@ fn CommandPalette(
         (WorkspacePage::Memory,        "🧠", "Memory"),
     ];
 
+    let q = query().to_lowercase();
+    let filtered: Vec<_> = nav_items
+        .iter()
+        .filter(|(_, _, label)| q.is_empty() || label.to_lowercase().contains(&q))
+        .cloned()
+        .collect();
+
     rsx! {
         div {
             class: "command-palette",
             onclick: move |event| on_close.call(event),
+            onkeydown: move |event| {
+                if event.key() == Key::Escape {
+                    show.set(false);
+                }
+            },
             div {
                 class: "command-palette-panel",
-                // Stop click propagation so clicks inside the panel don't close it
                 onclick: move |event| event.stop_propagation(),
                 input {
                     class: "command-palette-input",
                     r#type: "text",
                     placeholder: "Navigate to…",
                     autofocus: true,
+                    value: query(),
+                    oninput: move |event| query.set(event.value()),
                 }
                 ul { class: "command-palette-list",
-                    for (target_page, icon, label) in nav_items.iter().cloned() {
+                    for (target_page, icon, label) in filtered.iter().cloned() {
                         li {
                             button {
                                 class: if current_page == target_page {
@@ -200,6 +238,11 @@ fn CommandPalette(
                                 span { "{icon} {label}" }
                                 span { class: "command-palette-kbd", "↵" }
                             }
+                        }
+                    }
+                    if filtered.is_empty() {
+                        li {
+                            div { class: "command-palette-empty", "No matches" }
                         }
                     }
                 }

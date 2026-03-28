@@ -114,7 +114,7 @@ pub fn ChatView(snapshot: MissionControlSnapshot) -> Element {
                                 span { class: "pill pill-subtle", "{thread.channel_thread_id}" }
                                 span { class: "pill pill-subtle", "{thread_messages_count} messages" }
                             }
-                            p { class: "row-copy", "Latest event micros {thread.latest_message_at_micros}" }
+                            p { class: "row-copy", "{crate::ui::shared::format_timestamp_micros(thread.latest_message_at_micros)}" }
                         }
                     }
                     div { class: "chat-body",
