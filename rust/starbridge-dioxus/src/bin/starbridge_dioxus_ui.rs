@@ -622,40 +622,27 @@ fn app() -> Element {
         "status-dot status-dot-live"
     };
 
-    // Splash screen — space scene with retro astronaut
-    if show_splash() {
-        return rsx! {
-            style { "{DESKTOP_STYLES}" }
-            style { "{SPLASH_STYLES}" }
-            div { class: "splash",
+    rsx! {
+        style { "{DESKTOP_STYLES}" }
+        style { "{SPLASH_STYLES}" }
 
-                // Retro astronaut
+        if show_splash() {
+            div { class: "splash",
                 img {
                     class: "splash-astronaut",
                     src: "cadet://localhost/retro-astro.png",
                     alt: "Cadet astronaut",
                 }
-
                 span { class: "splash-welcome", "WELCOME TO CADET" }
-
-                div { style: "display: flex; gap: 12px; align-items: center;",
-                    button {
-                        class: "splash-launch",
-                        onclick: move |_| show_splash.set(false),
-                        "LAUNCH"
-                    }
+                button {
+                    class: "splash-launch",
+                    onclick: move |_| show_splash.set(false),
+                    "LAUNCH"
                 }
-
-                // Massive "CADET" text bleeding off bottom
                 div { class: "splash-massive", "CADET" }
-
                 span { class: "splash-version", "v0.1.0 // ORBITAL.OPS" }
             }
-        };
-    }
-
-    rsx! {
-        style { "{DESKTOP_STYLES}" }
+        } else {
         div { class: "desktop-shell",
             div { class: "desktop-toolbar",
                 div { class: "desktop-context",
@@ -694,5 +681,6 @@ fn app() -> Element {
             // Toast notifications overlay (renders on top of everything)
             ToastOverlay { bridge: widget_bridge.clone() }
         }
+        } // end else (splash dismissed)
     }
 }
