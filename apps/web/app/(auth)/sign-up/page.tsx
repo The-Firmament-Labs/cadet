@@ -57,16 +57,11 @@ export default function SignUpPage() {
       <div className="w-full max-w-sm">
         {/* Brand */}
         <div className="flex flex-col items-center mb-8 gap-3">
-          <div
-            className={cn(
-              "flex items-center justify-center w-7 h-7",
-              "rounded-sm border border-primary/40",
-              "text-primary font-mono font-bold text-sm leading-none",
-              "shadow-[0_0_12px_rgba(0,229,255,0.2)]"
-            )}
-          >
-            C
-          </div>
+          <img
+            src="/icon.png"
+            alt="Cadet"
+            className="w-10 h-10"
+          />
           <span className="text-lg font-semibold tracking-wide text-foreground">Cadet</span>
         </div>
 

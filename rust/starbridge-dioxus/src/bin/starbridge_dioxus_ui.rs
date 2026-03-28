@@ -766,7 +766,7 @@ fn app() -> Element {
                         class: "splash-launch",
                         onclick: move |_| {
                             let _ = std::process::Command::new("open")
-                                .arg("http://localhost:3001/login")
+                                .arg("http://localhost:3001/sign-in")
                                 .spawn();
                         },
                         "LOG IN"
