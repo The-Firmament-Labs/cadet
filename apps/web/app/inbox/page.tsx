@@ -1,13 +1,19 @@
 import { parseApprovalStatus } from "@starbridge/core";
 import Link from "next/link";
 
+import {
+  getOperatorSpacetimeToken,
+  requireOperatorPageSession
+} from "../../lib/auth";
 import { loadInbox } from "../../lib/server";
+import { OperatorSessionActions } from "../operator-session-actions";
 
 export const dynamic = "force-dynamic";
 const pendingApprovalStatus = parseApprovalStatus("pending");
 
 export default async function InboxPage() {
-  const inbox = await loadInbox().catch(() => ({
+  const session = await requireOperatorPageSession("/inbox");
+  const inbox = await loadInbox(getOperatorSpacetimeToken(session)).catch(() => ({
     threads: [],
     runs: [],
     approvals: [],
@@ -22,6 +28,7 @@ export default async function InboxPage() {
         <p className="lede">
           Every inbound event becomes a durable thread, workflow run, and step graph in SpacetimeDB.
         </p>
+        {session ? <OperatorSessionActions email={session.email} /> : null}
         <div className="metricGrid">
           <article className="metricCard">
             <span>Threads</span>

@@ -1,0 +1,55 @@
+{
+  "color": {
+    "background": "#02050d",
+    "card": "rgba(8, 12, 26, 0.72)",
+    "cardStrong": "rgba(7, 10, 22, 0.88)",
+    "border": "rgba(100, 180, 255, 0.14)",
+    "borderStrong": "rgba(100, 180, 255, 0.28)",
+    "primary": "#00e5ff",
+    "primarySoft": "rgba(0, 229, 255, 0.12)",
+    "accent": "#ffd66b",
+    "accentSoft": "rgba(255, 214, 107, 0.12)",
+    "destructive": "#ff4d4d",
+    "destructiveSoft": "rgba(255, 77, 77, 0.12)",
+    "success": "#4dff88",
+    "successSoft": "rgba(77, 255, 136, 0.12)",
+    "warning": "#ffaa33",
+    "warningSoft": "rgba(255, 170, 51, 0.12)",
+    "text": "#f5f7ff",
+    "textStrong": "#ffffff",
+    "muted": "rgba(220, 228, 255, 0.6)",
+    "mutedSubtle": "rgba(220, 228, 255, 0.36)"
+  },
+  "font": {
+    "sans": "\"Geist\", \"Geist Fallback\", ui-sans-serif, system-ui, sans-serif",
+    "mono": "\"Geist Mono\", \"Geist Mono Fallback\", ui-monospace, monospace"
+  },
+  "fontSize": {
+    "xs": "10px",
+    "sm": "11px",
+    "base": "12px",
+    "md": "13px",
+    "lg": "15px",
+    "xl": "18px",
+    "2xl": "24px"
+  },
+  "spacing": {
+    "xs": "4px",
+    "sm": "6px",
+    "md": "10px",
+    "lg": "14px",
+    "xl": "20px"
+  },
+  "radius": {
+    "sm": "4px",
+    "md": "6px",
+    "lg": "8px"
+  },
+  "effect": {
+    "glowPrimary": "0 0 12px rgba(0, 229, 255, 0.15)",
+    "glowAccent": "0 0 12px rgba(255, 214, 107, 0.12)",
+    "shadow": "0 14px 28px rgba(0, 0, 0, 0.24)",
+    "gridLine": "rgba(100, 180, 255, 0.04)",
+    "gridSize": "28px"
+  }
+}

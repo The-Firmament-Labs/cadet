@@ -311,6 +311,38 @@ pub struct RetrievalTrace {
     created_at_micros: i64,
 }
 
+#[table(accessor = operator_account, public)]
+pub struct OperatorAccount {
+    #[primary_key]
+    operator_id: String,
+    identity: Identity,
+    display_name: String,
+    email: String,
+    role: String,
+    created_at: Timestamp,
+    updated_at: Timestamp,
+}
+
+#[table(accessor = webauthn_credential, public)]
+pub struct WebAuthnCredential {
+    #[primary_key]
+    credential_id: String,
+    operator_id: String,
+    public_key_json: String,
+    counter: u64,
+    transports_json: String,
+    created_at: Timestamp,
+}
+
+#[table(accessor = auth_challenge, public)]
+pub struct AuthChallenge {
+    #[primary_key]
+    challenge_id: String,
+    challenge: String,
+    operator_id: Option<String>,
+    expires_at_micros: i64,
+}
+
 fn validate_identifier(value: String, field: &str) -> Result<String, String> {
     let trimmed = value.trim().to_string();
     if trimmed.is_empty() {
@@ -1754,4 +1786,106 @@ fn transition_job(
     } else {
         Err("job not found".to_string())
     }
+}
+
+// ── Operator Authentication ─────────────────────────────────────────
+
+#[reducer]
+pub fn create_auth_challenge(
+    ctx: &ReducerContext,
+    challenge_id: String,
+    challenge: String,
+    operator_id: Option<String>,
+    expires_at_micros: i64,
+) -> Result<(), String> {
+    let challenge_id = validate_identifier(challenge_id, "challenge_id")?;
+    let challenge = validate_identifier(challenge, "challenge")?;
+    ctx.db.auth_challenge().insert(AuthChallenge {
+        challenge_id,
+        challenge,
+        operator_id,
+        expires_at_micros,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn register_operator(
+    ctx: &ReducerContext,
+    operator_id: String,
+    display_name: String,
+    email: String,
+    credential_id: String,
+    public_key_json: String,
+    transports_json: String,
+) -> Result<(), String> {
+    let operator_id = validate_identifier(operator_id, "operator_id")?;
+    let display_name = validate_text(display_name, "display_name")?;
+    let email = validate_identifier(email, "email")?;
+    let credential_id = validate_identifier(credential_id, "credential_id")?;
+
+    ctx.db.operator_account().insert(OperatorAccount {
+        operator_id: operator_id.clone(),
+        identity: ctx.sender,
+        display_name,
+        email,
+        role: "operator".to_string(),
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+
+    ctx.db.webauthn_credential().insert(WebAuthnCredential {
+        credential_id,
+        operator_id,
+        public_key_json,
+        counter: 0,
+        transports_json,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[reducer]
+pub fn update_webauthn_counter(
+    ctx: &ReducerContext,
+    credential_id: String,
+    new_counter: u64,
+) -> Result<(), String> {
+    let credential_id = validate_identifier(credential_id, "credential_id")?;
+    if let Some(existing) = ctx.db.webauthn_credential().credential_id().find(&credential_id) {
+        ctx.db.webauthn_credential().credential_id().update(WebAuthnCredential {
+            counter: new_counter,
+            ..existing
+        });
+        Ok(())
+    } else {
+        Err(format!("Credential {credential_id} not found"))
+    }
+}
+
+#[reducer]
+pub fn delete_auth_challenge(
+    ctx: &ReducerContext,
+    challenge_id: String,
+) -> Result<(), String> {
+    let challenge_id = validate_identifier(challenge_id, "challenge_id")?;
+    ctx.db.auth_challenge().challenge_id().delete(&challenge_id);
+    Ok(())
+}
+
+#[reducer]
+pub fn delete_expired_challenges(
+    ctx: &ReducerContext,
+) -> Result<(), String> {
+    let now_micros = ctx.timestamp.to_duration_since_unix_epoch().as_micros() as i64;
+    let expired: Vec<String> = ctx.db.auth_challenge()
+        .iter()
+        .filter(|c| c.expires_at_micros < now_micros)
+        .map(|c| c.challenge_id.clone())
+        .collect();
+    for id in expired {
+        ctx.db.auth_challenge().challenge_id().delete(&id);
+    }
+    Ok(())
 }

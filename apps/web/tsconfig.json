@@ -1,5 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
+  /* Override strict base — shadcn/ui components don't support exactOptionalPropertyTypes */
   "compilerOptions": {
     "jsx": "preserve",
     "incremental": true,
@@ -8,9 +9,13 @@
         "name": "next"
       }
     ],
+    "exactOptionalPropertyTypes": false,
     "allowJs": true,
     "noEmit": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
   "include": [
     "next-env.d.ts",

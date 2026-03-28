@@ -1,7 +1,12 @@
 import React from "react";
 import Link from "next/link";
 
+import {
+  getOperatorSpacetimeToken,
+  requireOperatorPageSession
+} from "../../../lib/auth";
 import { loadRunDetails } from "../../../lib/server";
+import { OperatorSessionActions } from "../../operator-session-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +16,11 @@ export default async function RunDetailPage({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
-  const detail = await loadRunDetails(runId).catch(() => null);
+  const session = await requireOperatorPageSession(`/runs/${runId}`);
+  const detail = await loadRunDetails(
+    runId,
+    getOperatorSpacetimeToken(session)
+  ).catch(() => null);
 
   if (!detail) {
     return (
@@ -38,6 +47,7 @@ export default async function RunDetailPage({
         <p className="lede">
           {detail.run.agentId} · {detail.run.status} · {detail.run.currentStage}
         </p>
+        {session ? <OperatorSessionActions email={session.email} /> : null}
         <p>
           <Link href="/inbox">Back to inbox</Link>
         </p>
