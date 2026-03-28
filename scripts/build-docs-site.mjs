@@ -14,6 +14,13 @@ const outputDir = resolve(root, ".generated/pages-src");
 const docsSiteDir = resolve(root, "docs-site");
 const repoSlug = "Dexploarer/cadet";
 
+const sessionHistoryPage = {
+  slug: "session-history",
+  title: "Session History",
+  description: "Historical checkpoints generated from the git history of SESSION.md.",
+  section: "Current State",
+};
+
 const pageGroups = [
   {
     title: "Current State",
@@ -25,6 +32,7 @@ const pageGroups = [
         description: "Current checkpoint, active phase, validated progress, and next action.",
         section: "Current State",
       },
+      sessionHistoryPage,
       {
         source: "MASTER_IMPLEMENTATION_PLAN.md",
         slug: "master-implementation-plan",
@@ -130,7 +138,9 @@ const pageGroups = [
 
 const pageEntries = pageGroups.flatMap((group) => group.pages);
 const pageBySource = new Map(
-  pageEntries.map((entry) => [resolve(root, entry.source), entry]),
+  pageEntries
+    .filter((entry) => "source" in entry && entry.source)
+    .map((entry) => [resolve(root, entry.source), entry]),
 );
 
 function slugToPermalink(slug) {
@@ -224,16 +234,17 @@ function frontMatter(entry) {
     `title: "${escapeYaml(entry.title)}"`,
     `description: "${escapeYaml(entry.description)}"`,
     `section: "${escapeYaml(entry.section)}"`,
-    `source_path: "${escapeYaml(entry.source)}"`,
     `permalink: "${slugToPermalink(entry.slug)}"`,
     "---",
     "",
   ];
+  if ("source" in entry && entry.source) {
+    fields.splice(5, 0, `source_path: "${escapeYaml(entry.source)}"`);
+  }
   return fields.join("\n");
 }
 
-function getSessionSummary() {
-  const sessionText = readFileSync(resolve(root, "SESSION.md"), "utf8");
+function parseSessionSummary(sessionText) {
   const phase =
     sessionText.match(/\*\*Current Phase\*\*:\s*(.+)/)?.[1]?.trim() ?? "Unknown";
   const stage =
@@ -241,6 +252,10 @@ function getSessionSummary() {
   const checkpoint =
     sessionText.match(/\*\*Last Checkpoint\*\*:\s*(.+)/)?.[1]?.trim() ?? "Unknown";
   return { phase, stage, checkpoint };
+}
+
+function getSessionSummary() {
+  return parseSessionSummary(readFileSync(resolve(root, "SESSION.md"), "utf8"));
 }
 
 function currentRevision() {
@@ -255,9 +270,55 @@ function currentRevision() {
   }
 }
 
+function loadSessionHistory(limit = 18) {
+  try {
+    const raw = execSync("git log --follow --format='%H|%cI|%s' -- SESSION.md", {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+
+    if (!raw) {
+      return [];
+    }
+
+    return raw
+      .split("\n")
+      .filter(Boolean)
+      .slice(0, limit)
+      .map((line) => {
+        const [sha, committedAt, subject] = line.split("|");
+        const content = execSync(`git show ${sha}:SESSION.md`, {
+          cwd: root,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        });
+        const summary = parseSessionSummary(content);
+        return {
+          sha,
+          shortSha: sha.slice(0, 7),
+          committedAt,
+          subject,
+          content,
+          ...summary,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 function buildHomePage() {
   const summary = getSessionSummary();
   const revision = currentRevision();
+  const sessionHistory = loadSessionHistory();
+  const sessionHistoryPreview = sessionHistory
+    .slice(0, 5)
+    .map(
+      (entry) =>
+        `<a class="hub-item" href="${slugToHref(`session-${entry.shortSha}`)}"><strong>${entry.subject}</strong><span>${entry.phase} · ${entry.stage} · ${entry.shortSha}</span></a>`,
+    )
+    .join("\n");
 
   const navBlocks = pageGroups
     .map((group) => {
@@ -294,11 +355,18 @@ function buildHomePage() {
     "## Start here",
     "",
     "- [Session tracker](session.html)",
+    "- [Session history](session-history.html)",
     "- [Master implementation plan](master-implementation-plan.html)",
     "- [Implementation phases](implementation-phases.html)",
     "- [Architecture guide](architecture-guide.html)",
     "",
     navBlocks,
+    "",
+    "## Recent session history",
+    "",
+    '<div class="hub-list">',
+    sessionHistoryPreview,
+    "</div>",
     "",
     "## Source of truth",
     "",
@@ -370,7 +438,33 @@ writeFileSync(
 
 writeFileSync(resolve(outputDir, "index.md"), buildHomePage());
 
+const sessionHistory = loadSessionHistory();
+
+writeFileSync(
+  resolve(outputDir, `${sessionHistoryPage.slug}.md`),
+  [
+    frontMatter(sessionHistoryPage),
+    "# Session History",
+    "",
+    "This page publishes older `SESSION.md` checkpoints directly from git history so collaborators can review prior phases, stage shifts, and handoff snapshots on the GitHub Pages site.",
+    "",
+    ...sessionHistory.flatMap((entry) => [
+      `## [${entry.subject}](${slugToHref(`session-${entry.shortSha}`)})`,
+      "",
+      `- Commit: \`${entry.shortSha}\``,
+      `- Recorded at: ${entry.committedAt}`,
+      `- Phase: ${entry.phase}`,
+      `- Stage: ${entry.stage}`,
+      `- Checkpoint: ${entry.checkpoint}`,
+      "",
+    ]),
+  ].join("\n"),
+);
+
 for (const entry of pageEntries) {
+  if (!("source" in entry) || !entry.source) {
+    continue;
+  }
   const sourcePath = resolve(root, entry.source);
   const markdown = readFileSync(sourcePath, "utf8");
   const rewritten = rewriteLinks(markdown, sourcePath);
@@ -380,6 +474,29 @@ for (const entry of pageEntries) {
   );
 }
 
+for (const entry of sessionHistory) {
+  const slug = `session-${entry.shortSha}`;
+  const archivePage = {
+    slug,
+    title: `Session Snapshot ${entry.shortSha}`,
+    description: `${entry.phase} · ${entry.stage} · ${entry.subject}`,
+    section: "Current State",
+  };
+  const archived = rewriteLinks(entry.content, resolve(root, "SESSION.md"));
+  writeFileSync(
+    resolve(outputDir, `${slug}.md`),
+    [
+      frontMatter(archivePage),
+      `> Archived from commit \`${entry.shortSha}\` on ${entry.committedAt}.`,
+      "",
+      `[Open commit on GitHub](https://github.com/${repoSlug}/commit/${entry.sha})`,
+      "",
+      archived.trimEnd(),
+      "",
+    ].join("\n"),
+  );
+}
+
 console.log(
-  `Built GitHub Pages source in ${relative(root, outputDir)} for ${pageEntries.length + 1} pages.`,
+  `Built GitHub Pages source in ${relative(root, outputDir)} for ${pageEntries.length + sessionHistory.length + 1} pages.`,
 );

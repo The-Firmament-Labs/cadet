@@ -24,7 +24,7 @@ Cadet is an event-driven agent platform scaffold that blends:
 - [Agent manifests guide](docs/AGENT_MANIFESTS.md)
 - [Dynamic agent UI](docs/DYNAMIC_AGENT_UI.md)
 - [GitHub automation guide](docs/GITHUB_AUTOMATION.md)
-- GitHub Pages project hub: generated from `SESSION.md`, `MASTER_IMPLEMENTATION_PLAN.md`, `IMPLEMENTATION_PHASES.md`, and `docs/**` through `.github/workflows/github-pages.yml`, with the built source also uploaded in CI as `cadet-project-hub-source`
+- GitHub Pages project hub: generated from `SESSION.md`, historical `SESSION.md` git snapshots, `MASTER_IMPLEMENTATION_PLAN.md`, `IMPLEMENTATION_PHASES.md`, and `docs/**` through `.github/workflows/github-pages.yml`, with the built source also uploaded in CI as `cadet-project-hub-source`
 - GitHub Releases: cut from `v*.*.*` tags through `.github/workflows/release.yml`, attaching the current session tracker, implementation plans, and a packaged project-hub snapshot
 
 ## Repo layout
