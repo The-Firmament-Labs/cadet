@@ -10,7 +10,7 @@ mod views;
 use models::{memory_namespaces, queue_metrics, WorkspacePage};
 use shared::SidebarNavButton;
 use styles::APP_STYLES;
-use views::{CatalogView, ChatView, MemoryView, OverviewView, SurfacesView, WorkflowStudioView};
+use views::{CatalogView, ChatView, MemoryView, OverviewView, WorkflowStudioView};
 
 use crate::LiveSnapshotOptions;
 

@@ -119,6 +119,23 @@ impl AuthProviderRegistry {
     }
 }
 
+/// Read a macOS Keychain generic password by service name.
+/// Uses `security find-generic-password -s <service> -w` which outputs the password to stdout.
+fn read_keychain(service: &str) -> Option<String> {
+    std::process::Command::new("security")
+        .args(["find-generic-password", "-s", service, "-w"])
+        .output()
+        .ok()
+        .and_then(|out| {
+            if out.status.success() {
+                let val = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !val.is_empty() { Some(val) } else { None }
+            } else {
+                None
+            }
+        })
+}
+
 fn discover_claude() -> ProviderCredential {
     let mut cred = ProviderCredential {
         provider_id: "anthropic".to_string(),
@@ -128,7 +145,25 @@ fn discover_claude() -> ProviderCredential {
         token: None,
     };
 
-    // Strategy 1: Claude CLI credentials file
+    // Strategy 1: macOS Keychain — "Claude Code-credentials" (written by Claude CLI)
+    if let Some(keychain_json) = read_keychain("Claude Code-credentials") {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&keychain_json) {
+            // Extract the OAuth access token from claudeAiOauth.accessToken
+            if let Some(token) = json
+                .pointer("/claudeAiOauth/accessToken")
+                .and_then(|v| v.as_str())
+            {
+                if !token.is_empty() {
+                    cred.token = Some(token.to_string());
+                    cred.status = ProviderStatus::Discovered;
+                    cred.source = "macOS Keychain".to_string();
+                    return cred;
+                }
+            }
+        }
+    }
+
+    // Strategy 2: Claude CLI credentials file
     let home = std::env::var("HOME").unwrap_or_default();
     let creds_path = format!("{}/.claude/.credentials.json", home);
     if let Ok(content) = std::fs::read_to_string(&creds_path) {
@@ -146,21 +181,13 @@ fn discover_claude() -> ProviderCredential {
         }
     }
 
-    // Strategy 2: ANTHROPIC_API_KEY env var
+    // Strategy 3: ANTHROPIC_API_KEY env var
     if let Ok(key) = std::env::var("ANTHROPIC_API_KEY") {
         if !key.is_empty() {
             cred.token = Some(key);
             cred.status = ProviderStatus::Discovered;
             cred.source = "ANTHROPIC_API_KEY env".to_string();
             return cred;
-        }
-    }
-
-    // Strategy 3: .cadet/config.toml presence hint
-    if let Ok(content) = std::fs::read_to_string(".cadet/config.toml") {
-        if content.contains("anthropic_api_key") {
-            // Basic extraction — full TOML parsing done elsewhere
-            cred.source = ".cadet/config.toml".to_string();
         }
     }
 
@@ -243,20 +270,23 @@ fn discover_openai() -> ProviderCredential {
         token: None,
     };
 
-    // Strategy 1: Codex auth.json
+    // Strategy 1: Codex auth.json (has OPENAI_API_KEY, token, or access_token)
     let home = std::env::var("HOME").unwrap_or_default();
     let codex_path = format!("{}/.codex/auth.json", home);
     if let Ok(content) = std::fs::read_to_string(&codex_path) {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-            if json.get("token").is_some() || json.get("access_token").is_some() {
-                cred.status = ProviderStatus::Discovered;
-                cred.source = "~/.codex/auth.json".to_string();
-                cred.token = json
-                    .get("token")
-                    .or(json.get("access_token"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-                return cred;
+            let key = json.get("OPENAI_API_KEY")
+                .or(json.get("token"))
+                .or(json.get("access_token"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            if let Some(k) = key {
+                if !k.is_empty() {
+                    cred.token = Some(k);
+                    cred.status = ProviderStatus::Discovered;
+                    cred.source = "~/.codex/auth.json".to_string();
+                    return cred;
+                }
             }
         }
     }
