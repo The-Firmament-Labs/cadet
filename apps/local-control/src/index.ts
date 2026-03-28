@@ -51,7 +51,7 @@ interface ScheduledRunResult {
   reason?: string;
 }
 
-function defaultManifestDirectory(): string {
+export function defaultManifestDirectory(): string {
   return path.resolve(process.cwd(), "../../examples/agents");
 }
 
@@ -63,7 +63,7 @@ function createControlClient(): StarbridgeControlClient {
   });
 }
 
-function runnerIdFor(agentId: string, role: "control" | "scheduler" | "route"): string {
+export function runnerIdFor(agentId: string, role: "control" | "scheduler" | "route"): string {
   return `${agentId}-${role}@local:${port}`;
 }
 
@@ -248,7 +248,7 @@ async function completeRouteTriage(
   );
 }
 
-async function registerLocalAgents(payload: unknown): Promise<unknown> {
+export async function registerLocalAgents(payload: unknown): Promise<unknown> {
   const catalog = await loadLocalCatalog();
   const body = (payload ?? {}) as { all?: boolean; agentId?: string };
 
@@ -264,7 +264,7 @@ async function registerLocalAgents(payload: unknown): Promise<unknown> {
   return syncLocalCatalog(manifests);
 }
 
-async function dispatchLocalJob(payload: unknown): Promise<unknown> {
+export async function dispatchLocalJob(payload: unknown): Promise<unknown> {
   if (typeof payload !== "object" || payload === null) {
     throw new Error("dispatch payload must be an object");
   }
@@ -314,7 +314,7 @@ async function dispatchLocalJob(payload: unknown): Promise<unknown> {
   };
 }
 
-function normalizeScheduledLocalJob(
+export function normalizeScheduledLocalJob(
   manifest: AgentManifest,
   schedule: RegisteredScheduleRecord
 ): ReturnType<typeof normalizeJobRequest> {
@@ -333,7 +333,7 @@ function normalizeScheduledLocalJob(
   });
 }
 
-async function reconcileLocalSchedules(): Promise<{
+export async function reconcileLocalSchedules(): Promise<{
   staleRunners: string[];
   runs: ScheduledRunResult[];
 }> {
@@ -416,11 +416,11 @@ async function reconcileLocalSchedules(): Promise<{
   };
 }
 
-function json(status: number, body: unknown): Response {
+export function json(status: number, body: unknown): Response {
   return Response.json(body, { status });
 }
 
-function methodNotAllowed(): Response {
+export function methodNotAllowed(): Response {
   return json(405, { ok: false, error: "Method not allowed" });
 }
 
@@ -465,77 +465,79 @@ void runScheduleLoop();
 setInterval(() => void runHeartbeatLoop(), heartbeatIntervalMs);
 setInterval(() => void runScheduleLoop(), scheduleIntervalMs);
 
-const server = Bun.serve({
-  port,
-  async fetch(request) {
-    const url = new URL(request.url);
+export async function handleRequest(request: Request): Promise<Response> {
+  const url = new URL(request.url);
 
-    try {
-      if (request.method === "GET" && url.pathname === "/health") {
-        return json(200, {
-          ok: true,
-          plane: localControlPlaneTarget,
-          manifestDir: process.env.STARBRIDGE_MANIFEST_DIR ?? defaultManifestDirectory(),
-          spacetimeUrl: process.env.SPACETIMEDB_URL ?? "http://127.0.0.1:3000",
-          database: process.env.SPACETIMEDB_DATABASE ?? "starbridge-control",
-          heartbeatIntervalMs,
-          scheduleIntervalMs
-        });
-      }
-
-      if (request.method === "GET" && url.pathname === "/catalog") {
-        return json(200, {
-          ok: true,
-          plane: localControlPlaneTarget,
-          agents: await loadLocalCatalog()
-        });
-      }
-
-      if (url.pathname === "/agents/register") {
-        if (request.method !== "POST") {
-          return methodNotAllowed();
-        }
-
-        const payload = await request.json().catch(() => ({}));
-        return json(200, {
-          ok: true,
-          plane: localControlPlaneTarget,
-          result: await registerLocalAgents(payload)
-        });
-      }
-
-      if (url.pathname === "/jobs/dispatch" || url.pathname === "/agents/local/dispatch") {
-        if (request.method !== "POST") {
-          return methodNotAllowed();
-        }
-
-        const payload = await request.json();
-        return json(200, {
-          ok: true,
-          result: await dispatchLocalJob(payload)
-        });
-      }
-
-      if (url.pathname === "/schedules/reconcile") {
-        if (request.method !== "POST") {
-          return methodNotAllowed();
-        }
-
-        return json(200, {
-          ok: true,
-          plane: localControlPlaneTarget,
-          result: await reconcileLocalSchedules()
-        });
-      }
-
-      return json(404, { ok: false, error: "Route not found" });
-    } catch (error) {
-      return json(400, {
-        ok: false,
-        error: error instanceof Error ? error.message : "Unknown local control error"
+  try {
+    if (request.method === "GET" && url.pathname === "/health") {
+      return json(200, {
+        ok: true,
+        plane: localControlPlaneTarget,
+        manifestDir: process.env.STARBRIDGE_MANIFEST_DIR ?? defaultManifestDirectory(),
+        spacetimeUrl: process.env.SPACETIMEDB_URL ?? "http://127.0.0.1:3000",
+        database: process.env.SPACETIMEDB_DATABASE ?? "starbridge-control",
+        heartbeatIntervalMs,
+        scheduleIntervalMs
       });
     }
+
+    if (request.method === "GET" && url.pathname === "/catalog") {
+      return json(200, {
+        ok: true,
+        plane: localControlPlaneTarget,
+        agents: await loadLocalCatalog()
+      });
+    }
+
+    if (url.pathname === "/agents/register") {
+      if (request.method !== "POST") {
+        return methodNotAllowed();
+      }
+
+      const payload = await request.json().catch(() => ({}));
+      return json(200, {
+        ok: true,
+        plane: localControlPlaneTarget,
+        result: await registerLocalAgents(payload)
+      });
+    }
+
+    if (url.pathname === "/jobs/dispatch" || url.pathname === "/agents/local/dispatch") {
+      if (request.method !== "POST") {
+        return methodNotAllowed();
+      }
+
+      const payload = await request.json();
+      return json(200, {
+        ok: true,
+        result: await dispatchLocalJob(payload)
+      });
+    }
+
+    if (url.pathname === "/schedules/reconcile") {
+      if (request.method !== "POST") {
+        return methodNotAllowed();
+      }
+
+      return json(200, {
+        ok: true,
+        plane: localControlPlaneTarget,
+        result: await reconcileLocalSchedules()
+      });
+    }
+
+    return json(404, { ok: false, error: "Route not found" });
+  } catch (error) {
+    return json(400, {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown local control error"
+    });
   }
+}
+
+const server = Bun.serve({
+  port,
+  fetch: handleRequest
 });
 
 console.log(`Local control plane listening on http://127.0.0.1:${server.port}`);

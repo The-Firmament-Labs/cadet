@@ -38,7 +38,7 @@ function printUsage(io: CommandIO): number {
   return 0;
 }
 
-function readFlag(args: string[], name: string): string | undefined {
+export function readFlag(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
   if (index === -1) {
     return undefined;

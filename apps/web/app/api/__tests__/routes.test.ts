@@ -4,11 +4,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // Module mocks — hoisted before all route imports
 // ---------------------------------------------------------------------------
 
-vi.mock("../../../lib/auth", () => ({
+vi.mock("@/lib/auth", () => ({
   requireOperatorApiSession: vi.fn(),
 }));
 
-vi.mock("../../../lib/server", () => ({
+vi.mock("@/lib/server", () => ({
   createControlClient: vi.fn(),
   loadInbox: vi.fn(),
   dispatchJobFromPayload: vi.fn(),
@@ -17,12 +17,12 @@ vi.mock("../../../lib/server", () => ({
   reconcileCloudControlPlane: vi.fn(),
 }));
 
-vi.mock("../../../lib/env", () => ({
+vi.mock("@/lib/env", () => ({
   getSafeServerEnv: vi.fn(),
   getServerEnv: vi.fn(),
 }));
 
-vi.mock("../../../lib/cloud-agents", () => ({
+vi.mock("@/lib/cloud-agents", () => ({
   cloudAgentCatalog: [
     {
       id: "saturn",
@@ -39,7 +39,7 @@ vi.mock("../../../lib/cloud-agents", () => ({
 // Deferred imports (after vi.mock calls)
 // ---------------------------------------------------------------------------
 
-import { requireOperatorApiSession } from "../../../lib/auth";
+import { requireOperatorApiSession } from "@/lib/auth";
 import {
   createControlClient,
   loadInbox,
@@ -47,8 +47,8 @@ import {
   dispatchEdgeJobFromPayload,
   registerAgentFromPayload,
   reconcileCloudControlPlane,
-} from "../../../lib/server";
-import { getSafeServerEnv, getServerEnv } from "../../../lib/env";
+} from "@/lib/server";
+import { getSafeServerEnv, getServerEnv } from "@/lib/env";
 
 import { GET as healthGET } from "../health/route";
 import { GET as catalogGET } from "../catalog/route";
