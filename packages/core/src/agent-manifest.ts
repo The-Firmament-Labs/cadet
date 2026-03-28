@@ -163,6 +163,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Parse a field with a fallback default when undefined. */
+function withDefault<T>(
+  value: unknown,
+  path: string,
+  parse: (v: unknown, p: string) => T,
+  fallback: T
+): T {
+  return value === undefined ? fallback : parse(value, path);
+}
+
 function expectString(value: unknown, path: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${path} must be a non-empty string`);
@@ -278,42 +288,16 @@ function normalizeBrowserPolicy(tools: Record<string, unknown>): BrowserToolPoli
   }
 
   return {
-    enabled:
-      browserPolicy?.enabled === undefined
-        ? allowBrowser ?? false
-        : expectBoolean(browserPolicy.enabled, "tools.browser.enabled"),
-    allowedDomains:
-      browserPolicy?.allowedDomains === undefined
-        ? []
-        : expectStringArray(browserPolicy.allowedDomains, "tools.browser.allowedDomains"),
-    blockedDomains:
-      browserPolicy?.blockedDomains === undefined
-        ? []
-        : expectStringArray(browserPolicy.blockedDomains, "tools.browser.blockedDomains"),
-    maxConcurrentSessions:
-      browserPolicy?.maxConcurrentSessions === undefined
-        ? 2
-        : expectInteger(
-            browserPolicy.maxConcurrentSessions,
-            "tools.browser.maxConcurrentSessions"
-          ),
-    allowDownloads:
-      browserPolicy?.allowDownloads === undefined
-        ? false
-        : expectBoolean(browserPolicy.allowDownloads, "tools.browser.allowDownloads"),
-    defaultMode:
-      browserPolicy?.defaultMode === undefined
-        ? "read"
-        : expectBrowserMode(browserPolicy.defaultMode, "tools.browser.defaultMode"),
-    requiresApprovalFor:
-      browserPolicy?.requiresApprovalFor === undefined
-        ? ["form", "download"]
-        : expectStringArray(
-            browserPolicy.requiresApprovalFor,
-            "tools.browser.requiresApprovalFor"
-          ).map((mode, index) =>
-            expectBrowserMode(mode, `tools.browser.requiresApprovalFor[${index}]`)
-          )
+    enabled: withDefault(browserPolicy?.enabled, "tools.browser.enabled", expectBoolean, allowBrowser ?? false),
+    allowedDomains: withDefault(browserPolicy?.allowedDomains, "tools.browser.allowedDomains", expectStringArray, []),
+    blockedDomains: withDefault(browserPolicy?.blockedDomains, "tools.browser.blockedDomains", expectStringArray, []),
+    maxConcurrentSessions: withDefault(browserPolicy?.maxConcurrentSessions, "tools.browser.maxConcurrentSessions", expectInteger, 2),
+    allowDownloads: withDefault(browserPolicy?.allowDownloads, "tools.browser.allowDownloads", expectBoolean, false),
+    defaultMode: withDefault(browserPolicy?.defaultMode, "tools.browser.defaultMode", expectBrowserMode, "read" as BrowserMode),
+    requiresApprovalFor: browserPolicy?.requiresApprovalFor === undefined
+      ? (["form", "download"] as BrowserMode[])
+      : expectStringArray(browserPolicy.requiresApprovalFor, "tools.browser.requiresApprovalFor")
+          .map((mode, index) => expectBrowserMode(mode, `tools.browser.requiresApprovalFor[${index}]`)),
   };
 }
 
@@ -434,20 +418,11 @@ export function parseAgentManifest(value: unknown): AgentManifest {
       const candidate = template as Record<string, unknown>;
       return {
         id: expectString(candidate.id, `workflowTemplates[${index}].id`),
-        description:
-          candidate.description === undefined
-            ? "Cadet workflow template"
-            : expectString(candidate.description, `workflowTemplates[${index}].description`),
-        stages:
-          candidate.stages === undefined
-            ? [...workflowStages]
-            : expectStringArray(candidate.stages, `workflowTemplates[${index}].stages`).map(
-                (stage, stageIndex) =>
-                  expectWorkflowStage(
-                    stage,
-                    `workflowTemplates[${index}].stages[${stageIndex}]`
-                  )
-              )
+        description: withDefault(candidate.description, `workflowTemplates[${index}].description`, expectString, "Cadet workflow template"),
+        stages: candidate.stages === undefined
+          ? [...workflowStages]
+          : expectStringArray(candidate.stages, `workflowTemplates[${index}].stages`)
+              .map((stage, stageIndex) => expectWorkflowStage(stage, `workflowTemplates[${index}].stages[${stageIndex}]`)),
       };
     }
   );
@@ -545,28 +520,10 @@ export function parseAgentManifest(value: unknown): AgentManifest {
     toolProfiles: normalizedToolProfiles,
     handoffRules: normalizedHandoffRules,
     learningPolicy: {
-      enabled:
-        learningPolicy?.enabled === undefined
-          ? true
-          : expectBoolean(learningPolicy.enabled, "learningPolicy.enabled"),
-      summarizeEveryRuns:
-        learningPolicy?.summarizeEveryRuns === undefined
-          ? 5
-          : expectInteger(
-              learningPolicy.summarizeEveryRuns,
-              "learningPolicy.summarizeEveryRuns"
-            ),
-      embedMemory:
-        learningPolicy?.embedMemory === undefined
-          ? true
-          : expectBoolean(learningPolicy.embedMemory, "learningPolicy.embedMemory"),
-      maxRetrievedChunks:
-        learningPolicy?.maxRetrievedChunks === undefined
-          ? 8
-          : expectInteger(
-              learningPolicy.maxRetrievedChunks,
-              "learningPolicy.maxRetrievedChunks"
-            )
+      enabled: withDefault(learningPolicy?.enabled, "learningPolicy.enabled", expectBoolean, true),
+      summarizeEveryRuns: withDefault(learningPolicy?.summarizeEveryRuns, "learningPolicy.summarizeEveryRuns", expectInteger, 5),
+      embedMemory: withDefault(learningPolicy?.embedMemory, "learningPolicy.embedMemory", expectBoolean, true),
+      maxRetrievedChunks: withDefault(learningPolicy?.maxRetrievedChunks, "learningPolicy.maxRetrievedChunks", expectInteger, 8),
     },
     prompts: parseAgentPrompts(value.prompts),
   };
