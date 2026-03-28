@@ -10,7 +10,7 @@ mod views;
 use models::{memory_namespaces, queue_metrics, WorkspacePage};
 use shared::SidebarNavButton;
 use styles::APP_STYLES;
-use views::{ChatView, MemoryView, OverviewView, SurfacesView, WorkflowStudioView};
+use views::{CatalogView, ChatView, MemoryView, OverviewView, SurfacesView, WorkflowStudioView};
 
 use crate::LiveSnapshotOptions;
 
@@ -48,7 +48,7 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                 "view-overview" => page.set(WorkspacePage::Overview),
                 "view-conversations" => page.set(WorkspacePage::Conversations),
                 "view-workflow" => page.set(WorkspacePage::Workflow),
-                "view-surfaces" => page.set(WorkspacePage::Surfaces),
+                "view-catalog" => page.set(WorkspacePage::Catalog),
                 "view-memory" => page.set(WorkspacePage::Memory),
                 "toggle-sidebar" => sidebar_expanded.set(!sidebar_expanded()),
                 "toggle-palette" => show_command_palette.set(!show_command_palette()),
@@ -116,11 +116,18 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                         onclick: move |_| page.set(WorkspacePage::Workflow),
                     }
                     SidebarNavButton {
-                        icon: "⬡".to_string(),
-                        label: "Surfaces".to_string(),
-                        count: None,
-                        active: page() == WorkspacePage::Surfaces,
-                        onclick: move |_| page.set(WorkspacePage::Surfaces),
+                        icon: "⊞".to_string(),
+                        label: "Catalog".to_string(),
+                        count: Some({
+                            let agent_count = snapshot.workflow_runs
+                                .iter()
+                                .map(|r| r.agent_id.clone())
+                                .collect::<std::collections::BTreeSet<_>>()
+                                .len();
+                            (agent_count + 12).to_string()
+                        }),
+                        active: page() == WorkspacePage::Catalog,
+                        onclick: move |_| page.set(WorkspacePage::Catalog),
                     }
                     SidebarNavButton {
                         icon: "🧠".to_string(),
@@ -170,7 +177,7 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                         WorkspacePage::Overview => rsx! { OverviewView { snapshot: snapshot.clone() } },
                         WorkspacePage::Conversations => rsx! { ChatView { snapshot: snapshot.clone() } },
                         WorkspacePage::Workflow => rsx! { WorkflowStudioView { snapshot: snapshot.clone() } },
-                        WorkspacePage::Surfaces => rsx! { SurfacesView { snapshot: snapshot.clone() } },
+                        WorkspacePage::Catalog => rsx! { CatalogView { snapshot: snapshot.clone() } },
                         WorkspacePage::Memory => rsx! { MemoryView { snapshot: snapshot.clone() } },
                     }
                 }
@@ -191,7 +198,7 @@ fn CommandPalette(
         (WorkspacePage::Overview,      "⊞", "Overview"),
         (WorkspacePage::Conversations, "💬", "Conversations"),
         (WorkspacePage::Workflow,      "▶", "Workflow Studio"),
-        (WorkspacePage::Surfaces,      "⬡", "Surfaces"),
+        (WorkspacePage::Catalog,       "⊞", "Catalog"),
         (WorkspacePage::Memory,        "🧠", "Memory"),
     ];
 
@@ -279,7 +286,7 @@ mod tests {
         assert!(html.contains("Overview"));
         assert!(html.contains("Conversations"));
         assert!(html.contains("Workflow Studio"));
-        assert!(html.contains("Surfaces"));
+        assert!(html.contains("Catalog"));
         assert!(html.contains("Memory"));
     }
 

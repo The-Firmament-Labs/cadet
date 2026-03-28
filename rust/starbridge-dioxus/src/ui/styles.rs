@@ -1443,4 +1443,185 @@ pub const APP_STYLES: &str = r#"
         border-radius: 0;
         background: linear-gradient(90deg, var(--primary), var(--primary-container));
     }
+
+    /* ================================================================
+       10. CATALOG VIEW
+       Two-panel agent + tool browser (Skills/MCP browser pattern)
+       ================================================================ */
+
+    .page-grid-catalog {
+        grid-template-columns: 360px minmax(0, 1fr);
+    }
+
+    .catalog-search {
+        width: 100%;
+        padding: 10px 12px;
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        background: var(--surface-container-high);
+        color: var(--on-surface);
+        font-family: var(--sans);
+        font-size: 13px;
+        outline: none;
+        display: block;
+    }
+
+    .catalog-search:focus {
+        border-bottom-color: var(--primary);
+    }
+
+    .catalog-filters {
+        display: flex;
+        gap: 6px;
+        padding: 8px 0;
+    }
+
+    .catalog-filter-chip {
+        padding: 4px 12px;
+        border-radius: 0;
+        border: none;
+        background: var(--surface-container);
+        color: var(--on-surface-variant);
+        font-family: var(--mono);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+    }
+
+    .catalog-filter-chip-active {
+        background: var(--primary);
+        color: var(--on-primary);
+    }
+
+    .catalog-item {
+        width: 100%;
+        padding: 12px;
+        cursor: pointer;
+        transition: background 0.15s;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        background: transparent;
+        border: none;
+        text-align: left;
+    }
+
+    .catalog-item:hover {
+        background: var(--surface-container);
+    }
+
+    .catalog-item-active {
+        background: var(--surface-container-high);
+        box-shadow: inset 3px 0 0 var(--primary);
+    }
+
+    .catalog-item-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--on-surface);
+    }
+
+    .catalog-item-type {
+        display: inline-block;
+        padding: 1px 6px;
+        background: var(--on-surface);
+        color: var(--surface);
+        font-family: var(--mono);
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        border-radius: 0;
+    }
+
+    .catalog-item-desc {
+        font-size: 12px;
+        color: var(--on-surface-variant);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin: 0;
+    }
+
+    .catalog-detail {
+        padding: 20px;
+    }
+
+    .catalog-detail-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--on-surface);
+        margin: 0 0 4px 0;
+        display: inline;
+    }
+
+    .catalog-detail-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        background: var(--on-surface);
+        color: var(--surface);
+        font-family: var(--mono);
+        font-size: 10px;
+        text-transform: uppercase;
+        border-radius: 0;
+        margin-left: 8px;
+        vertical-align: middle;
+    }
+
+    .catalog-detail-desc {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--on-surface-variant);
+        margin: 12px 0 20px;
+    }
+
+    .catalog-detail-section {
+        margin-bottom: 16px;
+    }
+
+    .catalog-detail-section-title {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--on-surface);
+        margin: 0 0 8px 0;
+    }
+
+    .catalog-code-block {
+        padding: 12px;
+        background: var(--on-surface);
+        color: var(--surface-container-lowest);
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.6;
+        border-radius: 0;
+        overflow-x: auto;
+    }
+
+    .catalog-kv-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .catalog-kv-list li {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 12px;
+        border-bottom: 1px solid rgba(224, 191, 184, 0.1);
+    }
+
+    .catalog-kv-list li span:first-child {
+        color: var(--on-surface-variant);
+        font-family: var(--mono);
+        font-size: 11px;
+    }
+
+    .catalog-kv-list li strong {
+        color: var(--on-surface);
+    }
 "#;

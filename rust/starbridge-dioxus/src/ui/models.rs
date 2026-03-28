@@ -8,7 +8,7 @@ pub enum WorkspacePage {
     Overview,
     Conversations,
     Workflow,
-    Surfaces,
+    Catalog,
     Memory,
 }
 
@@ -18,7 +18,7 @@ impl WorkspacePage {
             WorkspacePage::Overview => "Overview",
             WorkspacePage::Conversations => "Conversations",
             WorkspacePage::Workflow => "Workflow Studio",
-            WorkspacePage::Surfaces => "Surfaces",
+            WorkspacePage::Catalog => "Catalog",
             WorkspacePage::Memory => "Memory",
         }
     }
@@ -28,7 +28,7 @@ impl WorkspacePage {
             WorkspacePage::Overview => "Inspect the live run queue, browser work, and approval state without leaving the native client.",
             WorkspacePage::Conversations => "Operate channel threads as first-class workspaces instead of isolated webhook payloads.",
             WorkspacePage::Workflow => "Rehearse stage movement and ownership changes against the live workflow graph.",
-            WorkspacePage::Surfaces => "Edit constrained JSON contracts and preview the operator widgets they produce.",
+            WorkspacePage::Catalog => "Browse agents, tools, and integrations.",
             WorkspacePage::Memory => "Review durable memory documents and the retrieval traces that fed each run.",
         }
     }

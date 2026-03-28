@@ -243,7 +243,7 @@ fn build_app_menu() -> Menu {
         &MenuItem::with_id("view-overview", "Overview", true, None),
         &MenuItem::with_id("view-conversations", "Conversations", true, None),
         &MenuItem::with_id("view-workflow", "Workflow Studio", true, None),
-        &MenuItem::with_id("view-surfaces", "Surfaces", true, None),
+        &MenuItem::with_id("view-catalog", "Catalog", true, None),
         &MenuItem::with_id("view-memory", "Memory", true, None),
         &PredefinedMenuItem::separator(),
         &MenuItem::with_id("toggle-sidebar", "Toggle Sidebar", true, None),
@@ -347,7 +347,7 @@ fn app() -> Element {
         ("Super+1", "view-overview"),
         ("Super+2", "view-conversations"),
         ("Super+3", "view-workflow"),
-        ("Super+4", "view-surfaces"),
+        ("Super+4", "view-catalog"),
         ("Super+5", "view-memory"),
     ];
     for (accel, action_id) in shortcuts {
