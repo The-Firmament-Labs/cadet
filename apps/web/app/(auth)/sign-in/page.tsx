@@ -8,10 +8,15 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export default function SignInPage() {
+  const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handlePasskeySignIn() {
+    if (!email.trim()) {
+      setError("Enter your email to find your passkey")
+      return
+    }
     setLoading(true)
     setError(null)
 
@@ -20,7 +25,7 @@ export default function SignInPage() {
       const optionsRes = await fetch("/api/auth/login?step=options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "" }),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       })
       if (!optionsRes.ok) {
         const err = await optionsRes.json().catch(() => ({}))
@@ -78,9 +83,18 @@ export default function SignInPage() {
               </p>
             )}
 
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handlePasskeySignIn()}
+              className="w-full px-3 py-2 text-xs bg-secondary-foreground/5 border border-secondary-foreground/10 rounded-md text-secondary-foreground placeholder:text-secondary-foreground/30 outline-none focus:border-primary/50"
+            />
+
             <Button
               onClick={handlePasskeySignIn}
-              disabled={loading}
+              disabled={loading || !email.trim()}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-xs"
             >
               {loading ? "Authenticating…" : "Sign in with passkey"}
