@@ -1,29 +1,17 @@
 use spacetimedb::{reducer, table, Identity, ReducerContext, Table, Timestamp};
+use starbridge_core::{
+    AgentRuntime, ApprovalStatus, BrowserArtifactKind, BrowserMode, BrowserTaskState,
+    ControlPlaneTarget, DeliveryStatus, ExecutionOwner, ExecutionTarget, JobPriority, JobStatus,
+    MessageChannel, MessageDirection, RunState, RunnerPresenceStatus, ScheduleStatus, StepState,
+    ToolCallState, ToolRisk, WorkflowStage,
+};
 
-const WORKFLOW_STAGES: &[&str] = &[
-    "route",
-    "plan",
-    "gather",
-    "act",
-    "verify",
-    "summarize",
-    "learn",
-];
 const WORKFLOW_STAGE_ROUTE: &str = "route";
 const WORKFLOW_STAGE_ACT: &str = "act";
 const WORKFLOW_STAGE_GATHER: &str = "gather";
 const WORKFLOW_STAGE_VERIFY: &str = "verify";
 const WORKFLOW_STAGE_LEARN: &str = "learn";
 
-const WORKFLOW_RUN_STATUSES: &[&str] = &[
-    "queued",
-    "running",
-    "blocked",
-    "awaiting-approval",
-    "completed",
-    "failed",
-    "cancelled",
-];
 const WORKFLOW_RUN_STATUS_QUEUED: &str = "queued";
 const WORKFLOW_RUN_STATUS_RUNNING: &str = "running";
 const WORKFLOW_RUN_STATUS_BLOCKED: &str = "blocked";
@@ -31,16 +19,6 @@ const WORKFLOW_RUN_STATUS_AWAITING_APPROVAL: &str = "awaiting-approval";
 const WORKFLOW_RUN_STATUS_COMPLETED: &str = "completed";
 const WORKFLOW_RUN_STATUS_FAILED: &str = "failed";
 
-const WORKFLOW_STEP_STATUSES: &[&str] = &[
-    "ready",
-    "claimed",
-    "running",
-    "blocked",
-    "awaiting-approval",
-    "completed",
-    "failed",
-    "cancelled",
-];
 const WORKFLOW_STEP_STATUS_READY: &str = "ready";
 const WORKFLOW_STEP_STATUS_RUNNING: &str = "running";
 const WORKFLOW_STEP_STATUS_BLOCKED: &str = "blocked";
@@ -48,24 +26,18 @@ const WORKFLOW_STEP_STATUS_AWAITING_APPROVAL: &str = "awaiting-approval";
 const WORKFLOW_STEP_STATUS_COMPLETED: &str = "completed";
 const WORKFLOW_STEP_STATUS_FAILED: &str = "failed";
 
-const BROWSER_TASK_STATUSES: &[&str] = &["queued", "claimed", "running", "blocked", "completed", "failed"];
 const BROWSER_TASK_STATUS_QUEUED: &str = "queued";
 const BROWSER_TASK_STATUS_RUNNING: &str = "running";
 const BROWSER_TASK_STATUS_COMPLETED: &str = "completed";
 const BROWSER_TASK_STATUS_FAILED: &str = "failed";
 
-const JOB_STATUSES: &[&str] = &["queued", "running", "completed", "failed"];
 const JOB_STATUS_QUEUED: &str = "queued";
 const JOB_STATUS_RUNNING: &str = "running";
 const JOB_STATUS_COMPLETED: &str = "completed";
 const JOB_STATUS_FAILED: &str = "failed";
 
-const SCHEDULE_STATUSES: &[&str] = &["ready", "claimed"];
 const SCHEDULE_STATUS_READY: &str = "ready";
 const SCHEDULE_STATUS_CLAIMED: &str = "claimed";
-
-const RUNNER_PRESENCE_STATUSES: &[&str] = &["alive", "running", "idle", "stale"];
-const TOOL_CALL_STATUSES: &[&str] = &["pending", "running", "completed", "failed"];
 
 const EXECUTION_TARGET_BROWSER_WORKER: &str = "browser-worker";
 
@@ -374,174 +346,123 @@ fn normalize_json_blob(value: String, field: &str) -> Result<String, String> {
 }
 
 fn validate_control_plane(value: String) -> Result<String, String> {
-    let control_plane = validate_text(value, "control_plane")?;
-    if control_plane == "local" || control_plane == "cloud" {
-        Ok(control_plane)
-    } else {
-        Err("control_plane must be local or cloud".to_string())
-    }
+    validate_text(value, "control_plane")?
+        .parse::<ControlPlaneTarget>()
+        .map(|value| value.to_string())
 }
 
 fn validate_priority(value: String) -> Result<String, String> {
-    let priority = validate_text(value, "priority")?;
-    if priority == "low" || priority == "normal" || priority == "high" {
-        Ok(priority)
-    } else {
-        Err("priority must be low, normal, or high".to_string())
-    }
+    validate_text(value, "priority")?
+        .parse::<JobPriority>()
+        .map(|value| value.to_string())
 }
 
 fn validate_channel(value: String) -> Result<String, String> {
-    let channel = validate_text(value, "channel")?;
-    if channel == "web" || channel == "slack" || channel == "github" || channel == "system" {
-        Ok(channel)
-    } else {
-        Err("channel must be web, slack, github, or system".to_string())
-    }
+    validate_text(value, "channel")?
+        .parse::<MessageChannel>()
+        .map(|value| value.to_string())
 }
 
 fn validate_direction(value: String) -> Result<String, String> {
-    let direction = validate_text(value, "direction")?;
-    if direction == "inbound" || direction == "outbound" || direction == "system" {
-        Ok(direction)
-    } else {
-        Err("direction must be inbound, outbound, or system".to_string())
-    }
+    validate_text(value, "direction")?
+        .parse::<MessageDirection>()
+        .map(|value| value.to_string())
 }
 
 fn validate_stage(value: String) -> Result<String, String> {
-    let stage = validate_text(value, "stage")?;
-    if WORKFLOW_STAGES.contains(&stage.as_str()) {
-        Ok(stage)
-    } else {
-        Err("stage must be route, plan, gather, act, verify, summarize, or learn".to_string())
-    }
+    validate_text(value, "stage")?
+        .parse::<WorkflowStage>()
+        .map(|value| value.to_string())
 }
 
 fn validate_workflow_run_status(value: String) -> Result<String, String> {
-    let status = validate_text(value, "status")?;
-    if WORKFLOW_RUN_STATUSES.contains(&status.as_str()) {
-        Ok(status)
-    } else {
-        Err("invalid workflow run status".to_string())
-    }
+    validate_text(value, "status")?
+        .parse::<RunState>()
+        .map(|value| value.to_string())
 }
 
 fn validate_step_status(value: String) -> Result<String, String> {
-    let status = validate_text(value, "status")?;
-    if WORKFLOW_STEP_STATUSES.contains(&status.as_str()) {
-        Ok(status)
-    } else {
-        Err("invalid workflow step status".to_string())
-    }
+    validate_text(value, "status")?
+        .parse::<StepState>()
+        .map(|value| value.to_string())
 }
 
 fn validate_browser_mode(value: String) -> Result<String, String> {
-    let mode = validate_text(value, "mode")?;
-    if ["read", "extract", "navigate", "form", "download", "monitor"].contains(&mode.as_str()) {
-        Ok(mode)
-    } else {
-        Err("mode must be read, extract, navigate, form, download, or monitor".to_string())
-    }
+    validate_text(value, "mode")?
+        .parse::<BrowserMode>()
+        .map(|value| value.to_string())
 }
 
 fn validate_browser_risk(value: String) -> Result<String, String> {
-    let risk = validate_text(value, "risk")?;
-    if ["low", "medium", "high"].contains(&risk.as_str()) {
-        Ok(risk)
-    } else {
-        Err("risk must be low, medium, or high".to_string())
-    }
+    validate_text(value, "risk")?
+        .parse::<ToolRisk>()
+        .map(|value| value.to_string())
 }
 
 fn validate_approval_status(value: String) -> Result<String, String> {
-    let status = validate_text(value, "status")?;
-    if ["pending", "approved", "rejected", "expired"].contains(&status.as_str()) {
-        Ok(status)
-    } else {
-        Err("status must be pending, approved, rejected, or expired".to_string())
-    }
+    validate_text(value, "status")?
+        .parse::<ApprovalStatus>()
+        .map(|value| value.to_string())
 }
 
 fn validate_delivery_status(value: String) -> Result<String, String> {
-    let status = validate_text(value, "status")?;
-    if ["queued", "sent", "failed", "retrying"].contains(&status.as_str()) {
-        Ok(status)
-    } else {
-        Err("status must be queued, sent, failed, or retrying".to_string())
-    }
+    validate_text(value, "status")?
+        .parse::<DeliveryStatus>()
+        .map(|value| value.to_string())
 }
 
 fn validate_execution_target(value: String) -> Result<String, String> {
-    let target = validate_text(value, "owner_execution")?;
-    if [
-        "local-runner",
-        "vercel-edge",
-        "container-runner",
-        "maincloud-runner",
-        "browser-worker",
-        "learning-worker",
-    ]
-    .contains(&target.as_str())
-    {
-        Ok(target)
-    } else {
-        Err("unsupported owner_execution target".to_string())
-    }
+    validate_text(value, "execution_target")?
+        .parse::<ExecutionTarget>()
+        .map(|value| value.to_string())
+}
+
+fn validate_execution_owner(value: String) -> Result<String, String> {
+    validate_text(value, "owner_execution")?
+        .parse::<ExecutionOwner>()
+        .map(|value| value.to_string())
+}
+
+fn validate_runtime(value: String) -> Result<String, String> {
+    validate_text(value, "runtime")?
+        .parse::<AgentRuntime>()
+        .map(|value| value.to_string())
 }
 
 fn validate_browser_task_status(value: String) -> Result<String, String> {
-    let status = validate_text(value, "status")?;
-    if BROWSER_TASK_STATUSES.contains(&status.as_str()) {
-        Ok(status)
-    } else {
-        Err("invalid browser task status".to_string())
-    }
+    validate_text(value, "status")?
+        .parse::<BrowserTaskState>()
+        .map(|value| value.to_string())
 }
 
 fn validate_job_status(value: String) -> Result<String, String> {
-    let status = validate_text(value, "status")?;
-    if JOB_STATUSES.contains(&status.as_str()) {
-        Ok(status)
-    } else {
-        Err("invalid job status".to_string())
-    }
+    validate_text(value, "status")?
+        .parse::<JobStatus>()
+        .map(|value| value.to_string())
 }
 
 fn validate_schedule_status(value: String) -> Result<String, String> {
-    let status = validate_text(value, "status")?;
-    if SCHEDULE_STATUSES.contains(&status.as_str()) {
-        Ok(status)
-    } else {
-        Err("invalid schedule status".to_string())
-    }
+    validate_text(value, "status")?
+        .parse::<ScheduleStatus>()
+        .map(|value| value.to_string())
 }
 
 fn validate_runner_presence_status(value: String) -> Result<String, String> {
-    let status = validate_text(value, "status")?;
-    if RUNNER_PRESENCE_STATUSES.contains(&status.as_str()) {
-        Ok(status)
-    } else {
-        Err("invalid runner presence status".to_string())
-    }
+    validate_text(value, "status")?
+        .parse::<RunnerPresenceStatus>()
+        .map(|value| value.to_string())
 }
 
 fn validate_tool_call_status(value: String) -> Result<String, String> {
-    let status = validate_text(value, "status")?;
-    if TOOL_CALL_STATUSES.contains(&status.as_str()) {
-        Ok(status)
-    } else {
-        Err("invalid tool call status".to_string())
-    }
+    validate_text(value, "status")?
+        .parse::<ToolCallState>()
+        .map(|value| value.to_string())
 }
 
 fn validate_artifact_kind(value: String) -> Result<String, String> {
-    let kind = validate_text(value, "kind")?;
-    if ["screenshot", "text", "pdf", "html", "trace"].contains(&kind.as_str()) {
-        Ok(kind)
-    } else {
-        Err("kind must be screenshot, text, pdf, html, or trace".to_string())
-    }
+    validate_text(value, "kind")?
+        .parse::<BrowserArtifactKind>()
+        .map(|value| value.to_string())
 }
 
 fn now_micros(ctx: &ReducerContext) -> i64 {
@@ -604,9 +525,9 @@ pub fn register_agent(
 ) -> Result<(), String> {
     let agent_id = validate_identifier(agent_id, "agent_id")?;
     let display_name = validate_text(display_name, "display_name")?;
-    let runtime = validate_text(runtime, "runtime")?;
+    let runtime = validate_runtime(runtime)?;
     let control_plane = validate_control_plane(control_plane)?;
-    let execution_target = validate_text(execution_target, "execution_target")?;
+    let execution_target = validate_execution_target(execution_target)?;
     let workflow = validate_text(workflow, "workflow")?;
     let model = validate_text(model, "model")?;
 
@@ -1021,7 +942,7 @@ pub fn enqueue_workflow_step(
     let run_id = validate_identifier(run_id, "run_id")?;
     let agent_id = validate_identifier(agent_id, "agent_id")?;
     let stage = validate_stage(stage)?;
-    let owner_execution = validate_execution_target(owner_execution)?;
+    let owner_execution = validate_execution_owner(owner_execution)?;
     let input_json = normalize_json_blob(input_json, "input_json")?;
     let depends_on_step_id = match depends_on_step_id {
         Some(candidate) => Some(validate_identifier(candidate, "depends_on_step_id")?),
@@ -1074,7 +995,7 @@ pub fn claim_workflow_step(
     runner_id: String,
 ) -> Result<(), String> {
     let step_id = validate_identifier(step_id, "step_id")?;
-    let owner_execution = validate_execution_target(owner_execution)?;
+    let owner_execution = validate_execution_owner(owner_execution)?;
     let runner_id = validate_text(runner_id, "runner_id")?;
     let now = now_micros(ctx);
 

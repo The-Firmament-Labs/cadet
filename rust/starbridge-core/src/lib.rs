@@ -3,6 +3,51 @@ use serde_json::{json, Value};
 use std::{fmt, str::FromStr};
 use tokio::sync::broadcast;
 
+macro_rules! string_enum {
+    (pub enum $name:ident { $($variant:ident => $value:literal),+ $(,)? }) => {
+        #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+        pub enum $name {
+            $(
+                #[serde(rename = $value)]
+                $variant,
+            )+
+        }
+
+        impl $name {
+            pub const ALL: [Self; string_enum!(@count $($variant),+)] = [$(Self::$variant),+];
+
+            pub const fn as_str(self) -> &'static str {
+                match self {
+                    $(Self::$variant => $value,)+
+                }
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(self.as_str())
+            }
+        }
+
+        impl FromStr for $name {
+            type Err = String;
+
+            fn from_str(value: &str) -> Result<Self, Self::Err> {
+                match value {
+                    $($value => Ok(Self::$variant),)+
+                    _ => Err(format!("unsupported {} '{}'", stringify!($name), value)),
+                }
+            }
+        }
+    };
+    (@count $head:ident $(,$tail:ident)*) => {
+        1usize $(+ string_enum!(@count $tail))*
+    };
+    (@count) => {
+        0usize
+    };
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum WorkflowStage {
@@ -172,6 +217,110 @@ impl FromStr for ExecutionOwner {
     }
 }
 
+string_enum!(
+    pub enum ControlPlaneTarget {
+        Local => "local",
+        Cloud => "cloud",
+    }
+);
+
+string_enum!(
+    pub enum AgentRuntime {
+        RustCore => "rust-core",
+        BunSidecar => "bun-sidecar",
+        EdgeFunction => "edge-function",
+    }
+);
+
+string_enum!(
+    pub enum BrowserMode {
+        Read => "read",
+        Extract => "extract",
+        Navigate => "navigate",
+        Form => "form",
+        Download => "download",
+        Monitor => "monitor",
+    }
+);
+
+string_enum!(
+    pub enum JobPriority {
+        Low => "low",
+        Normal => "normal",
+        High => "high",
+    }
+);
+
+string_enum!(
+    pub enum MessageDirection {
+        Inbound => "inbound",
+        Outbound => "outbound",
+        System => "system",
+    }
+);
+
+string_enum!(
+    pub enum MessageChannel {
+        Web => "web",
+        Slack => "slack",
+        Github => "github",
+        System => "system",
+    }
+);
+
+string_enum!(
+    pub enum ApprovalStatus {
+        Pending => "pending",
+        Approved => "approved",
+        Rejected => "rejected",
+        Expired => "expired",
+    }
+);
+
+string_enum!(
+    pub enum DeliveryStatus {
+        Queued => "queued",
+        Sent => "sent",
+        Failed => "failed",
+        Retrying => "retrying",
+    }
+);
+
+string_enum!(
+    pub enum JobStatus {
+        Queued => "queued",
+        Running => "running",
+        Completed => "completed",
+        Failed => "failed",
+    }
+);
+
+string_enum!(
+    pub enum ScheduleStatus {
+        Ready => "ready",
+        Claimed => "claimed",
+    }
+);
+
+string_enum!(
+    pub enum RunnerPresenceStatus {
+        Alive => "alive",
+        Running => "running",
+        Idle => "idle",
+        Stale => "stale",
+    }
+);
+
+string_enum!(
+    pub enum BrowserArtifactKind {
+        Screenshot => "screenshot",
+        Text => "text",
+        Pdf => "pdf",
+        Html => "html",
+        Trace => "trace",
+    }
+);
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum RunState {
@@ -319,13 +468,13 @@ impl FromStr for BrowserTaskState {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "lowercase")]
-pub enum ToolRisk {
-    Low,
-    Medium,
-    High,
-}
+string_enum!(
+    pub enum ToolRisk {
+        Low => "low",
+        Medium => "medium",
+        High => "high",
+    }
+);
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
@@ -381,9 +530,9 @@ pub struct BrowserToolPolicy {
     #[serde(default)]
     pub allow_downloads: bool,
     #[serde(default = "default_browser_mode")]
-    pub default_mode: String,
+    pub default_mode: BrowserMode,
     #[serde(default = "default_browser_approval_modes")]
-    pub requires_approval_for: Vec<String>,
+    pub requires_approval_for: Vec<BrowserMode>,
 }
 
 impl Default for BrowserToolPolicy {
@@ -432,7 +581,7 @@ pub struct MemoryPolicy {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentPolicy {
-    pub control_plane: String,
+    pub control_plane: ControlPlaneTarget,
     pub execution: ExecutionTarget,
     pub workflow: String,
 }
@@ -450,6 +599,14 @@ pub struct WorkflowTemplate {
 pub struct ToolProfile {
     pub id: String,
     pub description: String,
+    #[serde(default)]
+    pub allow_exec: Option<bool>,
+    #[serde(default)]
+    pub allow_network: Option<bool>,
+    #[serde(default)]
+    pub allow_mcp: Option<bool>,
+    #[serde(default)]
+    pub browser: Option<PartialBrowserToolPolicy>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -486,6 +643,36 @@ impl Default for LearningPolicy {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PartialBrowserToolPolicy {
+    #[serde(default)]
+    pub enabled: Option<bool>,
+    #[serde(default)]
+    pub allowed_domains: Option<Vec<String>>,
+    #[serde(default)]
+    pub blocked_domains: Option<Vec<String>>,
+    #[serde(default)]
+    pub max_concurrent_sessions: Option<usize>,
+    #[serde(default)]
+    pub allow_downloads: Option<bool>,
+    #[serde(default)]
+    pub default_mode: Option<BrowserMode>,
+    #[serde(default)]
+    pub requires_approval_for: Option<Vec<BrowserMode>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentScheduleDefinition {
+    pub id: String,
+    pub goal: String,
+    pub interval_minutes: usize,
+    pub priority: JobPriority,
+    pub enabled: bool,
+    pub requested_by: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AgentManifest {
     pub id: String,
@@ -493,13 +680,13 @@ pub struct AgentManifest {
     pub description: String,
     pub system: String,
     pub model: String,
-    pub runtime: String,
+    pub runtime: AgentRuntime,
     pub deployment: DeploymentPolicy,
     pub tags: Vec<String>,
     pub tools: ToolPolicy,
     pub memory: MemoryPolicy,
     #[serde(default)]
-    pub schedules: Vec<Value>,
+    pub schedules: Vec<AgentScheduleDefinition>,
     #[serde(default)]
     pub workflow_templates: Vec<WorkflowTemplate>,
     #[serde(default)]
@@ -525,7 +712,7 @@ pub struct JobEnvelope {
     pub job_id: String,
     pub agent_id: String,
     pub goal: String,
-    pub priority: String,
+    pub priority: JobPriority,
     pub requested_by: String,
     pub created_at: String,
 }
@@ -539,7 +726,7 @@ pub struct ExecutionOutcome {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StageExecutionOutcome {
-    pub stage: String,
+    pub stage: WorkflowStage,
     pub summary: String,
     pub actions: Vec<String>,
     pub memory_note: Option<String>,
@@ -709,7 +896,7 @@ pub enum RuntimeEvent {
     JobQueued { job_id: String, agent_id: String },
     JobStarted { job_id: String, runner_id: String },
     WorkflowStepClaimed { step_id: String, runner_id: String },
-    WorkflowStepCompleted { step_id: String, stage: String },
+    WorkflowStepCompleted { step_id: String, stage: WorkflowStage },
     BrowserTaskQueued { task_id: String, step_id: String },
     BrowserTaskCompleted { task_id: String, step_id: String },
     MemoryRecorded { agent_id: String, namespace: String },
@@ -746,12 +933,12 @@ impl EventBus {
     }
 }
 
-fn default_browser_mode() -> String {
-    "read".to_string()
+fn default_browser_mode() -> BrowserMode {
+    BrowserMode::Read
 }
 
-fn default_browser_approval_modes() -> Vec<String> {
-    vec!["form".to_string(), "download".to_string()]
+fn default_browser_approval_modes() -> Vec<BrowserMode> {
+    vec![BrowserMode::Form, BrowserMode::Download]
 }
 
 fn default_max_browser_sessions() -> usize {
@@ -904,7 +1091,7 @@ pub fn execute_workflow_stage(
     };
 
     StageExecutionOutcome {
-        stage: stage.to_string(),
+        stage,
         summary: summary.clone(),
         actions: actions.clone(),
         memory_note,
@@ -946,9 +1133,9 @@ mod tests {
             description: "Research agent".to_string(),
             system: "Stay factual".to_string(),
             model: "gpt-5.4".to_string(),
-            runtime: "rust-core".to_string(),
+            runtime: AgentRuntime::RustCore,
             deployment: DeploymentPolicy {
-                control_plane: "local".to_string(),
+                control_plane: ControlPlaneTarget::Local,
                 execution: ExecutionTarget::LocalRunner,
                 workflow: "research".to_string(),
             },
@@ -964,8 +1151,8 @@ mod tests {
                     blocked_domains: vec![],
                     max_concurrent_sessions: 2,
                     allow_downloads: false,
-                    default_mode: "read".to_string(),
-                    requires_approval_for: vec!["form".to_string(), "download".to_string()],
+                    default_mode: BrowserMode::Read,
+                    requires_approval_for: vec![BrowserMode::Form, BrowserMode::Download],
                 },
             },
             memory: MemoryPolicy {
@@ -973,7 +1160,14 @@ mod tests {
                 max_notes: 200,
                 summarize_after: 20,
             },
-            schedules: vec![],
+            schedules: vec![AgentScheduleDefinition {
+                id: "daily-audit".to_string(),
+                goal: "Audit new regressions".to_string(),
+                interval_minutes: 15,
+                priority: JobPriority::High,
+                enabled: true,
+                requested_by: "scheduler".to_string(),
+            }],
             workflow_templates: vec![],
             tool_profiles: vec![],
             handoff_rules: vec![],
@@ -991,7 +1185,7 @@ mod tests {
             job_id: "job_fixed".to_string(),
             agent_id: "researcher".to_string(),
             goal: "Audit the release plan".to_string(),
-            priority: "high".to_string(),
+            priority: JobPriority::High,
             requested_by: "dex".to_string(),
             created_at: "2026-03-27T00:00:00.000Z".to_string(),
         }
@@ -1085,5 +1279,70 @@ mod tests {
         let state = ToolCallState::from_str("failed").expect("valid tool call state");
         assert_eq!(state, ToolCallState::Failed);
         assert_eq!(state.to_string(), "failed");
+    }
+
+    #[test]
+    fn manifest_contract_roundtrips_through_canonical_types() {
+        let manifest = sample_manifest();
+        let parsed: AgentManifest =
+            serde_json::from_value(serde_json::to_value(&manifest).expect("serialize manifest"))
+                .expect("deserialize manifest");
+
+        assert_eq!(parsed.runtime, AgentRuntime::RustCore);
+        assert_eq!(parsed.deployment.control_plane, ControlPlaneTarget::Local);
+        assert_eq!(parsed.tools.browser.default_mode, BrowserMode::Read);
+        assert_eq!(
+            parsed.tools.browser.requires_approval_for,
+            vec![BrowserMode::Form, BrowserMode::Download]
+        );
+        assert_eq!(parsed.schedules[0].priority, JobPriority::High);
+    }
+
+    #[test]
+    fn supplemental_phase_zero_vocabulary_roundtrips() {
+        assert_eq!(
+            ControlPlaneTarget::from_str("cloud").expect("valid control plane"),
+            ControlPlaneTarget::Cloud
+        );
+        assert_eq!(
+            AgentRuntime::from_str("edge-function").expect("valid runtime"),
+            AgentRuntime::EdgeFunction
+        );
+        assert_eq!(
+            MessageChannel::from_str("github").expect("valid channel"),
+            MessageChannel::Github
+        );
+        assert_eq!(
+            MessageDirection::from_str("system").expect("valid direction"),
+            MessageDirection::System
+        );
+        assert_eq!(
+            ApprovalStatus::from_str("approved").expect("valid approval status"),
+            ApprovalStatus::Approved
+        );
+        assert_eq!(
+            DeliveryStatus::from_str("retrying").expect("valid delivery status"),
+            DeliveryStatus::Retrying
+        );
+        assert_eq!(
+            JobStatus::from_str("running").expect("valid job status"),
+            JobStatus::Running
+        );
+        assert_eq!(
+            ScheduleStatus::from_str("claimed").expect("valid schedule status"),
+            ScheduleStatus::Claimed
+        );
+        assert_eq!(
+            RunnerPresenceStatus::from_str("alive").expect("valid presence status"),
+            RunnerPresenceStatus::Alive
+        );
+        assert_eq!(
+            BrowserArtifactKind::from_str("trace").expect("valid artifact kind"),
+            BrowserArtifactKind::Trace
+        );
+        assert_eq!(
+            ToolRisk::from_str("medium").expect("valid tool risk"),
+            ToolRisk::Medium
+        );
     }
 }

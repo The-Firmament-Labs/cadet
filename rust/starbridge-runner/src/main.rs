@@ -23,8 +23,8 @@ use serde_json::{json, Value};
 use spacetimedb_sdk::{DbContext, Table, TableWithPrimaryKey};
 use starbridge_core::{
     compose_prompt, deterministic_embedding, execute_local_job, execute_workflow_stage, AgentManifest,
-    BrowserTaskState, EventBus, ExecutionOwner, JobEnvelope, RuntimeEvent, StepState,
-    ToolCallState, WorkflowStage,
+    BrowserTaskState, EventBus, ExecutionOwner, JobEnvelope, JobPriority, MessageChannel,
+    RunnerPresenceStatus, RuntimeEvent, StepState, ToolCallState, WorkflowStage,
 };
 
 #[derive(Clone)]
@@ -86,7 +86,9 @@ fn build_job(args: &[String], agent_id: &str, goal: String) -> JobEnvelope {
         job_id: read_flag(args, "--job-id").unwrap_or_else(|| "job_preview".to_string()),
         agent_id: agent_id.to_string(),
         goal,
-        priority: read_flag(args, "--priority").unwrap_or_else(|| "normal".to_string()),
+        priority: read_flag(args, "--priority")
+            .and_then(|value| value.parse::<JobPriority>().ok())
+            .unwrap_or(JobPriority::Normal),
         requested_by: read_flag(args, "--requested-by").unwrap_or_else(|| "operator".to_string()),
         created_at: read_flag(args, "--created-at")
             .unwrap_or_else(|| "2026-03-27T00:00:00.000Z".to_string()),
@@ -237,7 +239,13 @@ fn enqueue_next_step(
     next_input.insert("goal".to_string(), json!(input.get("goal").and_then(Value::as_str).unwrap_or_default()));
     next_input.insert("runId".to_string(), json!(step.run_id));
     next_input.insert("threadId".to_string(), input.get("threadId").cloned().unwrap_or(Value::Null));
-    next_input.insert("channel".to_string(), input.get("channel").cloned().unwrap_or(json!("system")));
+    next_input.insert(
+        "channel".to_string(),
+        input
+            .get("channel")
+            .cloned()
+            .unwrap_or_else(|| json!(MessageChannel::System.as_str())),
+    );
     next_input.insert("browserRequired".to_string(), json!(browser_required(input)));
     next_input.insert(
         "browserMode".to_string(),
@@ -391,7 +399,7 @@ fn record_summary_message(
     let channel = input
         .get("channel")
         .and_then(Value::as_str)
-        .unwrap_or("system")
+        .unwrap_or(MessageChannel::System.as_str())
         .to_string();
     let summary = outcome
         .get("summary")
@@ -881,8 +889,8 @@ fn run_worker(args: &[String]) -> Result<(), String> {
         let _ = connection.reducers.upsert_presence(
             manifest.id.clone(),
             runner_id.clone(),
-            manifest.deployment.control_plane.clone(),
-            "alive".to_string(),
+            manifest.deployment.control_plane.to_string(),
+            RunnerPresenceStatus::Alive.to_string(),
         );
     }
 
@@ -937,8 +945,8 @@ fn run_worker(args: &[String]) -> Result<(), String> {
             let _ = connection.reducers.upsert_presence(
                 manifest.id.clone(),
                 runner_id.clone(),
-                manifest.deployment.control_plane.clone(),
-                "alive".to_string(),
+                manifest.deployment.control_plane.to_string(),
+                RunnerPresenceStatus::Alive.to_string(),
             );
         }
     }

@@ -1,8 +1,8 @@
 # Session State
 
-**Current Phase**: Phase 0 - Canonical Architecture Consolidation  
-**Current Stage**: CI/CD hardening / shared docs portal  
-**Last Checkpoint**: live Dioxus mission control and Pages-backed docs portal landed locally  
+**Current Phase**: Phase 1 - Deployment Portability Layer  
+**Current Stage**: Planning / Implementation  
+**Last Checkpoint**: Phase 0 completed and pushed  
 **Planning Docs**: [MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md), [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md), [docs/CONVERSATION_SYNTHESIS.md](docs/CONVERSATION_SYNTHESIS.md), [docs/RALPH_LOOP.md](docs/RALPH_LOOP.md), [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
@@ -34,7 +34,7 @@ If the active user is `SYMBaiEX`, default to non-UI implementation work first un
 **Completed**: Event-driven workflow fabric is implemented
 **Summary**: SpacetimeDB owns workflow, browser, approval, delivery, and semantic-memory state; Rust workers subscribe and process durable work; web/local control planes seed runs instead of executing inline.
 
-## Phase 0: Canonical Architecture Consolidation 🔄
+## Phase 0: Canonical Architecture Consolidation ✅
 **Spec**: [MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md)
 
 **Progress**:
@@ -65,9 +65,15 @@ If the active user is `SYMBaiEX`, default to non-UI implementation work first un
 - [x] Rust core now round-trips tool-call statuses, and the runner records tool calls through the shared Rust status enum instead of raw literals
 - [x] SDK now exposes typed `listJobs()` and `listToolCalls()` read models, and repo status tooling consumes the typed jobs surface
 - [x] Web run details now use the typed job and tool-call read models so operators can inspect linked job and tool activity without raw SQL access
-- [ ] Replace additional raw-string workflow/runtime state usage across Rust and TS surfaces
+- [x] Local and cloud control planes now share canonical workflow seeding, control-plane, channel, and browser-mode contracts instead of restating literal unions
+- [x] CLI dispatch routing and SDK message ingest now use shared canonical deployment and message contracts instead of duplicating raw unions
+- [x] Rust core now owns canonical control-plane, runtime, browser-mode, job-priority, message, approval, delivery, job/schedule/presence, and artifact vocabularies with manifest parity
+- [x] SpacetimeDB now validates agent registration, workflow ownership, channel/direction, browser, delivery, job, schedule, presence, and artifact contracts through shared Rust canonical types
+- [x] Replace additional raw-string workflow/runtime state usage across Rust and TS surfaces
 
-**Next Action**: Continue removing duplicated workflow/runtime literals from remaining operator/control-plane surfaces and residual test fixtures, then normalize any remaining storage read models and queue/operator contracts so inspection, recovery, SDK, orchestration, and worker paths all speak one canonical state model.
+**Review Gate**: Passed — manifest, runtime, workflow, and control-plane contracts are now canonical and stable across Rust core, TypeScript core/SDK/control planes, runner, and SpacetimeDB.
+
+**Next Action**: Move into Phase 1 deployment portability work by extracting the provider-neutral edge adapter boundary and landing the first Cloudflare ingress implementation against the existing shared workflow contract.
 
 **Key Files**:
 - [rust/starbridge-core/src/lib.rs](rust/starbridge-core/src/lib.rs)
