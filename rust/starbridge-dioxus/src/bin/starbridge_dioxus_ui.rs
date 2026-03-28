@@ -54,8 +54,9 @@ const DESKTOP_STYLES: &str = r#"
         align-items: center;
         padding: 4px 10px;
         border-radius: 0;
-        background: #AA3618;
-        color: #FFFFFF;
+        border: 1px solid #AA3618;
+        background: transparent;
+        color: #AA3618;
         font-family: "JetBrains Mono", monospace;
         font-size: 10px;
         letter-spacing: 0.06em;
@@ -78,32 +79,38 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .desktop-button {
-        border: none;
+        border: 1px solid rgba(28, 27, 27, 0.15);
         border-radius: 0;
-        background: #AA3618;
-        color: #FFFFFF;
+        background: transparent;
+        color: #1C1B1B;
         font: inherit;
-        font-size: 11px;
+        font-size: 10px;
         font-family: "JetBrains Mono", monospace;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        padding: 6px 14px;
+        padding: 5px 12px;
         cursor: pointer;
-        transition: background 0.15s;
+        transition: background 0.15s, color 0.15s;
     }
 
     .desktop-button:hover {
-        background: #EF6745;
+        background: #1C1B1B;
+        color: #FFFFFF;
     }
 
     .desktop-error {
         margin: 8px 16px 0;
-        padding: 8px 12px;
+        padding: 10px 14px;
         border-radius: 0;
-        background: rgba(170, 54, 24, 0.08);
-        color: #AA3618;
-        font-size: 12px;
+        background: var(--surface-container-high, #E4E1E0);
+        color: #58413C;
+        font-size: 11px;
         font-family: "JetBrains Mono", monospace;
+        line-height: 1.5;
+        box-shadow: inset 3px 0 0 #AA3618;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .status-dot {

@@ -33,7 +33,7 @@ pub const APP_STYLES: &str = r#"
 
         /* Effects */
         --shadow:      0 24px 48px rgba(28, 27, 27, 0.06);
-        --ghost-border: inset 0 0 0 1px rgba(224, 191, 184, 0.15);
+        --ghost-border: inset 0 0 0 1px rgba(224, 191, 184, 0.20);
 
         /* Grid */
         --grid-size: 24px;
@@ -55,7 +55,7 @@ pub const APP_STYLES: &str = r#"
         min-height: 100%;
         color: var(--on-surface);
         font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-        font-size: 12px;
+        font-size: 13px;
         line-height: 1.5;
     }
 
@@ -177,14 +177,24 @@ pub const APP_STYLES: &str = r#"
         opacity: 1;
     }
 
-    .sidebar-nav,
+    .sidebar-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
     .list-stack,
     .panel-stack,
-    .inspector-stack,
     .surface-node-stack {
         display: flex;
         flex-direction: column;
         gap: 2px;
+    }
+
+    .inspector-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
     }
 
     .nav-button,
@@ -192,17 +202,23 @@ pub const APP_STYLES: &str = r#"
         width: 100%;
         border: none;
         border-radius: 0;
-        padding: 8px 6px;
+        padding: 12px 14px;
         background: transparent;
         color: rgba(255, 255, 255, 0.7);
         text-align: left;
         cursor: pointer;
-        transition: background 0.15s, color 0.15s;
+        transition: background 0.15s, color 0.15s, box-shadow 0.15s;
         display: flex;
         align-items: center;
         gap: 8px;
         white-space: nowrap;
         overflow: hidden;
+        border-bottom: 1px solid rgba(224, 191, 184, 0.08);
+    }
+
+    .nav-button {
+        padding: 8px 6px;
+        border-bottom: none;
     }
 
     .sidebar:not(.sidebar-expanded) .nav-button {
@@ -210,15 +226,26 @@ pub const APP_STYLES: &str = r#"
         padding: 8px 0;
     }
 
-    .nav-button:hover,
-    .list-item:hover {
-        background: rgba(255, 255, 255, 0.06);
+    .nav-button:hover {
+        background: rgba(255, 255, 255, 0.04);
+        transition: background 0.15s, box-shadow 0.15s;
     }
 
-    .nav-button-active,
+    .list-item:hover {
+        background: var(--surface-container);
+        transition: background 0.15s, box-shadow 0.15s;
+    }
+
+    .nav-button-active {
+        background: rgba(170, 54, 24, 0.08);
+        color: rgba(255, 255, 255, 0.95);
+        box-shadow: inset 3px 0 0 var(--primary);
+    }
+
     .list-item-active {
-        background: var(--primary);
-        color: var(--on-primary);
+        background: rgba(170, 54, 24, 0.06);
+        color: var(--on-surface);
+        box-shadow: inset 3px 0 0 var(--primary);
     }
 
     .nav-label,
@@ -243,9 +270,9 @@ pub const APP_STYLES: &str = r#"
         opacity: 1;
     }
 
-    /* Active nav label gets white */
+    /* Active nav label gets brighter white */
     .nav-button-active .nav-label {
-        color: var(--on-primary);
+        color: rgba(255, 255, 255, 0.95);
     }
 
     .nav-row,
@@ -281,8 +308,8 @@ pub const APP_STYLES: &str = r#"
     }
 
     .nav-button-active .nav-count {
-        background: rgba(255, 255, 255, 0.2);
-        color: var(--on-primary);
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.85);
     }
 
     .sidebar-metrics {
@@ -369,12 +396,12 @@ pub const APP_STYLES: &str = r#"
     .topbar-eyebrow,
     .sidebar-eyebrow,
     .section-eyebrow {
-        margin: 0;
+        margin: 0 0 4px;
         color: var(--on-surface-variant);
         font-family: var(--mono);
         font-size: 10px;
         font-weight: 400;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
     }
 
@@ -389,7 +416,7 @@ pub const APP_STYLES: &str = r#"
         display: inline-block;
         width: 6px;
         height: 6px;
-        border-radius: 0;
+        border-radius: 50%;
         background: var(--primary);
         animation: pulse 2s ease-in-out infinite;
         flex-shrink: 0;
@@ -428,7 +455,7 @@ pub const APP_STYLES: &str = r#"
     .document-viewer {
         border-radius: 0;
         background: var(--surface-container-lowest);
-        box-shadow: var(--ghost-border), var(--shadow);
+        box-shadow: var(--ghost-border), 0 1px 3px rgba(28, 27, 27, 0.04), var(--shadow);
     }
 
     .metric-tile,
@@ -436,7 +463,7 @@ pub const APP_STYLES: &str = r#"
     .row-card,
     .surface-node,
     .document-viewer {
-        padding: 12px;
+        padding: 16px;
     }
 
     .metric-tile-grid {
@@ -459,8 +486,13 @@ pub const APP_STYLES: &str = r#"
     .editor-body,
     .preview-body,
     .document-body {
-        padding: 12px 14px;
+        padding: 14px 16px;
         min-height: 0;
+    }
+
+    .panel-head {
+        padding-bottom: 12px;
+        margin-bottom: 0;
     }
 
     .panel-head,
@@ -508,11 +540,11 @@ pub const APP_STYLES: &str = r#"
     .card-eyebrow,
     .panel-eyebrow,
     .metric-eyebrow {
-        margin: 0;
+        margin: 0 0 4px;
         font-family: var(--mono);
         font-size: 10px;
         font-weight: 400;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
         color: var(--on-surface-variant);
     }
@@ -521,7 +553,7 @@ pub const APP_STYLES: &str = r#"
     .card-title,
     .panel-title,
     .inspector-title {
-        margin: 0;
+        margin: 0 0 2px;
         font-size: 13px;
         font-weight: 600;
         color: var(--on-surface);
@@ -540,7 +572,7 @@ pub const APP_STYLES: &str = r#"
         margin: 0;
         color: var(--on-surface-variant);
         font-size: 12px;
-        line-height: 1.55;
+        line-height: 1.6;
     }
 
     .list-item-meta,
@@ -598,6 +630,8 @@ pub const APP_STYLES: &str = r#"
         color: var(--on-surface-variant);
         font-size: 11px;
         font-family: var(--mono);
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(224, 191, 184, 0.08);
     }
 
     .key-value-list strong {
@@ -628,7 +662,7 @@ pub const APP_STYLES: &str = r#"
         padding: 6px 10px;
         font-size: 12px;
         cursor: pointer;
-        transition: background 0.15s, color 0.15s;
+        transition: background 0.15s, color 0.15s, box-shadow 0.15s;
     }
 
     .segmented-button {
@@ -690,27 +724,27 @@ pub const APP_STYLES: &str = r#"
 
     .pill-live,
     .pill-accent {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
+        background: rgba(170, 54, 24, 0.10);
+        color: var(--primary);
     }
 
     .pill-success {
-        background: var(--tertiary-container);
+        background: rgba(82, 98, 88, 0.12);
         color: var(--tertiary);
     }
 
     .pill-warn {
-        background: var(--secondary-container);
+        background: rgba(95, 94, 94, 0.10);
         color: var(--secondary);
     }
 
     .pill-danger {
-        background: var(--primary);
-        color: var(--on-primary);
+        background: rgba(170, 54, 24, 0.10);
+        color: var(--primary);
     }
 
     .pill-subtle {
-        background: var(--surface-dim);
+        background: rgba(95, 94, 94, 0.10);
         color: var(--on-surface-variant);
     }
 
@@ -749,7 +783,7 @@ pub const APP_STYLES: &str = r#"
         display: inline-block;
         width: 8px;
         height: 8px;
-        border-radius: 0;
+        border-radius: 50%;
         background: var(--tertiary);
         flex-shrink: 0;
     }
@@ -887,20 +921,23 @@ pub const APP_STYLES: &str = r#"
 
     .message-bubble {
         max-width: 78%;
-        padding: 10px 12px 8px;
+        padding: 12px 14px;
         border-radius: 0;
+        margin-bottom: 6px;
     }
 
     /* Inbound: surface-container-low, left-aligned, sharp corners */
     .message-bubble-inbound {
         align-self: flex-start;
         background: var(--surface-container-low);
+        box-shadow: var(--ghost-border), 0 1px 3px rgba(28, 27, 27, 0.04);
     }
 
-    /* Outbound: primary 10% tint, right-aligned, sharp corners */
+    /* Outbound: primary 6% tint, right-aligned, subtle coral ghost border */
     .message-bubble-outbound {
         align-self: flex-end;
-        background: rgba(170, 54, 24, 0.10);
+        background: rgba(170, 54, 24, 0.06);
+        box-shadow: inset 0 0 0 1px rgba(170, 54, 24, 0.15), 0 1px 3px rgba(28, 27, 27, 0.04);
     }
 
     .message-body {
@@ -915,9 +952,10 @@ pub const APP_STYLES: &str = r#"
         display: flex;
         flex-direction: column;
         background: var(--surface-container-lowest);
-        box-shadow: var(--ghost-border), var(--shadow);
+        box-shadow: var(--ghost-border), 0 1px 3px rgba(28, 27, 27, 0.04), var(--shadow);
         border-radius: 0;
         overflow: hidden;
+        border-top: 1px solid rgba(224, 191, 184, 0.20);
     }
 
     .composer-input {
@@ -932,7 +970,7 @@ pub const APP_STYLES: &str = r#"
         font-size: 13px;
         line-height: 1.5;
         resize: vertical;
-        min-height: 40px;
+        min-height: 48px;
         outline: none;
     }
 
