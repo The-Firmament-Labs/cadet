@@ -243,14 +243,15 @@ pub const WIDGET_STYLES: &str = r#"
     }
 
     .widget-glass {
-        backdrop-filter: blur(24px) saturate(1.4);
-        -webkit-backdrop-filter: blur(24px) saturate(1.4);
-        background: rgba(30, 30, 30, 0.72);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 16px;
+        backdrop-filter: blur(40px) saturate(180%);
+        -webkit-backdrop-filter: blur(40px) saturate(180%);
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 20px;
         box-shadow:
-            0 8px 32px rgba(0, 0, 0, 0.4),
-            0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+            0 8px 32px rgba(31, 38, 135, 0.2),
+            inset 0 2px 16px rgba(255, 255, 255, 0.15),
+            inset 0 -1px 4px rgba(0, 0, 0, 0.1);
         padding: 16px;
         display: flex;
         flex-direction: column;
@@ -1160,7 +1161,12 @@ pub mod desktop {
                 div { class: "{widget_class}",
                     // Header — drag handle covers the brand area
                     div { class: "widget-header",
-                        div { class: "widget-drag-handle",
+                        div {
+                            class: "widget-drag-handle",
+                            onmousedown: {
+                                let d = desktop.clone();
+                                move |_| { d.drag(); }
+                            },
                             div { class: "widget-brand",
                                 div { class: "widget-brand-dot" }
                                 span { class: "widget-brand-label", "CADET" }
@@ -1345,6 +1351,7 @@ pub mod desktop {
     #[component]
     pub fn LiveAgentHud(props: LiveAgentHudProps) -> Element {
         let bridge = props.bridge;
+        let desktop = use_window();
 
         let metrics = bridge.metrics.lock().unwrap().clone();
 
@@ -1359,6 +1366,10 @@ pub mod desktop {
                 style: "width: 100%; height: 100%; padding: 4px 6px; box-sizing: border-box;",
                 div {
                     class: "hud-strip",
+                    onmousedown: {
+                        let d = desktop.clone();
+                        move |_| { d.drag(); }
+                    },
                     onclick: {
                         let bridge = bridge.clone();
                         move |_| {
@@ -1461,7 +1472,12 @@ pub mod desktop {
 
                     // Header — draggable
                     div { class: "dispatch-header",
-                        div { class: "widget-drag-handle",
+                        div {
+                            class: "widget-drag-handle",
+                            onmousedown: {
+                                let d = desktop.clone();
+                                move |_| { d.drag(); }
+                            },
                             span { class: "dispatch-title", "Dispatch Agent" }
                         }
                         button {
@@ -1663,7 +1679,12 @@ pub mod desktop {
                     // Header row — draggable
                     div {
                         style: "display:flex; align-items:center; justify-content:space-between;",
-                        div { class: "widget-drag-handle",
+                        div {
+                            class: "widget-drag-handle",
+                            onmousedown: {
+                                let d = desktop.clone();
+                                move |_| { d.drag(); }
+                            },
                             div { class: "widget-brand",
                                 div { class: "widget-brand-dot" }
                                 span { class: "widget-brand-label", "CADET COMMAND CENTER" }

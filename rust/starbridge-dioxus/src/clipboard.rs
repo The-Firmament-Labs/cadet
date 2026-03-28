@@ -558,7 +558,12 @@ pub mod desktop {
 
                     // Header — draggable
                     div { class: "cb-header",
-                        div { style: "-webkit-app-region: drag; cursor: grab; flex: 1;",
+                        div {
+                            style: "cursor: grab; flex: 1;",
+                            onmousedown: {
+                                let d = desktop.clone();
+                                move |_| { d.drag(); }
+                            },
                             div { class: "cb-brand",
                                 div { class: "cb-brand-dot" }
                                 span { class: "cb-brand-label", "Clipboard" }

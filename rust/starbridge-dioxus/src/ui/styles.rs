@@ -1,6 +1,7 @@
 pub const APP_STYLES: &str = r#"
     /* ================================================================
        1. RESET + TOKENS
+       D350 Orbital Operations Theme
        Values sourced from design-tokens.json at repo root
        ================================================================ */
 
@@ -9,12 +10,12 @@ pub const APP_STYLES: &str = r#"
 
         /* Color tokens */
         --bg-canvas:       #c8d1c0;
-        --bg-sidebar:      #3a3a3a;
+        --bg-sidebar:      #2a2a2a;
         --bg-topbar:       rgba(190, 200, 182, 0.96);
         --bg-panel:        #3a3a3a;
         --bg-panel-strong: #2e2e2e;
         --bg-elevated:     rgba(58, 58, 58, 0.96);
-        --bg-hover:        rgba(224, 123, 90, 0.08);
+        --bg-hover:        rgba(255, 255, 255, 0.05);
 
         --border:          rgba(0, 0, 0, 0.12);
         --border-strong:   rgba(0, 0, 0, 0.22);
@@ -42,16 +43,16 @@ pub const APP_STYLES: &str = r#"
         --muted-subtle:    rgba(26, 26, 26, 0.35);
         --muted-on-dark:   rgba(255, 255, 255, 0.5);
 
-        /* Typography */
-        --sans: "Inter", "SF Pro Display", system-ui, sans-serif;
+        /* Typography — D350 Orbital */
+        --sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
         --mono: "JetBrains Mono", "SFMono-Regular", "Cascadia Code", ui-monospace, monospace;
 
-        /* Effects — flat, no glow */
+        /* Effects */
         --shadow:    0 1px 3px rgba(0, 0, 0, 0.08);
         --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
 
         /* Grid */
-        --grid-line: rgba(0, 0, 0, 0.06);
+        --grid-dot:  rgba(0, 0, 0, 0.08);
         --grid-size: 24px;
     }
 
@@ -59,22 +60,38 @@ pub const APP_STYLES: &str = r#"
         box-sizing: border-box;
     }
 
+    /* Live indicator pulse */
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.5; }
+    }
+
+    /* Connection dot ring pulse */
+    @keyframes connection-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(90, 138, 90, 0.5); }
+        60%  { box-shadow: 0 0 0 5px rgba(90, 138, 90, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(90, 138, 90, 0); }
+    }
+
     html, body, #main {
         margin: 0;
         height: 100%;
         min-height: 100%;
-        background:
-            radial-gradient(circle, var(--grid-line) 1px, transparent 1px);
-        background-color: var(--bg-canvas);
-        background-size: var(--grid-size) var(--grid-size);
-        color: var(--text);
-        font-family: var(--sans);
+        color: #1a1a1a;
+        font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
         font-size: 12px;
         line-height: 1.5;
     }
 
     body {
+        background: #c8d1c0;
+        background-image: radial-gradient(circle, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+        background-size: 24px 24px;
         overflow: hidden;
+    }
+
+    #main {
+        background: transparent;
     }
 
     button,
@@ -106,7 +123,7 @@ pub const APP_STYLES: &str = r#"
         width: 48px;
         min-width: 48px;
         border-right: 1px solid rgba(255, 255, 255, 0.1);
-        background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
+        background: #2a2a2a;
         overflow: hidden;
         transition: width 0.2s ease, min-width 0.2s ease, padding 0.2s ease;
         position: relative;
@@ -170,9 +187,10 @@ pub const APP_STYLES: &str = r#"
     .sidebar-section {
         margin: 8px 10px 2px;
         color: rgba(255, 255, 255, 0.4);
-        font-size: 11px;
+        font-family: var(--mono);
+        font-size: 10px;
         font-weight: 700;
-        letter-spacing: 0.12em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         opacity: 0;
         white-space: nowrap;
@@ -204,7 +222,7 @@ pub const APP_STYLES: &str = r#"
         color: rgba(232, 228, 223, 0.8);
         text-align: left;
         cursor: pointer;
-        transition: border-color 0.18s ease, background 0.18s ease;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -219,15 +237,15 @@ pub const APP_STYLES: &str = r#"
 
     .nav-button:hover,
     .list-item:hover {
-        border-color: rgba(255, 255, 255, 0.15);
-        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
     }
 
     .nav-button-active,
     .list-item-active {
-        border-color: rgba(224, 123, 90, 0.4);
-        background: rgba(224, 123, 90, 0.12);
-        box-shadow: inset 2px 0 0 #e07b5a;
+        border-color: rgba(224, 123, 90, 0.3);
+        background: rgba(224, 123, 90, 0.15);
+        color: #e07b5a;
     }
 
     .nav-label,
@@ -252,6 +270,11 @@ pub const APP_STYLES: &str = r#"
         opacity: 1;
     }
 
+    /* Active nav label gets coral */
+    .nav-button-active .nav-label {
+        color: #e07b5a;
+    }
+
     .nav-row,
     .list-item-head,
     .metric-tile-top,
@@ -272,6 +295,8 @@ pub const APP_STYLES: &str = r#"
         color: rgba(255, 255, 255, 0.5);
         font-family: var(--mono);
         font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
         text-align: center;
         flex-shrink: 0;
         opacity: 0;
@@ -334,8 +359,8 @@ pub const APP_STYLES: &str = r#"
         padding: 0 16px;
         height: 48px;
         min-height: 48px;
-        border-bottom: 1px solid var(--border);
-        background: var(--bg-topbar);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+        background: rgba(190, 200, 182, 0.96);
         backdrop-filter: blur(8px);
     }
 
@@ -344,6 +369,7 @@ pub const APP_STYLES: &str = r#"
         font-size: 13px;
         font-weight: 650;
         letter-spacing: -0.01em;
+        color: #1a1a1a;
     }
 
     .topbar-copy {
@@ -367,16 +393,28 @@ pub const APP_STYLES: &str = r#"
     .section-eyebrow {
         margin: 0;
         color: var(--accent);
+        font-family: var(--mono);
         font-size: 10px;
         font-weight: 700;
-        letter-spacing: 0.12em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
     }
 
     .topbar-subtitle {
         margin: 0;
-        color: var(--muted);
+        color: rgba(26, 26, 26, 0.55);
         font-size: 11px;
+    }
+
+    /* Live indicator pill dot */
+    .live-dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #e07b5a;
+        animation: pulse 2s ease-in-out infinite;
+        flex-shrink: 0;
     }
 
     .page-content {
@@ -413,7 +451,7 @@ pub const APP_STYLES: &str = r#"
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 6px;
         background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
-        box-shadow: var(--shadow);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
 
     .metric-tile,
@@ -421,7 +459,7 @@ pub const APP_STYLES: &str = r#"
     .row-card,
     .surface-node,
     .document-viewer {
-        padding: 12px 12px 10px;
+        padding: 12px;
     }
 
     .metric-tile-grid {
@@ -473,7 +511,8 @@ pub const APP_STYLES: &str = r#"
         margin: 6px 0 0;
         color: rgba(255, 255, 255, 0.5);
         max-width: 70ch;
-        font-size: 11px;
+        font-size: 12px;
+        line-height: 1.55;
     }
 
     .detail-body,
@@ -488,6 +527,29 @@ pub const APP_STYLES: &str = r#"
        eyebrow, titles, copy, mono, meta
        ================================================================ */
 
+    /* Section eyebrow — mono, uppercase, muted */
+    .card-eyebrow,
+    .panel-eyebrow,
+    .metric-eyebrow {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 400;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Card titles — 13px semi-bold on dark */
+    .card-title,
+    .panel-title,
+    .inspector-title {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #e8e4df;
+    }
+
     .sidebar-copy,
     .nav-detail,
     .metric-detail,
@@ -498,8 +560,9 @@ pub const APP_STYLES: &str = r#"
     .composer-help,
     .message-meta {
         margin: 0;
-        color: var(--muted);
-        font-size: 11px;
+        color: rgba(255, 255, 255, 0.65);
+        font-size: 12px;
+        line-height: 1.55;
     }
 
     .list-item-meta,
@@ -507,10 +570,11 @@ pub const APP_STYLES: &str = r#"
     .message-channel,
     .row-copy,
     .message-meta {
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.5);
         font-size: 11px;
     }
 
+    /* Metric values — large mono */
     .metric-value,
     .surface-node-value {
         font-size: 18px;
@@ -518,6 +582,16 @@ pub const APP_STYLES: &str = r#"
         letter-spacing: -0.03em;
         color: #e8e4df;
         font-family: var(--mono);
+    }
+
+    /* Large hero metric */
+    .metric-value-hero {
+        font-size: 48px;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+        color: #e8e4df;
     }
 
     .metric-value-primary {
@@ -557,12 +631,13 @@ pub const APP_STYLES: &str = r#"
        buttons, segmented, pills, inputs, textarea
        ================================================================ */
 
+    /* Segmented control */
     .segmented {
         display: inline-flex;
         padding: 3px;
         border-radius: 6px;
-        border: 1px solid var(--border);
-        background: rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.05);
         gap: 2px;
     }
 
@@ -574,18 +649,18 @@ pub const APP_STYLES: &str = r#"
         padding: 6px 10px;
         font-size: 12px;
         cursor: pointer;
-        transition: background 0.18s ease, border-color 0.18s ease;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
 
     .segmented-button {
         background: transparent;
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.5);
     }
 
     .segmented-button-active {
-        border-color: rgba(224, 123, 90, 0.35);
-        background: var(--primary-soft);
-        color: var(--text);
+        background: #e07b5a;
+        color: #ffffff;
+        border-color: transparent;
     }
 
     .primary-button {
@@ -615,16 +690,17 @@ pub const APP_STYLES: &str = r#"
         cursor: not-allowed;
     }
 
+    /* Pills / badges */
     .pill {
         display: inline-flex;
         align-items: center;
-        padding: 3px 8px;
-        border-radius: 4px;
-        border: 1px solid var(--border);
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
         color: var(--text);
         font-family: var(--mono);
         font-size: 10px;
-        letter-spacing: 0.03em;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
     }
 
@@ -637,38 +713,40 @@ pub const APP_STYLES: &str = r#"
 
     .pill-success {
         border-color: rgba(90, 138, 90, 0.35);
-        background: var(--success-soft);
-        color: var(--success);
+        background: rgba(90, 138, 90, 0.12);
+        color: #5a8a5a;
     }
 
     .pill-warn {
         border-color: rgba(201, 138, 58, 0.35);
-        background: var(--warning-soft);
-        color: var(--warning);
+        background: rgba(201, 138, 58, 0.12);
+        color: #c98a3a;
     }
 
     .pill-danger {
         border-color: rgba(201, 74, 74, 0.35);
-        background: var(--destructive-soft);
-        color: var(--destructive);
+        background: rgba(201, 74, 74, 0.12);
+        color: #c94a4a;
     }
 
     .pill-subtle {
-        background: rgba(0, 0, 0, 0.06);
-        color: var(--muted);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: transparent;
+        color: rgba(255, 255, 255, 0.3);
     }
 
     textarea {
         width: 100%;
         min-height: 80px;
         resize: vertical;
-        border: 1px solid var(--border);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.55);
-        color: var(--text);
+        background: rgba(42, 42, 42, 0.9);
+        color: #e8e4df;
         padding: 10px 12px;
         outline: none;
         font-size: 12px;
+        font-family: var(--sans);
     }
 
     textarea:focus {
@@ -676,45 +754,53 @@ pub const APP_STYLES: &str = r#"
         box-shadow: 0 0 0 1px rgba(224, 123, 90, 0.2);
     }
 
+    textarea::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+    }
+
     /* ================================================================
        6. STATUS INDICATORS
-       connection dot, badges, callouts, empty state
+       connection dot, status badges, callouts, empty state
        ================================================================ */
 
-    /* Pulsing connection dot — coral = connected, red = disconnected */
+    /* Connection dot — green = connected, red = disconnected */
     .connection-dot {
         display: inline-block;
-        width: 7px;
-        height: 7px;
+        width: 8px;
+        height: 8px;
         border-radius: 50%;
-        background: #e07b5a;
-        box-shadow: 0 0 0 0 rgba(224, 123, 90, 0.5);
+        background: #5a8a5a;
+        box-shadow: 0 0 0 0 rgba(90, 138, 90, 0.5);
         animation: connection-pulse 2.4s ease-in-out infinite;
         flex-shrink: 0;
     }
 
     .connection-dot.disconnected {
-        background: var(--destructive);
+        background: #c94a4a;
         box-shadow: none;
         animation: none;
     }
 
-    @keyframes connection-pulse {
-        0%   { box-shadow: 0 0 0 0 rgba(224, 123, 90, 0.5); }
-        60%  { box-shadow: 0 0 0 5px rgba(224, 123, 90, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(224, 123, 90, 0); }
-    }
+    /* Status badge color helpers */
+    .status-running   { color: #5a8a5a; }
+    .status-queued    { color: #c98a3a; }
+    .status-pending   { color: #c98a3a; }
+    .status-failed    { color: #c94a4a; }
+    .status-blocked   { color: #c94a4a; }
+    .status-completed { color: #5a8a5a; }
+    .status-draft     { color: rgba(255, 255, 255, 0.3); }
 
     .callout {
         padding: 10px 12px;
         border-radius: 6px;
-        border: 1px solid var(--border);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         font-size: 11px;
     }
 
     .callout strong {
         display: block;
         margin-bottom: 4px;
+        font-family: var(--mono);
         font-size: 10px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -722,40 +808,40 @@ pub const APP_STYLES: &str = r#"
 
     .callout p {
         margin: 0;
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.65);
     }
 
     .callout-info {
         border-color: rgba(224, 123, 90, 0.25);
-        background: var(--primary-soft);
+        background: rgba(224, 123, 90, 0.15);
     }
 
-    .callout-info strong { color: var(--primary); }
+    .callout-info strong { color: #e07b5a; }
 
     .callout-tip {
         border-color: rgba(90, 138, 90, 0.25);
-        background: var(--success-soft);
+        background: rgba(90, 138, 90, 0.12);
     }
 
-    .callout-tip strong { color: var(--success); }
+    .callout-tip strong { color: #5a8a5a; }
 
     .callout-warn {
         border-color: rgba(201, 138, 58, 0.28);
-        background: var(--warning-soft);
+        background: rgba(201, 138, 58, 0.12);
     }
 
-    .callout-warn strong { color: var(--warning); }
+    .callout-warn strong { color: #c98a3a; }
 
     .callout-danger {
         border-color: rgba(201, 74, 74, 0.28);
-        background: var(--destructive-soft);
+        background: rgba(201, 74, 74, 0.12);
     }
 
-    .callout-danger strong { color: var(--destructive); }
+    .callout-danger strong { color: #c94a4a; }
 
     .empty-state {
         padding: 20px 16px;
-        border: 1px dashed var(--border-strong);
+        border: 1px dashed rgba(0, 0, 0, 0.22);
         border-radius: 6px;
         text-align: center;
     }
@@ -763,10 +849,14 @@ pub const APP_STYLES: &str = r#"
     .empty-state h3 {
         margin: 0 0 4px;
         font-size: 13px;
+        font-weight: 600;
+        color: #e8e4df;
     }
 
     .empty-state p {
-        font-size: 11px;
+        font-size: 12px;
+        line-height: 1.55;
+        color: rgba(255, 255, 255, 0.5);
     }
 
     /* ================================================================
@@ -776,12 +866,12 @@ pub const APP_STYLES: &str = r#"
 
     /* --- Overview grid --- */
     .page-grid-overview {
-        grid-template-columns: 260px minmax(0, 1fr) 280px;
+        grid-template-columns: 300px minmax(0, 1fr) 280px;
     }
 
     /* --- Chat grid --- */
     .page-grid-chat {
-        grid-template-columns: 240px minmax(0, 1fr) 280px;
+        grid-template-columns: 260px minmax(0, 1fr) 280px;
     }
 
     /* --- Workflow grid --- */
@@ -825,15 +915,18 @@ pub const APP_STYLES: &str = r#"
         padding: 10px 12px 8px;
     }
 
+    /* Inbound: dark bg, left-aligned */
     .message-bubble-inbound {
         align-self: flex-start;
         border-bottom-left-radius: 4px;
+        background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
     }
 
+    /* Outbound: coral tint, right-aligned */
     .message-bubble-outbound {
         align-self: flex-end;
-        border-color: rgba(255, 255, 255, 0.12);
-        background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
+        border-color: rgba(224, 123, 90, 0.2);
+        background: linear-gradient(180deg, rgba(224, 123, 90, 0.12) 0%, rgba(224, 123, 90, 0.08) 100%);
         border-bottom-right-radius: 4px;
     }
 
@@ -841,6 +934,8 @@ pub const APP_STYLES: &str = r#"
         margin: 6px 0 0;
         white-space: pre-wrap;
         font-size: 12px;
+        line-height: 1.55;
+        color: rgba(255, 255, 255, 0.85);
     }
 
     .composer {
@@ -887,6 +982,7 @@ pub const APP_STYLES: &str = r#"
         font-size: 11px;
     }
 
+    /* Workflow cards — draggable */
     .workflow-card {
         padding: 10px;
         border-radius: 6px;
@@ -894,6 +990,7 @@ pub const APP_STYLES: &str = r#"
         background: rgba(255, 255, 255, 0.04);
         cursor: grab;
         font-size: 11px;
+        transition: background 0.15s, border-color 0.15s;
     }
 
     .workflow-card + .workflow-card {
@@ -902,6 +999,7 @@ pub const APP_STYLES: &str = r#"
 
     .workflow-card:active {
         cursor: grabbing;
+        background: rgba(255, 255, 255, 0.07);
     }
 
     /* --- Code / editor --- */
@@ -966,13 +1064,14 @@ pub const APP_STYLES: &str = r#"
         gap: 10px;
     }
 
+    /* Memory field — dark canvas with dot grid */
     .memory-field-shell {
         min-height: 420px;
         border: 1px solid rgba(255, 255, 255, 0.1);
         background:
             radial-gradient(circle, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
             linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
-        background-size: var(--grid-size) var(--grid-size), auto;
+        background-size: 24px 24px, auto;
         border-radius: 6px;
         padding: 12px;
     }
@@ -1178,17 +1277,17 @@ pub const APP_STYLES: &str = r#"
         align-items: flex-start;
         justify-content: center;
         padding-top: 18vh;
-        background: rgba(26, 26, 26, 0.55);
+        background: rgba(0, 0, 0, 0.5);
         backdrop-filter: blur(6px);
     }
 
     .command-palette-panel {
         width: 560px;
         max-width: calc(100vw - 32px);
-        border: 1px solid rgba(0, 0, 0, 0.22);
-        border-radius: 8px;
-        background: #3a3a3a;
-        box-shadow: var(--shadow-md);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: #2a2a2a;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         overflow: hidden;
     }
 
@@ -1212,6 +1311,13 @@ pub const APP_STYLES: &str = r#"
         max-height: 360px;
         overflow-y: auto;
         padding: 6px;
+        list-style: none;
+        margin: 0;
+    }
+
+    .command-palette-list li {
+        margin: 0;
+        padding: 0;
     }
 
     .command-palette-item {
@@ -1226,15 +1332,17 @@ pub const APP_STYLES: &str = r#"
         font-size: 12px;
         cursor: pointer;
         border: 1px solid transparent;
+        border-left-width: 2px;
         background: transparent;
         text-align: left;
         font: inherit;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
 
     .command-palette-item:hover,
     .command-palette-item-active {
-        border-color: rgba(255, 255, 255, 0.1);
-        background: var(--primary-soft);
+        border-left-color: #e07b5a;
+        background: rgba(224, 123, 90, 0.1);
         color: #ffffff;
     }
 
@@ -1259,17 +1367,6 @@ pub const APP_STYLES: &str = r#"
         text-align: center;
         color: rgba(255, 255, 255, 0.5);
         font-size: 12px;
-    }
-
-    /* Reset list styling inside command palette */
-    .command-palette-list {
-        list-style: none;
-        margin: 0;
-    }
-
-    .command-palette-list li {
-        margin: 0;
-        padding: 0;
     }
 
     /* --- Nav icon (always visible in sidebar regardless of expanded state) --- */
