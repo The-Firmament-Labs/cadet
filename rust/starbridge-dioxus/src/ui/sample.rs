@@ -12,11 +12,11 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             WorkflowRunRecord {
                 run_id: "run_01".to_string(),
                 thread_id: "thread_ops".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 goal: "Investigate workflow replay drift after a failed browser verification.".to_string(),
                 priority: "high".to_string(),
                 trigger_source: "github".to_string(),
-                requested_by: "operator".to_string(),
+                requested_by: "saturn".to_string(),
                 current_stage: "verify".to_string(),
                 status: "running".to_string(),
                 summary: Some("Browser evidence is being collected before the operator summary is published.".to_string()),
@@ -24,7 +24,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             WorkflowRunRecord {
                 run_id: "run_02".to_string(),
                 thread_id: "thread_memory".to_string(),
-                agent_id: "researcher".to_string(),
+                agent_id: "voyager".to_string(),
                 goal: "Compact recent run history into reusable retrieval material.".to_string(),
                 priority: "normal".to_string(),
                 trigger_source: "web".to_string(),
@@ -38,7 +38,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             WorkflowStepRecord {
                 step_id: "run_01_route".to_string(),
                 run_id: "run_01".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 stage: "route".to_string(),
                 owner_execution: "vercel-edge".to_string(),
                 status: "completed".to_string(),
@@ -49,7 +49,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             WorkflowStepRecord {
                 step_id: "run_01_verify".to_string(),
                 run_id: "run_01".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 stage: "verify".to_string(),
                 owner_execution: "browser-worker".to_string(),
                 status: "running".to_string(),
@@ -60,7 +60,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             WorkflowStepRecord {
                 step_id: "run_01_summarize".to_string(),
                 run_id: "run_01".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 stage: "summarize".to_string(),
                 owner_execution: "container-runner".to_string(),
                 status: "ready".to_string(),
@@ -71,7 +71,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             WorkflowStepRecord {
                 step_id: "run_02_learn".to_string(),
                 run_id: "run_02".to_string(),
-                agent_id: "researcher".to_string(),
+                agent_id: "voyager".to_string(),
                 stage: "learn".to_string(),
                 owner_execution: "learning-worker".to_string(),
                 status: "ready".to_string(),
@@ -85,7 +85,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
                 task_id: "browser_01".to_string(),
                 run_id: "run_01".to_string(),
                 step_id: "run_01_verify".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 mode: "monitor".to_string(),
                 risk: "medium".to_string(),
                 status: "running".to_string(),
@@ -96,7 +96,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
                 task_id: "browser_02".to_string(),
                 run_id: "run_01".to_string(),
                 step_id: "run_01_verify".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 mode: "read".to_string(),
                 risk: "low".to_string(),
                 status: "queued".to_string(),
@@ -107,7 +107,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
         memory_documents: vec![
             MemoryDocumentRecord {
                 document_id: "doc_01".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 namespace: "cadet/workflows".to_string(),
                 source_kind: "run-summary".to_string(),
                 title: "Workflow replay checklist".to_string(),
@@ -115,7 +115,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             },
             MemoryDocumentRecord {
                 document_id: "doc_02".to_string(),
-                agent_id: "researcher".to_string(),
+                agent_id: "voyager".to_string(),
                 namespace: "cadet/retrieval".to_string(),
                 source_kind: "learning-note".to_string(),
                 title: "Memory ranking fallback".to_string(),
@@ -126,7 +126,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             MemoryChunkRecord {
                 chunk_id: "chunk_01".to_string(),
                 document_id: "doc_01".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 namespace: "cadet/workflows".to_string(),
                 ordinal: 0,
                 content: "Verify summaries must carry browser artifact references before the summarize stage advances.".to_string(),
@@ -136,7 +136,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             MemoryChunkRecord {
                 chunk_id: "chunk_02".to_string(),
                 document_id: "doc_01".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 namespace: "cadet/workflows".to_string(),
                 ordinal: 1,
                 content: "Approval-heavy verify stages should leave the workflow blocked until operator resolution lands.".to_string(),
@@ -146,7 +146,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             MemoryChunkRecord {
                 chunk_id: "chunk_03".to_string(),
                 document_id: "doc_02".to_string(),
-                agent_id: "researcher".to_string(),
+                agent_id: "voyager".to_string(),
                 namespace: "cadet/retrieval".to_string(),
                 ordinal: 0,
                 content: "Fallback ranking uses deterministic embeddings so every retrieval path stays replayable in tests.".to_string(),
@@ -156,7 +156,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             MemoryChunkRecord {
                 chunk_id: "chunk_04".to_string(),
                 document_id: "doc_02".to_string(),
-                agent_id: "researcher".to_string(),
+                agent_id: "voyager".to_string(),
                 namespace: "cadet/retrieval".to_string(),
                 ordinal: 1,
                 content: "Each retrieval trace records both the query vector and the exact chunk lineage selected for a run.".to_string(),
@@ -168,7 +168,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             MemoryEmbeddingRecord {
                 embedding_id: "embedding_01".to_string(),
                 chunk_id: "chunk_01".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 namespace: "cadet/workflows".to_string(),
                 model: "deterministic-v1".to_string(),
                 dimensions: 12,
@@ -179,7 +179,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             MemoryEmbeddingRecord {
                 embedding_id: "embedding_02".to_string(),
                 chunk_id: "chunk_02".to_string(),
-                agent_id: "operator".to_string(),
+                agent_id: "saturn".to_string(),
                 namespace: "cadet/workflows".to_string(),
                 model: "deterministic-v1".to_string(),
                 dimensions: 12,
@@ -190,7 +190,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             MemoryEmbeddingRecord {
                 embedding_id: "embedding_03".to_string(),
                 chunk_id: "chunk_03".to_string(),
-                agent_id: "researcher".to_string(),
+                agent_id: "voyager".to_string(),
                 namespace: "cadet/retrieval".to_string(),
                 model: "deterministic-v1".to_string(),
                 dimensions: 12,
@@ -201,7 +201,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             MemoryEmbeddingRecord {
                 embedding_id: "embedding_04".to_string(),
                 chunk_id: "chunk_04".to_string(),
-                agent_id: "researcher".to_string(),
+                agent_id: "voyager".to_string(),
                 namespace: "cadet/retrieval".to_string(),
                 model: "deterministic-v1".to_string(),
                 dimensions: 12,
@@ -228,7 +228,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
             approval_id: "approval_01".to_string(),
             run_id: "run_01".to_string(),
             step_id: "run_01_verify".to_string(),
-            agent_id: "operator".to_string(),
+            agent_id: "saturn".to_string(),
             title: "Approve browser artifact capture".to_string(),
             detail: "The verify stage wants to record browser evidence and attach it to the workflow summary.".to_string(),
             status: "pending".to_string(),
@@ -258,7 +258,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
                 run_id: Some("run_01".to_string()),
                 channel: "web".to_string(),
                 direction: "inbound".to_string(),
-                actor: "operator".to_string(),
+                actor: "saturn".to_string(),
                 content: "Render the new Dioxus mission control against live Spacetime data.".to_string(),
                 created_at_micros: 1774651860000,
             },
@@ -268,7 +268,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
                 run_id: Some("run_01".to_string()),
                 channel: "web".to_string(),
                 direction: "outbound".to_string(),
-                actor: "operator".to_string(),
+                actor: "saturn".to_string(),
                 content: "Verify is running. Browser evidence will post here when the task finishes.".to_string(),
                 created_at_micros: 1774651863294,
             },

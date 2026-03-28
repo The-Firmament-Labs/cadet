@@ -30,9 +30,9 @@ const flightDeck = [
 const commands = [
   "bun run dev:local-control",
   "bun run cli -- agents list --dir ./examples/agents",
-  "bun run cli -- job submit --agent researcher --goal \"Audit the treasury policy\" --api http://localhost:3010 --dir ./examples/agents",
+  "bun run cli -- job submit --agent voyager --goal \"Audit the treasury policy\" --api http://localhost:3010 --dir ./examples/agents",
   "curl -X POST http://localhost:3010/schedules/reconcile",
-  "curl -X POST http://localhost:3001/api/agents/edge/dispatch -H 'content-type: application/json' -d '{\"agentId\":\"operator\",\"goal\":\"Triage the deploy incident\"}'",
+  "curl -X POST http://localhost:3001/api/agents/edge/dispatch -H 'content-type: application/json' -d '{\"agentId\":\"saturn\",\"goal\":\"Triage the deploy incident\"}'",
   "curl -H 'authorization: Bearer $CRON_SECRET' http://localhost:3001/api/cron/reconcile"
 ];
 

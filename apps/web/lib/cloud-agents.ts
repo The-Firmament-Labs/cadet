@@ -2,8 +2,8 @@ import type { AgentManifest } from "@starbridge/core/agent-manifest";
 
 export const cloudAgentCatalog: AgentManifest[] = [
   {
-    id: "operator",
-    name: "Operator",
+    id: "saturn",
+    name: "Saturn",
     description: "Control-plane agent for deployments, incident response, and job routing.",
     system:
       "You are an operations-focused agent. Prioritize safe changes, explicit rollouts, and typed incident records.",
