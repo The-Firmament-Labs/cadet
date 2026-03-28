@@ -638,10 +638,12 @@ fn app() -> Element {
 
                 span { class: "splash-welcome", "WELCOME TO CADET" }
 
-                button {
-                    class: "splash-launch",
-                    onclick: move |_| show_splash.set(false),
-                    "LAUNCH"
+                div { style: "display: flex; gap: 12px; align-items: center;",
+                    button {
+                        class: "splash-launch",
+                        onclick: move |_| show_splash.set(false),
+                        "LAUNCH"
+                    }
                 }
 
                 // Massive "CADET" text bleeding off bottom
