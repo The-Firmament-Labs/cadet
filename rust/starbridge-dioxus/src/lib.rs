@@ -1,4 +1,6 @@
+pub mod clipboard;
 pub mod live;
+pub mod mascot;
 mod ui;
 pub mod widget;
 

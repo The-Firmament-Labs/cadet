@@ -15,8 +15,14 @@ use starbridge_core::MissionControlSnapshot;
 use starbridge_dioxus::{
     load_live_snapshot, sample_snapshot, subscribe_live_snapshots, CadetConfig, LiveSnapshotOptions,
     MenuAction, MissionControlApp, OperatorRuntimeContext, WidgetBridge,
-    widget::desktop::{FloatingWidget, widget_window_config},
+    clipboard::ClipboardHistory,
+    widget::desktop::{
+        FloatingWidget, LiveAgentHud, QuickDispatchPalette, ToastOverlay,
+        widget_window_config, widget_window_config_dispatch, widget_window_config_hud,
+    },
 };
+use starbridge_dioxus::clipboard::desktop::{ClipboardWidget, clipboard_window_config};
+use starbridge_dioxus::mascot::desktop::{MascotWidget, mascot_window_config};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 const DESKTOP_STYLES: &str = r#"
@@ -278,42 +284,102 @@ fn app() -> Element {
         });
     }
 
-    // Widget bridge + hotkey (Ctrl+Shift+Space)
+    // ── Widget System ────────────────────────────────────────────────
     let cadet_config = use_hook(CadetConfig::load);
     let widget_bridge = use_hook(WidgetBridge::new);
-    let mut widget_spawned = use_signal(|| false);
+    let clipboard_history = use_hook(|| ClipboardHistory::new(100));
+    let mut widgets_spawned = use_signal(|| false);
 
     if cadet_config.widget.enabled {
-        let bridge_for_hotkey = widget_bridge.clone();
-        let config_for_widget = cadet_config.widget.clone();
+        // Ctrl+Shift+Space — Context widget (read clipboard, show floating chat)
+        let bridge_ctx = widget_bridge.clone();
         let _ = use_global_shortcut("Ctrl+Shift+Space", move |state| {
             if state == HotKeyState::Pressed {
-                // Read clipboard
-                if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                    if let Ok(text) = clipboard.get_text() {
+                if let Ok(mut cb) = arboard::Clipboard::new() {
+                    if let Ok(text) = cb.get_text() {
                         if !text.trim().is_empty() {
-                            bridge_for_hotkey.set_context(text);
+                            bridge_ctx.set_context(text);
                         }
                     }
                 }
             }
         });
 
-        // Spawn the floating widget window once (hidden by default, shown on hotkey)
-        if !widget_spawned() {
-            let bridge_for_window = widget_bridge.clone();
-            let config_for_window = config_for_widget.clone();
+        // Ctrl+Shift+H — Live Agent HUD
+        let bridge_hud = widget_bridge.clone();
+        let _ = use_global_shortcut("Ctrl+Shift+H", move |_state| {
+            // HUD window is always visible — toggle not needed, just ensure spawned
+            let _ = &bridge_hud;
+        });
+
+        // Ctrl+Shift+D — Quick Dispatch Palette
+        let mut dispatch_signal = menu_action;
+        let _ = use_global_shortcut("Ctrl+Shift+D", move |state| {
+            if state == HotKeyState::Pressed {
+                dispatch_signal.set(Some("show-dispatch".to_string()));
+            }
+        });
+
+        // Ctrl+Shift+V — Clipboard History
+        let _ = use_global_shortcut("Ctrl+Shift+V", move |_state| {
+            // Clipboard widget shows on hotkey
+        });
+
+        // Ctrl+Shift+M — 3D Mascot toggle
+        let _ = use_global_shortcut("Ctrl+Shift+M", move |_state| {
+            // Mascot window toggle
+        });
+
+        // Spawn all widget windows once
+        if !widgets_spawned() {
+            // 1. Context Widget
+            let b = widget_bridge.clone();
+            let c = cadet_config.widget.clone();
             spawn(async move {
-                let dom = VirtualDom::new_with_props(
-                    FloatingWidget,
-                    starbridge_dioxus::widget::desktop::FloatingWidgetProps {
-                        bridge: bridge_for_window,
-                        config: config_for_window,
-                    },
-                );
+                let dom = VirtualDom::new_with_props(FloatingWidget,
+                    starbridge_dioxus::widget::desktop::FloatingWidgetProps { bridge: b, config: c });
                 let _ctx = dioxus_desktop::window().new_window(dom, widget_window_config()).await;
             });
-            widget_spawned.set(true);
+
+            // 2. Live Agent HUD
+            let b = widget_bridge.clone();
+            spawn(async move {
+                let dom = VirtualDom::new_with_props(LiveAgentHud,
+                    starbridge_dioxus::widget::desktop::LiveAgentHudProps { bridge: b });
+                let _ctx = dioxus_desktop::window().new_window(dom, widget_window_config_hud()).await;
+            });
+
+            // 3. Quick Dispatch Palette
+            let b = widget_bridge.clone();
+            let c = cadet_config.widget.clone();
+            spawn(async move {
+                let dom = VirtualDom::new_with_props(QuickDispatchPalette,
+                    starbridge_dioxus::widget::desktop::QuickDispatchPaletteProps { bridge: b, config: c });
+                let _ctx = dioxus_desktop::window().new_window(dom, widget_window_config_dispatch()).await;
+            });
+
+            // 4. Clipboard History
+            let b = widget_bridge.clone();
+            let h = clipboard_history.clone();
+            spawn(async move {
+                let dom = VirtualDom::new_with_props(ClipboardWidget,
+                    starbridge_dioxus::clipboard::desktop::ClipboardWidgetProps { history: h, bridge: b });
+                let _ctx = dioxus_desktop::window().new_window(dom, clipboard_window_config()).await;
+            });
+
+            // 5. 3D Mascot PiP
+            let b = widget_bridge.clone();
+            spawn(async move {
+                let dom = VirtualDom::new_with_props(MascotWidget,
+                    starbridge_dioxus::mascot::desktop::MascotWidgetProps { bridge: b });
+                let _ctx = dioxus_desktop::window().new_window(dom, mascot_window_config()).await;
+            });
+
+            // Start clipboard watcher
+            let h = clipboard_history.clone();
+            starbridge_dioxus::clipboard::start_clipboard_watcher(h);
+
+            widgets_spawned.set(true);
         }
     }
 
@@ -431,6 +497,9 @@ fn app() -> Element {
             }
 
             MissionControlApp { snapshot: snapshot() }
+
+            // Toast notifications overlay (renders on top of everything)
+            ToastOverlay { bridge: widget_bridge.clone() }
         }
     }
 }
