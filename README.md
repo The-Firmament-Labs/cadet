@@ -138,6 +138,15 @@ SPACETIMEDB_DATABASE=starbridge-control
 SPACETIMEDB_AUTH_TOKEN=
 CRON_SECRET=replace-me
 NEXT_PUBLIC_CONTROL_PLANE_URL=http://localhost:3001
+AUTH_SECRET=replace-me
+OPERATOR_AUTH_ALLOWED_EMAILS=you@example.com,teammate@example.com
+SPACETIMEAUTH_ISSUER=https://auth.spacetimedb.com/oidc
+SPACETIMEAUTH_CLIENT_ID=
+SPACETIMEAUTH_CLIENT_SECRET=
+# Alternative provider:
+# AUTH0_DOMAIN=
+# AUTH0_CLIENT_ID=
+# AUTH0_CLIENT_SECRET=
 STARBRIDGE_HEARTBEAT_INTERVAL_MS=30000
 STARBRIDGE_SCHEDULE_INTERVAL_MS=30000
 STARBRIDGE_PRESENCE_TTL_MS=90000
@@ -154,11 +163,13 @@ STARBRIDGE_PRESENCE_TTL_MS=90000
 
 - Deploy `apps/web` as the Vercel project root.
 - `apps/web/vercel.json` configures a secure cron hit to `/api/cron/reconcile`.
-- `app/api/agents/edge/dispatch/route.ts` runs on the Edge Runtime.
+- `app/api/agents/edge/dispatch/route.ts` is the cloud dispatch entrypoint for edge-targeted agents, but it stays on the default server runtime so the operator auth guard can verify sessions.
 - `examples/agents/*.agent.json` can carry `schedules[]` definitions and those schedules are registered idempotently into SpacetimeDB.
 - Long-running or stateful agents should stay in the Rust runner, not in an edge or request path.
 - On Vercel, `SPACETIMEDB_URL` and `SPACETIMEDB_DATABASE` are required at runtime. The cloud control plane now fails fast instead of silently falling back to `127.0.0.1`.
 - `NEXT_PUBLIC_CONTROL_PLANE_URL` is optional on Vercel; when omitted, Cadet derives the public URL from Vercel runtime metadata.
+- Set `AUTH_SECRET` and either the `SPACETIMEAUTH_*` or `AUTH0_*` variables to lock `/inbox`, `/runs/[runId]`, and the write-capable operator APIs behind OIDC login.
+- `OPERATOR_AUTH_ALLOWED_EMAILS` is optional but recommended for the current two-person team. When set, only those email addresses can open the operator surface.
 
 ## SpacetimeDB bootstrap
 
