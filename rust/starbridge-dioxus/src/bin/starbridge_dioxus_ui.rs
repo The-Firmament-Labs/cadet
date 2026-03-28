@@ -143,27 +143,25 @@ const SPLASH_STYLES: &str = r#"
         overflow: hidden;
         font-family: "Space Grotesk", sans-serif;
     }
-    .splash-logo {
-        width: 48px;
-        height: 48px;
-        margin-bottom: 20px;
-    }
-    .splash-logo-hex {
-        fill: none;
-        stroke: #1C1B1B;
-        stroke-width: 2;
+    .splash-astronaut {
+        width: 180px;
+        height: 180px;
+        margin-bottom: 24px;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 32px rgba(0,0,0,0.3));
     }
     .splash-welcome {
         font-family: "JetBrains Mono", monospace;
         font-size: 14px;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: #1C1B1B;
+        color: #FFFFFF;
         margin-bottom: 24px;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.5);
     }
     .splash-launch {
         padding: 10px 32px;
-        background: #1C1B1B;
+        background: #AA3618;
         color: #FFFFFF;
         border: none;
         border-radius: 0;
@@ -186,7 +184,7 @@ const SPLASH_STYLES: &str = r#"
         font-size: 280px;
         font-weight: 700;
         letter-spacing: -0.02em;
-        color: rgba(28, 27, 27, 0.06);
+        color: rgba(255, 255, 255, 0.06);
         white-space: nowrap;
         pointer-events: none;
         user-select: none;
@@ -198,7 +196,7 @@ const SPLASH_STYLES: &str = r#"
         right: 20px;
         font-family: "JetBrains Mono", monospace;
         font-size: 10px;
-        color: rgba(28, 27, 27, 0.3);
+        color: rgba(255, 255, 255, 0.3);
         letter-spacing: 0.06em;
     }
 "#;
@@ -594,20 +592,26 @@ fn app() -> Element {
 
     let mut show_splash = use_signal(|| true);
 
-    // Splash screen — Factory-style with massive "CADET" text
+    // Splash screen — space scene with retro astronaut
     if show_splash() {
+        // Resolve image paths from the project's web app public dir
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let bg_path = cwd.join("apps/web/public/visuals/modern-stars-bg.png");
+        let astro_path = cwd.join("apps/web/public/visuals/retro-astro.png");
+        let bg_url = format!("file://{}", bg_path.display());
+        let astro_url = format!("file://{}", astro_path.display());
+
         return rsx! {
             style { "{DESKTOP_STYLES}" }
             style { "{SPLASH_STYLES}" }
             div { class: "splash",
-                // Hexagonal logo
-                svg {
-                    class: "splash-logo",
-                    view_box: "0 0 48 48",
-                    polygon { class: "splash-logo-hex", points: "24 2 44 14 44 34 24 46 4 34 4 14" }
-                    line { class: "splash-logo-hex", x1: "24", y1: "14", x2: "24", y2: "34" }
-                    line { class: "splash-logo-hex", x1: "14", y1: "20", x2: "34", y2: "20" }
-                    line { class: "splash-logo-hex", x1: "14", y1: "28", x2: "34", y2: "28" }
+                style: "background-image: url('{bg_url}'); background-size: cover; background-position: center;",
+
+                // Retro astronaut
+                img {
+                    class: "splash-astronaut",
+                    src: "{astro_url}",
+                    alt: "Cadet astronaut",
                 }
 
                 span { class: "splash-welcome", "WELCOME TO CADET" }
