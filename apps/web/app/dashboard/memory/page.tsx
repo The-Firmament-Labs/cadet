@@ -79,7 +79,7 @@ export default async function MemoryPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {agentDocs.map((doc) => (
-                  <Card key={doc.document_id}>
+                  <Card key={doc.document_id} className="bg-secondary text-secondary-foreground border-secondary">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-xs font-medium leading-snug">
                         {doc.title ?? doc.document_id}
@@ -91,7 +91,7 @@ export default async function MemoryPage() {
                           </span>
                         ) : null}
                         {doc.source_kind ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono bg-[rgba(220,228,255,0.06)] text-muted-foreground border border-border">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono bg-[rgba(220,228,255,0.06)] text-secondary-foreground/50 border border-secondary-foreground/10">
                             {doc.source_kind}
                           </span>
                         ) : null}
@@ -100,18 +100,18 @@ export default async function MemoryPage() {
                     <CardContent className="pt-0">
                       {doc.content ? (
                         <ScrollArea className="h-[80px]">
-                          <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
+                          <p className="text-[11px] text-secondary-foreground/50 leading-relaxed whitespace-pre-wrap break-words">
                             {doc.content.slice(0, 200)}
                             {doc.content.length > 200 ? "…" : ""}
                           </p>
                         </ScrollArea>
                       ) : (
-                        <p className="text-[11px] text-muted-foreground opacity-40 italic">
+                        <p className="text-[11px] text-secondary-foreground/50 opacity-40 italic">
                           No content
                         </p>
                       )}
                       {doc.updated_at_micros ? (
-                        <p className="text-[9px] font-mono text-muted-foreground opacity-40 mt-2">
+                        <p className="text-[9px] font-mono text-secondary-foreground/50 opacity-40 mt-2">
                           {new Date(doc.updated_at_micros / 1000).toLocaleString()}
                         </p>
                       ) : null}

@@ -23,17 +23,17 @@ interface SettingsTabsProps {
 
 function KVTable({ rows }: { rows: KVRow[] }) {
   return (
-    <div className="divide-y divide-border">
+    <div className="divide-y divide-secondary-foreground/10">
       {rows.map((row) => (
         <div key={row.label} className="flex items-start gap-4 py-2.5 px-4">
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground w-40 shrink-0 pt-0.5">
+          <span className="text-[10px] uppercase tracking-widest text-secondary-foreground/50 w-40 shrink-0 pt-0.5">
             {row.label}
           </span>
           <span
             className={
               row.mono
-                ? "text-xs font-mono text-foreground break-all"
-                : "text-xs text-foreground break-all"
+                ? "text-xs font-mono text-secondary-foreground break-all"
+                : "text-xs text-secondary-foreground break-all"
             }
           >
             {row.value}
@@ -55,9 +55,9 @@ export function SettingsTabs({ controlPlane, apiEndpoints }: SettingsTabsProps) 
 
       {/* Control Plane */}
       <TabsContent value="control-plane">
-        <Card>
-          <CardHeader className="border-b pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+        <Card className="bg-secondary text-secondary-foreground border-secondary">
+          <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+            <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
               Control Plane Configuration
             </CardTitle>
           </CardHeader>
@@ -69,14 +69,14 @@ export function SettingsTabs({ controlPlane, apiEndpoints }: SettingsTabsProps) 
 
       {/* Operators */}
       <TabsContent value="operators">
-        <Card>
-          <CardHeader className="border-b pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+        <Card className="bg-secondary text-secondary-foreground border-secondary">
+          <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+            <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
               Operator Accounts
             </CardTitle>
           </CardHeader>
           <CardContent className="py-8 text-center">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-secondary-foreground/50">
               Operator management coming soon.
             </p>
           </CardContent>
@@ -85,23 +85,23 @@ export function SettingsTabs({ controlPlane, apiEndpoints }: SettingsTabsProps) 
 
       {/* API */}
       <TabsContent value="api">
-        <Card>
-          <CardHeader className="border-b pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+        <Card className="bg-secondary text-secondary-foreground border-secondary">
+          <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+            <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
               API Endpoints
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-secondary-foreground/10">
               {apiEndpoints.map((ep) => (
                 <div key={`${ep.method}:${ep.path}`} className="flex items-start gap-4 py-2.5 px-4">
                   <span className="shrink-0 w-12 text-[10px] font-mono font-bold text-primary">
                     {ep.method}
                   </span>
-                  <span className="shrink-0 w-56 text-[11px] font-mono text-foreground">
+                  <span className="shrink-0 w-56 text-[11px] font-mono text-secondary-foreground">
                     {ep.path}
                   </span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-secondary-foreground/50">
                     {ep.description}
                   </span>
                 </div>

@@ -81,19 +81,19 @@ export function RunDetailTabs({
 
       {/* Timeline */}
       <TabsContent value="timeline">
-        <Card>
-          <CardHeader className="border-b pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+        <Card className="bg-secondary text-secondary-foreground border-secondary">
+          <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+            <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
               Workflow Steps
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {steps.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+              <div className="px-4 py-6 text-center text-sm text-secondary-foreground/50">
                 No steps recorded yet.
               </div>
             ) : (
-              <ol className="relative border-l border-border ml-6 my-4 space-y-4 pr-4">
+              <ol className="relative border-l border-secondary-foreground/10 ml-6 my-4 space-y-4 pr-4">
                 {steps.map((step) => (
                   <li key={step.stepId} className="relative pl-6">
                     <span
@@ -112,18 +112,18 @@ export function RunDetailTabs({
                       }}
                     />
                     <div className="flex items-start gap-3 flex-wrap">
-                      <span className="text-xs font-mono font-medium text-foreground">
+                      <span className="text-xs font-mono font-medium text-secondary-foreground">
                         {step.stage}
                       </span>
                       <StatusBadge status={step.status} />
-                      <span className="text-[10px] text-muted-foreground font-mono ml-auto">
+                      <span className="text-[10px] text-secondary-foreground/50 font-mono ml-auto">
                         {formatTs(step.updatedAtMicros)}
                       </span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                    <p className="text-[10px] text-secondary-foreground/50 font-mono mt-0.5">
                       {step.ownerExecution}
                     </p>
-                    <p className="text-[10px] text-muted-foreground font-mono opacity-50 truncate">
+                    <p className="text-[10px] text-secondary-foreground/50 font-mono opacity-50 truncate">
                       {step.stepId}
                     </p>
                   </li>
@@ -136,19 +136,19 @@ export function RunDetailTabs({
 
       {/* Browser */}
       <TabsContent value="browser">
-        <Card>
-          <CardHeader className="border-b pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+        <Card className="bg-secondary text-secondary-foreground border-secondary">
+          <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+            <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
               Browser Artifacts
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {browserArtifacts.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+              <div className="px-4 py-6 text-center text-sm text-secondary-foreground/50">
                 No browser artifacts recorded.
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-secondary-foreground/10">
                 {browserArtifacts.map((artifact) => (
                   <div key={artifact.artifactId} className="px-4 py-3 space-y-1">
                     <div className="flex items-center gap-2">
@@ -165,7 +165,7 @@ export function RunDetailTabs({
                         {artifact.url}
                       </a>
                     ) : null}
-                    <p className="text-[10px] font-mono text-muted-foreground opacity-50">
+                    <p className="text-[10px] font-mono text-secondary-foreground/50 opacity-50">
                       {artifact.artifactId}
                     </p>
                   </div>
@@ -178,19 +178,19 @@ export function RunDetailTabs({
 
       {/* Approvals */}
       <TabsContent value="approvals">
-        <Card>
-          <CardHeader className="border-b pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+        <Card className="bg-secondary text-secondary-foreground border-secondary">
+          <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+            <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
               Approval Gates
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {approvals.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+              <div className="px-4 py-6 text-center text-sm text-secondary-foreground/50">
                 No approvals for this run.
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-secondary-foreground/10">
                 {approvals.map((approval) => (
                   <div key={approval.approvalId} className="px-4 py-3 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -198,7 +198,7 @@ export function RunDetailTabs({
                       <StatusBadge status={approval.risk} />
                       <StatusBadge status={approval.status} />
                     </div>
-                    <p className="text-xs text-muted-foreground">{approval.detail}</p>
+                    <p className="text-xs text-secondary-foreground/50">{approval.detail}</p>
                   </div>
                 ))}
               </div>
@@ -209,41 +209,41 @@ export function RunDetailTabs({
 
       {/* Tool Calls */}
       <TabsContent value="toolcalls">
-        <Card>
-          <CardHeader className="border-b pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+        <Card className="bg-secondary text-secondary-foreground border-secondary">
+          <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+            <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
               Tool Calls
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {toolCalls.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+              <div className="px-4 py-6 text-center text-sm text-secondary-foreground/50">
                 No tool calls recorded yet.
               </div>
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-[10px] uppercase tracking-widest">Tool</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-widest">Status</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-widest">Input</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-widest">Output</TableHead>
+                  <TableRow className="border-secondary-foreground/10">
+                    <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Tool</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Status</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Input</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Output</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {toolCalls.map((tc) => (
-                    <TableRow key={tc.toolCallId}>
+                    <TableRow key={tc.toolCallId} className="border-secondary-foreground/10">
                       <TableCell className="font-mono text-xs font-medium">{tc.toolName}</TableCell>
                       <TableCell>
                         <StatusBadge status={tc.status} />
                       </TableCell>
                       <TableCell className="max-w-[200px]">
-                        <pre className="text-[9px] font-mono text-muted-foreground overflow-hidden truncate">
+                        <pre className="text-[9px] font-mono text-secondary-foreground/50 overflow-hidden truncate">
                           {tryParseJson(tc.inputJson)}
                         </pre>
                       </TableCell>
                       <TableCell className="max-w-[200px]">
-                        <pre className="text-[9px] font-mono text-muted-foreground overflow-hidden truncate">
+                        <pre className="text-[9px] font-mono text-secondary-foreground/50 overflow-hidden truncate">
                           {tc.outputJson ? tryParseJson(tc.outputJson) : "—"}
                         </pre>
                       </TableCell>

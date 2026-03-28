@@ -69,7 +69,7 @@ export default async function ApprovalsPage() {
                 Pending
               </p>
               {pending.map((approval) => (
-                <Card key={approval.approvalId}>
+                <Card key={approval.approvalId} className="bg-secondary text-secondary-foreground border-secondary">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="space-y-1 min-w-0">
@@ -77,7 +77,7 @@ export default async function ApprovalsPage() {
                           <StatusBadge status={approval.risk} />
                           <span className="text-xs font-medium">{approval.title}</span>
                         </div>
-                        <p className="text-[10px] font-mono text-muted-foreground">
+                        <p className="text-[10px] font-mono text-secondary-foreground/50">
                           {approval.agentId ?? "unknown agent"}
                         </p>
                       </div>
@@ -87,7 +87,7 @@ export default async function ApprovalsPage() {
                       />
                     </div>
                     {approval.detail ? (
-                      <p className="text-xs text-muted-foreground leading-relaxed">
+                      <p className="text-xs text-secondary-foreground/50 leading-relaxed">
                         {approval.detail}
                       </p>
                     ) : null}
@@ -104,18 +104,18 @@ export default async function ApprovalsPage() {
                 Resolved
               </p>
               {resolved.map((approval) => (
-                <Card key={approval.approvalId} className="opacity-60">
+                <Card key={approval.approvalId} className="bg-secondary text-secondary-foreground border-secondary opacity-60">
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <StatusBadge status={approval.risk} />
                       <StatusBadge status={approval.status} />
                       <span className="text-xs font-medium">{approval.title}</span>
                     </div>
-                    <p className="text-[10px] font-mono text-muted-foreground">
+                    <p className="text-[10px] font-mono text-secondary-foreground/50">
                       {approval.agentId ?? "unknown agent"}
                     </p>
                     {approval.detail ? (
-                      <p className="text-xs text-muted-foreground leading-relaxed">
+                      <p className="text-xs text-secondary-foreground/50 leading-relaxed">
                         {approval.detail}
                       </p>
                     ) : null}

@@ -70,10 +70,10 @@ export default function SignUpPage() {
           <span className="text-lg font-semibold tracking-wide text-foreground">Cadet</span>
         </div>
 
-        <Card className="border-border bg-[var(--card)] shadow-[var(--glow-primary)]">
+        <Card className="bg-secondary text-secondary-foreground border-secondary shadow-[var(--glow-primary)]">
           <CardHeader className="pb-2">
-            <h1 className="text-sm font-semibold text-foreground text-center">Create account</h1>
-            <p className="text-xs text-muted-foreground text-center mt-1">
+            <h1 className="text-sm font-semibold text-secondary-foreground text-center">Create account</h1>
+            <p className="text-xs text-secondary-foreground/50 text-center mt-1">
               Register with a passkey — no password needed
             </p>
           </CardHeader>
@@ -85,7 +85,7 @@ export default function SignUpPage() {
             )}
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="displayName" className="text-xs text-muted-foreground">
+              <Label htmlFor="displayName" className="text-xs text-secondary-foreground/50">
                 Display name
               </Label>
               <Input
@@ -94,13 +94,13 @@ export default function SignUpPage() {
                 placeholder="Jane Operator"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="h-8 text-xs bg-[var(--input)] border-border"
+                className="h-8 text-xs bg-[var(--input)] border-secondary-foreground/10"
                 autoComplete="name"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email" className="text-xs text-muted-foreground">
+              <Label htmlFor="email" className="text-xs text-secondary-foreground/50">
                 Email
               </Label>
               <Input
@@ -109,7 +109,7 @@ export default function SignUpPage() {
                 placeholder="jane@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-8 text-xs bg-[var(--input)] border-border"
+                className="h-8 text-xs bg-[var(--input)] border-secondary-foreground/10"
                 autoComplete="email"
               />
             </div>
@@ -122,7 +122,7 @@ export default function SignUpPage() {
               {loading ? "Creating passkey…" : "Create passkey"}
             </Button>
 
-            <p className="text-center text-[11px] text-muted-foreground">
+            <p className="text-center text-[11px] text-secondary-foreground/50">
               Already have an account?{" "}
               <Link href="/sign-in" className="text-primary hover:underline">
                 Sign in

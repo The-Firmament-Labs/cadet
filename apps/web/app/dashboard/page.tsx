@@ -65,15 +65,15 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent runs — col-span-2 */}
         <div className="lg:col-span-2">
-          <Card className="border-border bg-[#3a3a3a] text-[#e8e4df]">
-            <CardHeader className="px-4 py-3 border-b border-border">
+          <Card className="border-white/10 bg-[#3a3a3a] text-[#e8e4df]">
+            <CardHeader className="px-4 py-3 border-b border-white/10">
               <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-white/50">
                   Recent Runs
                 </h2>
                 <Link
                   href="/dashboard/runs"
-                  className="text-[11px] text-primary hover:underline font-mono"
+                  className="text-[11px] text-[#e07b5a] hover:underline font-mono"
                 >
                   View all
                 </Link>
@@ -81,23 +81,23 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               {recentRuns.length === 0 ? (
-                <p className="text-xs text-muted-foreground px-4 py-6 text-center">
+                <p className="text-xs text-white/50 px-4 py-6 text-center">
                   No runs yet
                 </p>
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-border hover:bg-transparent">
-                      <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium px-4 h-8">
+                    <TableRow className="border-white/10 hover:bg-transparent">
+                      <TableHead className="text-[10px] uppercase tracking-widest text-white/50 font-medium px-4 h-8">
                         Agent
                       </TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium px-4 h-8">
+                      <TableHead className="text-[10px] uppercase tracking-widest text-white/50 font-medium px-4 h-8">
                         Goal
                       </TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium px-4 h-8">
+                      <TableHead className="text-[10px] uppercase tracking-widest text-white/50 font-medium px-4 h-8">
                         Stage
                       </TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium px-4 h-8">
+                      <TableHead className="text-[10px] uppercase tracking-widest text-white/50 font-medium px-4 h-8">
                         Status
                       </TableHead>
                     </TableRow>
@@ -106,23 +106,23 @@ export default async function DashboardPage() {
                     {recentRuns.map((run) => (
                       <TableRow
                         key={run.runId}
-                        className="border-border hover:bg-[rgba(0,229,255,0.03)] transition-colors"
+                        className="border-white/10 hover:bg-[rgba(0,229,255,0.03)] transition-colors"
                       >
                         <TableCell className="px-4 py-2">
                           <Link
                             href={`/dashboard/runs/${run.runId}`}
-                            className="text-xs font-mono text-muted-foreground hover:text-primary transition-colors truncate max-w-[120px] block"
+                            className="text-xs font-mono text-white/50 hover:text-[#e07b5a] transition-colors truncate max-w-[120px] block"
                           >
                             {run.agentId}
                           </Link>
                         </TableCell>
                         <TableCell className="px-4 py-2 max-w-[260px]">
-                          <span className="text-xs text-foreground truncate block">
+                          <span className="text-xs text-[#e8e4df] truncate block">
                             {run.goal}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-2">
-                          <span className="text-[11px] font-mono text-muted-foreground">
+                          <span className="text-[11px] font-mono text-white/50">
                             {run.currentStage}
                           </span>
                         </TableCell>
@@ -140,15 +140,15 @@ export default async function DashboardPage() {
 
         {/* Approval queue */}
         <div className="lg:col-span-1">
-          <Card className="border-border bg-[#3a3a3a] text-[#e8e4df]">
-            <CardHeader className="px-4 py-3 border-b border-border">
+          <Card className="border-white/10 bg-[#3a3a3a] text-[#e8e4df]">
+            <CardHeader className="px-4 py-3 border-b border-white/10">
               <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-white/50">
                   Approvals
                 </h2>
                 <Link
                   href="/dashboard/approvals"
-                  className="text-[11px] text-primary hover:underline font-mono"
+                  className="text-[11px] text-[#e07b5a] hover:underline font-mono"
                 >
                   View all
                 </Link>
@@ -156,20 +156,20 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               {pendingApprovalList.length === 0 ? (
-                <p className="text-xs text-muted-foreground px-4 py-6 text-center">
+                <p className="text-xs text-white/50 px-4 py-6 text-center">
                   No pending approvals
                 </p>
               ) : (
-                <ul className="divide-y divide-border">
+                <ul className="divide-y divide-white/10">
                   {pendingApprovalList.map((approval) => (
                     <li key={approval.approvalId} className="px-4 py-3 flex flex-col gap-1.5">
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs text-foreground font-medium leading-snug flex-1 truncate">
+                        <span className="text-xs text-[#e8e4df] font-medium leading-snug flex-1 truncate">
                           {approval.title}
                         </span>
                         <StatusBadge status={approval.status} />
                       </div>
-                      <span className="text-[11px] text-muted-foreground font-mono truncate">
+                      <span className="text-[11px] text-white/50 font-mono truncate">
                         {approval.agentId}
                       </span>
                       <div className="flex gap-2 mt-0.5">

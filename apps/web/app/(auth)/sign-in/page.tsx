@@ -60,10 +60,10 @@ export default function SignInPage() {
           <span className="text-lg font-semibold tracking-wide text-foreground">Cadet</span>
         </div>
 
-        <Card className="border-border bg-[var(--card)] shadow-[var(--glow-primary)]">
+        <Card className="bg-secondary text-secondary-foreground border-secondary shadow-[var(--glow-primary)]">
           <CardHeader className="pb-2">
-            <h1 className="text-sm font-semibold text-foreground text-center">Sign in</h1>
-            <p className="text-xs text-muted-foreground text-center mt-1">
+            <h1 className="text-sm font-semibold text-secondary-foreground text-center">Sign in</h1>
+            <p className="text-xs text-secondary-foreground/50 text-center mt-1">
               Use your passkey to authenticate
             </p>
           </CardHeader>
@@ -82,7 +82,7 @@ export default function SignInPage() {
               {loading ? "Authenticating…" : "Sign in with passkey"}
             </Button>
 
-            <p className="text-center text-[11px] text-muted-foreground">
+            <p className="text-center text-[11px] text-secondary-foreground/50">
               No account?{" "}
               <Link href="/sign-up" className="text-primary hover:underline">
                 Create one

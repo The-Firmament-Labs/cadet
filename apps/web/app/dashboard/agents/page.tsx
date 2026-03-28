@@ -43,9 +43,9 @@ export default async function AgentsPage() {
         <h1 className="text-sm font-semibold tracking-wide">Agent Roster</h1>
       </div>
 
-      <Card>
-        <CardHeader className="border-b pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+      <Card className="bg-secondary text-secondary-foreground border-secondary">
+        <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+          <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
             Registered Agents
           </CardTitle>
         </CardHeader>
@@ -53,46 +53,46 @@ export default async function AgentsPage() {
           {error ? (
             <div className="px-4 py-8 text-center">
               <p className="text-sm text-destructive font-mono">{error}</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-secondary-foreground/50 mt-1">
                 Confirm SpacetimeDB is reachable.
               </p>
             </div>
           ) : agents.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <p className="text-sm text-muted-foreground">No agents registered yet.</p>
+              <p className="text-sm text-secondary-foreground/50">No agents registered yet.</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Agent ID</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Display Name</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Runtime</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Execution Target</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Control Plane</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Tags</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Status</TableHead>
+                <TableRow className="border-secondary-foreground/10">
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Agent ID</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Display Name</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Runtime</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Execution Target</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Control Plane</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Tags</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {agents.map((agent) => (
-                  <TableRow key={agent.agent_id}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                  <TableRow key={agent.agent_id} className="border-secondary-foreground/10">
+                    <TableCell className="font-mono text-xs text-secondary-foreground/50">
                       {agent.agent_id}
                     </TableCell>
                     <TableCell className="text-xs font-medium">
                       {agent.display_name ?? agent.agent_id}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="font-mono text-xs text-secondary-foreground/50">
                       {agent.runtime ?? "—"}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="font-mono text-xs text-secondary-foreground/50">
                       {agent.execution_target ?? "—"}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="font-mono text-xs text-secondary-foreground/50">
                       {agent.control_plane ?? "—"}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="text-xs text-secondary-foreground/50">
                       {agent.tags ?? "—"}
                     </TableCell>
                     <TableCell>

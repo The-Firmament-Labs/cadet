@@ -38,9 +38,9 @@ export default async function RunsPage() {
         <h1 className="text-sm font-semibold tracking-wide">Workflow Runs</h1>
       </div>
 
-      <Card>
-        <CardHeader className="border-b pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+      <Card className="bg-secondary text-secondary-foreground border-secondary">
+        <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+          <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
             All Runs
           </CardTitle>
         </CardHeader>
@@ -48,32 +48,32 @@ export default async function RunsPage() {
           {error ? (
             <div className="px-4 py-8 text-center">
               <p className="text-sm text-destructive font-mono">{error}</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-secondary-foreground/50 mt-1">
                 Confirm SpacetimeDB is reachable.
               </p>
             </div>
           ) : runs.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <p className="text-sm text-muted-foreground">No workflow runs yet.</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm text-secondary-foreground/50">No workflow runs yet.</p>
+              <p className="text-xs text-secondary-foreground/50 mt-1">
                 Start SpacetimeDB and the control planes to populate runs.
               </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Agent</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Goal</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Stage</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Status</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-widest">Priority</TableHead>
+                <TableRow className="border-secondary-foreground/10">
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Agent</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Goal</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Stage</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Status</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Priority</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {runs.map((run) => (
-                  <TableRow key={run.runId}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                  <TableRow key={run.runId} className="border-secondary-foreground/10">
+                    <TableCell className="font-mono text-xs text-secondary-foreground/50">
                       {run.agentId}
                     </TableCell>
                     <TableCell className="text-xs max-w-[320px]">
@@ -84,13 +84,13 @@ export default async function RunsPage() {
                         {run.goal}
                       </Link>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="font-mono text-xs text-secondary-foreground/50">
                       {run.currentStage}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={run.status} />
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="font-mono text-xs text-secondary-foreground/50">
                       {run.priority ?? "—"}
                     </TableCell>
                   </TableRow>
