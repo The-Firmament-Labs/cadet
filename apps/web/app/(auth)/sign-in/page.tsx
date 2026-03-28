@@ -33,8 +33,8 @@ export default function SignInPage() {
       }
       const options = await optionsRes.json()
 
-      // Step 2: Start WebAuthn authentication (Touch ID)
-      const credential = await startAuthentication(options)
+      // Step 2: Start WebAuthn authentication (Touch ID) — v13 API
+      const credential = await startAuthentication({ optionsJSON: options })
 
       // Step 3: Verify credential with server
       const verifyRes = await fetch("/api/auth/login?step=verify", {

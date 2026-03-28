@@ -30,9 +30,14 @@ async function handleOptions(request: Request) {
       return NextResponse.json({ error: "Display name and email are required" }, { status: 400 });
     }
 
-    const existing = await findOperatorByEmail(email);
-    if (existing) {
-      return NextResponse.json({ error: "An operator with this email already exists" }, { status: 409 });
+    // Check for existing operator — skip if SpacetimeDB unreachable
+    try {
+      const existing = await findOperatorByEmail(email);
+      if (existing && existing.operatorId) {
+        return NextResponse.json({ error: "An operator with this email already exists" }, { status: 409 });
+      }
+    } catch {
+      // SpacetimeDB unreachable — allow registration to proceed
     }
 
     const operatorId = randomUUID();

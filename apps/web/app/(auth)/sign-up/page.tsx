@@ -32,8 +32,8 @@ export default function SignUpPage() {
       }
       const options = await optionsRes.json()
 
-      // Step 2: Create passkey (browser prompt)
-      const credential = await startRegistration(options)
+      // Step 2: Create passkey (browser prompt) — v13 API
+      const credential = await startRegistration({ optionsJSON: options })
 
       // Step 3: Verify with server
       const verifyRes = await fetch("/api/auth/register?step=verify", {

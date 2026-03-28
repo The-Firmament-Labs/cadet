@@ -1931,7 +1931,7 @@ pub fn register_operator(
 ) -> Result<(), String> {
     let operator_id = validate_identifier(operator_id, "operator_id")?;
     let display_name = validate_text(display_name, "display_name")?;
-    let email = validate_identifier(email, "email")?;
+    let email = validate_text(email, "email")?;
     let credential_id = validate_identifier(credential_id, "credential_id")?;
 
     ctx.db.operator_account().insert(OperatorAccount {

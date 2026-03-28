@@ -74,9 +74,12 @@ export async function findOperatorByEmail(email: string): Promise<{
 } | null> {
   try {
     const client = createControlClient();
-    const rows = (await client.sql(
+    const result = await client.sql(
       `SELECT operator_id, display_name, email, role FROM operator_account WHERE email = '${email.replace(/'/g, "''")}'`
-    )) as Record<string, unknown>[];
+    );
+    console.log("[findOperatorByEmail] raw result:", JSON.stringify(result));
+    const rows = result as Record<string, unknown>[];
+    if (!Array.isArray(rows) || rows.length === 0) return null;
     const row = rows[0];
     if (!row) return null;
     return {
