@@ -2,13 +2,16 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 const statusColors: Record<string, string> = {
-  running:            "border-cyan-500/30 bg-cyan-500/10 text-cyan-400",
-  completed:          "border-green-500/30 bg-green-500/10 text-green-400",
-  failed:             "border-destructive/30 bg-destructive/10 text-destructive",
-  blocked:            "border-yellow-500/30 bg-yellow-500/10 text-yellow-400",
-  queued:             "border-border bg-secondary text-muted-foreground",
-  pending:            "border-yellow-400/30 bg-yellow-400/10 text-yellow-300",
-  "awaiting-approval": "border-yellow-400/30 bg-yellow-400/10 text-yellow-300",
+  running:             "border-[#e07b5a]/40 bg-[#e07b5a]/15 text-[#e07b5a]",
+  active:              "border-[#e07b5a]/40 bg-[#e07b5a]/15 text-[#e07b5a]",
+  completed:           "border-[#5a8a5a]/40 bg-[#5a8a5a]/15 text-[#5a8a5a]",
+  failed:              "border-[#c94a4a]/40 bg-[#c94a4a]/15 text-[#c94a4a]",
+  blocked:             "border-[#c98a3a]/40 bg-[#c98a3a]/15 text-[#c98a3a]",
+  queued:              "border-[#1a1a1a]/20 bg-[#1a1a1a]/5 text-[#1a1a1a]/60",
+  pending:             "border-[#c98a3a]/40 bg-[#c98a3a]/15 text-[#c98a3a]",
+  "awaiting-approval": "border-[#c98a3a]/40 bg-[#c98a3a]/15 text-[#c98a3a]",
+  "en-route":          "border-[#3a3a3a] bg-[#3a3a3a] text-[#e8e4df]",
+  monitoring:          "border-[#1a1a1a]/20 bg-[#1a1a1a]/8 text-[#1a1a1a]/70",
 }
 
 export function StatusBadge({ status }: { status: string }) {

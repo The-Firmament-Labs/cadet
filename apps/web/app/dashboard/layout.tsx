@@ -27,13 +27,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[var(--background)]">
-      {/* Sidebar */}
+    <div className="flex h-screen w-full overflow-hidden bg-[#c8d1c0]">
+      {/* Sidebar — charcoal */}
       <nav
         className={cn(
           "group flex flex-col shrink-0 h-full z-20",
           "w-12 hover:w-[220px] transition-[width] duration-200 ease-in-out overflow-hidden",
-          "bg-[var(--sidebar)] border-r border-border"
+          "bg-[#3a3a3a] border-r border-white/10"
         )}
       >
         {/* Brand mark */}
@@ -41,14 +41,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div
             className={cn(
               "flex items-center justify-center w-7 h-7 shrink-0",
-              "rounded-sm border border-primary/40 bg-[var(--sidebar)]",
-              "text-primary font-mono font-bold text-sm leading-none",
-              "shadow-[0_0_8px_rgba(0,229,255,0.2)]"
+              "rounded-sm border border-[#e07b5a]/50 bg-[#e07b5a]/15",
+              "text-[#e07b5a] font-mono font-bold text-sm leading-none",
             )}
           >
             C
           </div>
-          <span className="ml-3 text-sm font-semibold tracking-wide text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+          <span className="ml-3 text-sm font-semibold tracking-wide text-[#e8e4df] opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
             Cadet
           </span>
         </div>
@@ -67,12 +66,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   href={href}
                   className={cn(
                     "flex items-center gap-3 h-9 px-[8px] rounded-md",
-                    "text-muted-foreground hover:text-foreground",
-                    "hover:bg-[var(--sidebar-accent)] transition-colors duration-100",
+                    "text-white/50 hover:text-[#e8e4df]",
+                    "hover:bg-white/5 transition-colors duration-100",
                     isActive && [
-                      "text-primary border-l-2 border-primary",
-                      "bg-[rgba(0,229,255,0.06)] hover:bg-[rgba(0,229,255,0.10)]",
-                      "shadow-[inset_0_0_8px_rgba(0,229,255,0.04)]",
+                      "text-[#e07b5a] border-l-2 border-[#e07b5a]",
+                      "bg-[rgba(224,123,90,0.1)] hover:bg-[rgba(224,123,90,0.15)]",
                     ]
                   )}
                 >
@@ -80,7 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     size={16}
                     className={cn(
                       "shrink-0",
-                      isActive ? "text-primary" : "text-muted-foreground"
+                      isActive ? "text-[#e07b5a]" : "text-white/50"
                     )}
                   />
                   <span className="text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150">
@@ -93,12 +91,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </ul>
 
         {/* Sidebar footer */}
-        <div className="px-[10px] py-3 border-t border-border shrink-0">
+        <div className="px-[10px] py-3 border-t border-white/10 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 shrink-0 rounded-sm bg-[var(--secondary)] border border-border flex items-center justify-center text-[10px] font-mono text-muted-foreground">
+            <div className="w-7 h-7 shrink-0 rounded-sm bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-mono text-white/50">
               OP
             </div>
-            <span className="text-xs text-muted-foreground whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 truncate">
+            <span className="text-xs text-white/40 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 truncate">
               Operator
             </span>
           </div>
@@ -108,21 +106,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main area */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="flex items-center h-12 px-5 shrink-0 border-b border-border bg-[var(--sidebar)]/60 backdrop-blur-sm">
+        <header className="flex items-center h-12 px-5 shrink-0 border-b border-black/10 bg-[#bec8b6]">
           {/* Breadcrumb area */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-xs text-muted-foreground font-mono truncate">
+            <span className="text-xs text-[#1a1a1a]/55 font-mono truncate">
               {buildBreadcrumb(pathname)}
             </span>
           </div>
 
-          {/* Connection status */}
+          {/* Live indicator */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4dff88] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4dff88]" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e07b5a] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#e07b5a]" />
             </span>
-            <span className="text-[11px] text-muted-foreground font-mono">connected</span>
+            <span className="text-[11px] text-[#1a1a1a]/55 font-mono uppercase tracking-wider">LIVE.REC</span>
           </div>
         </header>
 

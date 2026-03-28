@@ -38,28 +38,34 @@ export default async function DashboardPage() {
       {/* Metric HUDs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricHUD
-          label="Active Runs"
+          label="MISSIONS"
+          value={runs.length}
+          code="LOG.ALL"
+        />
+        <MetricHUD
+          label="ACTIVE ORBITS"
           value={activeRuns}
-          glow={activeRuns > 0 ? "cyan" : undefined}
+          variant="charcoal"
+          code="TRK.GEO"
         />
         <MetricHUD
-          label="Pending Approvals"
-          value={pendingApprovals}
-          glow={pendingApprovals > 0 ? "gold" : undefined}
-        />
-        <MetricHUD
-          label="Connected Agents"
+          label="SIGNALS"
           value={connectedAgents}
-          glow={connectedAgents > 0 ? "green" : undefined}
+          code="RCV.24H"
         />
-        <MetricHUD label="Browser Tasks" value={browserTaskCount} />
+        <MetricHUD
+          label="PENDING"
+          value={pendingApprovals}
+          variant={pendingApprovals > 0 ? "coral" : undefined}
+          code="LIVE.REC"
+        />
       </div>
 
       {/* Content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent runs — col-span-2 */}
         <div className="lg:col-span-2">
-          <Card className="border-border bg-[var(--card)]">
+          <Card className="border-border bg-[#3a3a3a] text-[#e8e4df]">
             <CardHeader className="px-4 py-3 border-b border-border">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -134,7 +140,7 @@ export default async function DashboardPage() {
 
         {/* Approval queue */}
         <div className="lg:col-span-1">
-          <Card className="border-border bg-[var(--card)]">
+          <Card className="border-border bg-[#3a3a3a] text-[#e8e4df]">
             <CardHeader className="px-4 py-3 border-b border-border">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">

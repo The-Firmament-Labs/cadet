@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${GeistSans.variable} ${GeistMono.variable} ${displayFont.variable} ${bodyFont.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${displayFont.variable} ${bodyFont.variable}`}
     >
       <body className="antialiased">
         <TooltipProvider>{children}</TooltipProvider>
