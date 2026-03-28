@@ -44,19 +44,18 @@ const DESKTOP_STYLES: &str = r#"
         max-height: none;
     }
 
-    /* Minimal title-bar strip — dark, unobtrusive */
+    /* Minimal 32px toolbar -- dark, unobtrusive */
     .desktop-toolbar {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        padding: 0 12px;
-        height: 26px;
-        min-height: 26px;
-        max-height: 26px;
+        padding: 0 14px;
+        height: 32px;
+        min-height: 32px;
+        max-height: 32px;
         flex-shrink: 0;
         background: #0F0E0E;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .desktop-context {
@@ -70,9 +69,9 @@ const DESKTOP_STYLES: &str = r#"
     .desktop-chip {
         display: inline-flex;
         align-items: center;
-        padding: 1px 6px;
+        padding: 2px 7px;
         border-radius: 0;
-        border: 1px solid rgba(170, 54, 24, 0.6);
+        border: 1px solid rgba(170, 54, 24, 0.50);
         background: transparent;
         color: #EF6745;
         font-family: "JetBrains Mono", monospace;
@@ -83,7 +82,7 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .desktop-note {
-        color: rgba(255, 255, 255, 0.38);
+        color: rgba(255, 255, 255, 0.32);
         font-family: "JetBrains Mono", monospace;
         font-size: 10px;
         white-space: nowrap;
@@ -100,37 +99,36 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .desktop-button {
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.10);
         border-radius: 0;
         background: transparent;
-        color: rgba(255, 255, 255, 0.55);
+        color: rgba(255, 255, 255, 0.45);
         font: inherit;
         font-size: 9px;
         font-family: "JetBrains Mono", monospace;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        padding: 2px 8px;
-        line-height: 18px;
+        padding: 3px 10px;
+        line-height: 16px;
         cursor: pointer;
-        transition: background 0.15s, color 0.15s;
+        transition: background 150ms ease, color 150ms ease;
     }
 
     .desktop-button:hover {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.85);
     }
 
     .desktop-error {
         flex-shrink: 0;
         margin: 0;
-        padding: 6px 12px;
+        padding: 6px 14px;
         border-radius: 0;
         background: rgba(170, 54, 24, 0.08);
         color: #EF6745;
         font-size: 10px;
         font-family: "JetBrains Mono", monospace;
         line-height: 1.4;
-        border-bottom: 1px solid rgba(170, 54, 24, 0.2);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -144,11 +142,13 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .status-dot-live {
-        background: #526258;
+        background: #4ade80;
+        box-shadow: 0 0 4px rgba(74, 222, 128, 0.3);
     }
 
     .status-dot-error {
         background: #AA3618;
+        box-shadow: 0 0 4px rgba(170, 54, 24, 0.3);
         animation: pulse 2s ease-in-out infinite;
     }
 "#;
