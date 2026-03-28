@@ -59,13 +59,13 @@ interface CloudScheduledRunResult {
   reason?: string;
 }
 
-export function createControlClient(): StarbridgeControlClient {
+export function createControlClient(authTokenOverride?: string): StarbridgeControlClient {
   const env = requireSpacetimeServerEnv();
 
   return new StarbridgeControlClient({
     baseUrl: env.spacetimeUrl,
     database: env.database,
-    authToken: env.authToken
+    authToken: authTokenOverride ?? env.authToken
   });
 }
 
@@ -283,13 +283,16 @@ function normalizeScheduledCloudJob(
   });
 }
 
-export async function registerAgentFromPayload(payload: unknown): Promise<unknown> {
+export async function registerAgentFromPayload(
+  payload: unknown,
+  authToken?: string
+): Promise<unknown> {
   const manifest: AgentManifest = parseAgentManifest(payload);
   if (manifest.deployment.controlPlane !== cloudControlPlaneTarget) {
     throw new Error("Cloud control plane can only register cloud-plane agents");
   }
 
-  const client = createControlClient();
+  const client = createControlClient(authToken);
   await client.registerAgent(manifest);
   for (const schedule of schedulesForManifest(manifest)) {
     await client.registerSchedule(schedule);
@@ -301,7 +304,7 @@ export async function registerAgentFromPayload(payload: unknown): Promise<unknow
   };
 }
 
-export async function dispatchJobFromPayload(payload: unknown): Promise<unknown> {
+export async function dispatchJobFromPayload(payload: unknown, authToken?: string): Promise<unknown> {
   if (typeof payload !== "object" || payload === null) {
     throw new Error("dispatch payload must be an object");
   }
@@ -318,7 +321,7 @@ export async function dispatchJobFromPayload(payload: unknown): Promise<unknown>
   const normalized = normalizeJobRequest(
     buildCloudJobRequest(manifest, candidate, "cloud-control")
   );
-  const client = createControlClient();
+  const client = createControlClient(authToken);
   await client.enqueueJob(normalized);
   const workflow = await seedWorkflowFromJob(
     manifest,
@@ -335,7 +338,10 @@ export async function dispatchJobFromPayload(payload: unknown): Promise<unknown>
   };
 }
 
-export async function dispatchEdgeJobFromPayload(payload: unknown): Promise<unknown> {
+export async function dispatchEdgeJobFromPayload(
+  payload: unknown,
+  authToken?: string
+): Promise<unknown> {
   if (typeof payload !== "object" || payload === null) {
     throw new Error("dispatch payload must be an object");
   }
@@ -351,7 +357,7 @@ export async function dispatchEdgeJobFromPayload(payload: unknown): Promise<unkn
   }
 
   const job = normalizeJobRequest(buildCloudJobRequest(manifest, candidate, "cloud-control"));
-  await createControlClient().enqueueJob(job);
+  await createControlClient(authToken).enqueueJob(job);
   const workflow = await seedWorkflowFromJob(
     manifest,
     job,
@@ -468,13 +474,13 @@ export async function ingestGitHubEvent(payload: unknown): Promise<unknown> {
   };
 }
 
-export async function loadInbox(): Promise<{
+export async function loadInbox(authToken?: string): Promise<{
   threads: Awaited<ReturnType<StarbridgeControlClient["listThreads"]>>;
   runs: Awaited<ReturnType<StarbridgeControlClient["listWorkflowRuns"]>>;
   approvals: Awaited<ReturnType<StarbridgeControlClient["listApprovalRequests"]>>;
   browserTasks: Awaited<ReturnType<StarbridgeControlClient["listBrowserTasks"]>>;
 }> {
-  const client = createControlClient();
+  const client = createControlClient(authToken);
   const [threads, runs, approvals, browserTasks] = await Promise.all([
     client.listThreads(),
     client.listWorkflowRuns(),
@@ -494,7 +500,7 @@ export async function loadInbox(): Promise<{
   };
 }
 
-export async function loadRunDetails(runId: string): Promise<{
+export async function loadRunDetails(runId: string, authToken?: string): Promise<{
   run: Awaited<ReturnType<StarbridgeControlClient["listWorkflowRuns"]>>[number];
   job: Awaited<ReturnType<StarbridgeControlClient["listJobs"]>>[number] | null;
   steps: Awaited<ReturnType<StarbridgeControlClient["listWorkflowSteps"]>>;
@@ -505,7 +511,7 @@ export async function loadRunDetails(runId: string): Promise<{
   browserArtifacts: Awaited<ReturnType<StarbridgeControlClient["listBrowserArtifacts"]>>;
   retrievalTraces: Awaited<ReturnType<StarbridgeControlClient["listRetrievalTraces"]>>;
 }> {
-  const client = createControlClient();
+  const client = createControlClient(authToken);
   const [runs, jobs, steps, messages, toolCalls, approvals, browserTasks, browserArtifacts, retrievalTraces] =
     await Promise.all([
       client.listWorkflowRuns(),
@@ -560,7 +566,8 @@ function extractJobIdFromRun(
 
 export async function resolveApprovalFromPayload(
   approvalId: string,
-  payload: unknown
+  payload: unknown,
+  authToken?: string
 ): Promise<unknown> {
   if (typeof payload !== "object" || payload === null) {
     throw new Error("approval payload must be an object");
@@ -576,18 +583,18 @@ export async function resolveApprovalFromPayload(
     throw new Error("approval status is required");
   }
 
-  const client = createControlClient();
+  const client = createControlClient(authToken);
   return client.resolveApproval(approvalId, body.status, {
     resolvedBy: body.resolvedBy ?? "operator",
     note: body.note ?? ""
   });
 }
 
-export async function loadBrowserTask(taskId: string): Promise<{
+export async function loadBrowserTask(taskId: string, authToken?: string): Promise<{
   task: Awaited<ReturnType<StarbridgeControlClient["listBrowserTasks"]>>[number];
   artifacts: Awaited<ReturnType<StarbridgeControlClient["listBrowserArtifacts"]>>;
 }> {
-  const client = createControlClient();
+  const client = createControlClient(authToken);
   const [tasks, artifacts] = await Promise.all([
     client.listBrowserTasks(),
     client.listBrowserArtifacts()
@@ -604,8 +611,8 @@ export async function loadBrowserTask(taskId: string): Promise<{
   };
 }
 
-export async function retryWorkflowRun(runId: string): Promise<unknown> {
-  const client = createControlClient();
+export async function retryWorkflowRun(runId: string, authToken?: string): Promise<unknown> {
+  const client = createControlClient(authToken);
   const [runs, steps] = await Promise.all([
     client.listWorkflowRuns(),
     client.listWorkflowSteps()

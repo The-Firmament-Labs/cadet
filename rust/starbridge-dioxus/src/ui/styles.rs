@@ -1198,13 +1198,18 @@ pub const APP_STYLES: &str = r#"
     .command-palette-item {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 10px;
+        width: 100%;
         padding: 8px 10px;
         border-radius: 6px;
         color: var(--text);
         font-size: 12px;
         cursor: pointer;
         border: 1px solid transparent;
+        background: transparent;
+        text-align: left;
+        font: inherit;
     }
 
     .command-palette-item:hover,
@@ -1235,5 +1240,25 @@ pub const APP_STYLES: &str = r#"
         text-align: center;
         color: var(--muted);
         font-size: 12px;
+    }
+
+    /* Reset list styling inside command palette */
+    .command-palette-list {
+        list-style: none;
+        margin: 0;
+    }
+
+    .command-palette-list li {
+        margin: 0;
+        padding: 0;
+    }
+
+    /* --- Nav icon (always visible in sidebar regardless of expanded state) --- */
+    .nav-icon {
+        flex-shrink: 0;
+        width: 20px;
+        text-align: center;
+        font-size: 13px;
+        line-height: 1;
     }
 "#;

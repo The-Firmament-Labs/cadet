@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { getSafeServerEnv, getServerEnv, requireSpacetimeServerEnv } from "./env";
+import {
+  getOperatorAuthConfig,
+  getSafeServerEnv,
+  getServerEnv,
+  isOperatorEmailAllowed,
+  requireSpacetimeServerEnv
+} from "./env";
 
 function asProcessEnv(values: Record<string, string>): NodeJS.ProcessEnv {
   return values as NodeJS.ProcessEnv;
@@ -52,7 +58,8 @@ describe("getSafeServerEnv", () => {
       database: "cadet-control",
       hasAuthToken: true,
       hasCronSecret: true,
-      hasSpacetimeConfig: true
+      hasSpacetimeConfig: true,
+      hasOperatorAuth: false
     });
   });
 });
@@ -80,5 +87,62 @@ describe("requireSpacetimeServerEnv", () => {
       spacetimeUrl: "https://maincloud.spacetimedb.com",
       database: "cadet-control"
     });
+  });
+});
+
+describe("getOperatorAuthConfig", () => {
+  it("prefers SpacetimeAuth defaults when the provider is configured", () => {
+    expect(
+      getOperatorAuthConfig(asProcessEnv({
+        AUTH_SECRET: " test-secret ",
+        SPACETIMEAUTH_CLIENT_ID: " client_123 ",
+        SPACETIMEAUTH_CLIENT_SECRET: " secret_123 ",
+        OPERATOR_AUTH_ALLOWED_EMAILS: " Dex@example.com,ops@example.com "
+      }))
+    ).toEqual({
+      enabled: true,
+      secret: "test-secret",
+      allowedEmails: ["dex@example.com", "ops@example.com"],
+      providers: [
+        {
+          id: "spacetimeauth",
+          name: "SpacetimeAuth",
+          issuer: "https://auth.spacetimedb.com/oidc",
+          clientId: "client_123",
+          clientSecret: "secret_123"
+        }
+      ]
+    });
+  });
+
+  it("normalizes Auth0 domains into an issuer-backed provider", () => {
+    expect(
+      getOperatorAuthConfig(asProcessEnv({
+        AUTH0_DOMAIN: "cadet.us.auth0.com/",
+        AUTH0_CLIENT_ID: "auth0-client",
+        AUTH0_CLIENT_SECRET: "auth0-secret"
+      })).providers
+    ).toEqual([
+      {
+        id: "auth0",
+        name: "Auth0",
+        issuer: "https://cadet.us.auth0.com/",
+        domain: "cadet.us.auth0.com",
+        clientId: "auth0-client",
+        clientSecret: "auth0-secret"
+      }
+    ]);
+  });
+});
+
+describe("isOperatorEmailAllowed", () => {
+  it("allows all emails when no allowlist is configured", () => {
+    expect(isOperatorEmailAllowed([], "anyone@example.com")).toBe(true);
+  });
+
+  it("matches normalized emails against the allowlist", () => {
+    expect(isOperatorEmailAllowed(["dex@example.com"], " Dex@Example.com ")).toBe(true);
+    expect(isOperatorEmailAllowed(["dex@example.com"], "ops@example.com")).toBe(false);
+    expect(isOperatorEmailAllowed(["dex@example.com"], undefined)).toBe(false);
   });
 });

@@ -41,6 +41,7 @@ export type LandingEnv = {
   spacetimeUrl: string;
   database: string;
   hasCronSecret: boolean;
+  hasOperatorAuth: boolean;
 };
 
 export type LandingCloudAgent = {
@@ -353,7 +354,7 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
           <ul className="telemetryList">
             <li>`http://localhost:3010` hosts the local Bun control plane for local-runner agents.</li>
             <li>`/api/jobs/dispatch` remains the cloud queue entrypoint on the Next.js app.</li>
-            <li>`/api/agents/edge/dispatch` runs on the Vercel Edge Runtime for edge-hosted agents.</li>
+            <li>`/api/agents/edge/dispatch` is the secured cloud dispatch entrypoint for edge-targeted agents.</li>
             <li>`/schedules/reconcile` runs the local scheduler wakeup and stale-heartbeat reconciliation.</li>
             <li>`/api/cron/reconcile` is the secure cloud wakeup hook for schedules and stale-heartbeat cleanup.</li>
           </ul>
@@ -367,6 +368,7 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
             <li>SpacetimeDB URL: {env.spacetimeUrl}</li>
             <li>Database: {env.database}</li>
             <li>Cron secret configured: {env.hasCronSecret ? "yes" : "no"}</li>
+            <li>Operator auth configured: {env.hasOperatorAuth ? "yes" : "no"}</li>
           </ul>
         </article>
 

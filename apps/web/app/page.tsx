@@ -9,7 +9,8 @@ export default function HomePage() {
     controlPlaneUrl: env.controlPlaneUrl,
     spacetimeUrl: env.spacetimeUrl,
     database: env.database,
-    hasCronSecret: env.hasCronSecret
+    hasCronSecret: env.hasCronSecret,
+    hasOperatorAuth: env.hasOperatorAuth
   };
   const cloudAgents = cloudAgentCatalog.map((agent) => ({
     id: agent.id,

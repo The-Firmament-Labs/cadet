@@ -6,6 +6,22 @@ export interface ServerEnv {
   cronSecret?: string | undefined;
 }
 
+export interface OperatorAuthProviderConfig {
+  id: "spacetimeauth" | "auth0";
+  name: string;
+  issuer: string;
+  clientId: string;
+  clientSecret: string;
+  domain?: string | undefined;
+}
+
+export interface OperatorAuthConfig {
+  enabled: boolean;
+  secret?: string | undefined;
+  allowedEmails: string[];
+  providers: OperatorAuthProviderConfig[];
+}
+
 export interface SafeServerEnv {
   controlPlaneUrl: string;
   spacetimeUrl: string;
@@ -13,6 +29,7 @@ export interface SafeServerEnv {
   hasAuthToken: boolean;
   hasCronSecret: boolean;
   hasSpacetimeConfig: boolean;
+  hasOperatorAuth: boolean;
 }
 
 function trimEnvValue(value: string | undefined): string | undefined {
@@ -31,6 +48,26 @@ function normalizeUrlValue(value: string | undefined): string | undefined {
   }
 
   return `https://${trimmed}`;
+}
+
+function parseEmailList(value: string | undefined): string[] {
+  const trimmed = trimEnvValue(value);
+  if (!trimmed) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      trimmed
+        .split(",")
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.length > 0)
+    )
+  ];
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
 }
 
 function isVercelRuntime(source: NodeJS.ProcessEnv): boolean {
@@ -72,8 +109,71 @@ export function getSafeServerEnv(source: NodeJS.ProcessEnv = process.env): SafeS
     database: env.database,
     hasAuthToken: Boolean(env.authToken),
     hasCronSecret: Boolean(env.cronSecret),
-    hasSpacetimeConfig: hasSpacetimeConfig(source)
+    hasSpacetimeConfig: hasSpacetimeConfig(source),
+    hasOperatorAuth: hasOperatorAuth(source)
   };
+}
+
+export function getOperatorAuthConfig(
+  source: NodeJS.ProcessEnv = process.env
+): OperatorAuthConfig {
+  const providers: OperatorAuthProviderConfig[] = [];
+
+  const spacetimeClientId = trimEnvValue(source.SPACETIMEAUTH_CLIENT_ID);
+  const spacetimeClientSecret = trimEnvValue(source.SPACETIMEAUTH_CLIENT_SECRET);
+  if (spacetimeClientId && spacetimeClientSecret) {
+    providers.push({
+      id: "spacetimeauth",
+      name: "SpacetimeAuth",
+      issuer: trimTrailingSlash(
+        normalizeUrlValue(source.SPACETIMEAUTH_ISSUER) ?? "https://auth.spacetimedb.com/oidc"
+      ),
+      clientId: spacetimeClientId,
+      clientSecret: spacetimeClientSecret
+    });
+  }
+
+  const auth0Domain = trimEnvValue(source.AUTH0_DOMAIN);
+  const auth0ClientId = trimEnvValue(source.AUTH0_CLIENT_ID);
+  const auth0ClientSecret = trimEnvValue(source.AUTH0_CLIENT_SECRET);
+  if (auth0Domain && auth0ClientId && auth0ClientSecret) {
+    const normalizedDomain = trimTrailingSlash(auth0Domain.replace(/^https?:\/\//, ""));
+    providers.push({
+      id: "auth0",
+      name: "Auth0",
+      issuer: `https://${normalizedDomain}/`,
+      domain: normalizedDomain,
+      clientId: auth0ClientId,
+      clientSecret: auth0ClientSecret
+    });
+  }
+
+  return {
+    enabled: providers.length > 0,
+    secret: trimEnvValue(source.AUTH_SECRET),
+    allowedEmails: parseEmailList(source.OPERATOR_AUTH_ALLOWED_EMAILS),
+    providers
+  };
+}
+
+export function hasOperatorAuth(source: NodeJS.ProcessEnv = process.env): boolean {
+  return getOperatorAuthConfig(source).enabled;
+}
+
+export function isOperatorEmailAllowed(
+  allowedEmails: readonly string[],
+  email: string | null | undefined
+): boolean {
+  if (allowedEmails.length === 0) {
+    return true;
+  }
+
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail) {
+    return false;
+  }
+
+  return allowedEmails.includes(normalizedEmail);
 }
 
 export function requireSpacetimeServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {

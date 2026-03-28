@@ -1,11 +1,18 @@
+import { requireOperatorApiSession } from "../../../../../lib/auth";
 import { dispatchEdgeJobFromPayload } from "../../../../../lib/server";
 
-export const runtime = "edge";
-
 export async function POST(request: Request) {
+  const { unauthorized, authToken } = await requireOperatorApiSession(request);
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const payload = await request.json();
-    return Response.json({ ok: true, result: await dispatchEdgeJobFromPayload(payload) });
+    return Response.json({
+      ok: true,
+      result: await dispatchEdgeJobFromPayload(payload, authToken)
+    });
   } catch (error) {
     return Response.json(
       {

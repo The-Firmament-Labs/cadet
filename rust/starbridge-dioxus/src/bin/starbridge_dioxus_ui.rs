@@ -17,7 +17,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 const DESKTOP_STYLES: &str = r#"
     .desktop-shell {
         min-height: 100vh;
-        background: linear-gradient(180deg, #121412 0%, #0d0f0d 100%);
+        background: #02050d;
     }
 
     .desktop-toolbar {
@@ -25,9 +25,9 @@ const DESKTOP_STYLES: &str = r#"
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 12px 16px;
-        border-bottom: 1px solid rgba(211, 225, 207, 0.14);
-        background: rgba(17, 19, 17, 0.96);
+        padding: 8px 16px;
+        border-bottom: 1px solid rgba(100, 180, 255, 0.14);
+        background: rgba(2, 5, 13, 0.96);
     }
 
     .desktop-context {
@@ -40,20 +40,20 @@ const DESKTOP_STYLES: &str = r#"
     .desktop-chip {
         display: inline-flex;
         align-items: center;
-        padding: 5px 10px;
+        padding: 4px 10px;
         border-radius: 4px;
-        border: 1px solid rgba(255, 122, 77, 0.28);
-        background: rgba(255, 122, 77, 0.12);
-        color: #ffd9cb;
+        border: 1px solid rgba(0, 229, 255, 0.28);
+        background: rgba(0, 229, 255, 0.08);
+        color: #00e5ff;
         font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
-        letter-spacing: 0.04em;
+        font-size: 10px;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
     }
 
     .desktop-note {
-        color: #a1ab9c;
-        font-size: 12px;
+        color: rgba(220, 228, 255, 0.6);
+        font-size: 11px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -66,27 +66,29 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .desktop-button {
-        border: 1px solid rgba(255, 122, 77, 0.28);
+        border: 1px solid rgba(100, 180, 255, 0.2);
         border-radius: 4px;
-        background: rgba(255, 122, 77, 0.12);
-        color: #eef4e9;
+        background: rgba(0, 229, 255, 0.06);
+        color: #f5f7ff;
         font: inherit;
-        padding: 8px 13px;
+        font-size: 11px;
+        padding: 6px 12px;
         cursor: pointer;
     }
 
     .desktop-button:hover {
-        background: rgba(255, 122, 77, 0.18);
+        background: rgba(0, 229, 255, 0.12);
+        border-color: rgba(0, 229, 255, 0.3);
     }
 
     .desktop-error {
-        margin: 10px 16px 0;
-        padding: 10px 12px;
+        margin: 8px 16px 0;
+        padding: 8px 12px;
         border-radius: 4px;
-        border: 1px solid rgba(255, 122, 77, 0.24);
-        background: rgba(255, 122, 77, 0.1);
-        color: #ffd9cb;
-        font-size: 13px;
+        border: 1px solid rgba(255, 77, 77, 0.24);
+        background: rgba(255, 77, 77, 0.08);
+        color: #ff9999;
+        font-size: 12px;
     }
 "#;
 

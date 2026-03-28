@@ -8,8 +8,8 @@ use crate::ui::models::UiNodeSpec;
 
 #[component]
 pub fn SidebarNavButton(
+    icon: String,
     label: String,
-    detail: String,
     active: bool,
     count: Option<String>,
     onclick: EventHandler<MouseEvent>,
@@ -17,14 +17,13 @@ pub fn SidebarNavButton(
     rsx! {
         button {
             class: nav_button_class(active),
+            title: "{label}",
             onclick: move |event| onclick.call(event),
-            div { class: "nav-row",
-                strong { class: "nav-label", "{label}" }
-                if let Some(count) = count {
-                    span { class: "nav-count", "{count}" }
-                }
+            span { class: "nav-icon", "{icon}" }
+            strong { class: "nav-label", "{label}" }
+            if let Some(count) = count {
+                span { class: "nav-count", "{count}" }
             }
-            p { class: "nav-detail", "{detail}" }
         }
     }
 }

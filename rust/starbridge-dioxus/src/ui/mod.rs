@@ -8,7 +8,7 @@ mod styles;
 mod views;
 
 use models::{memory_namespaces, queue_metrics, WorkspacePage};
-use shared::{MetricTile, SidebarNavButton};
+use shared::SidebarNavButton;
 use styles::APP_STYLES;
 use views::{ChatView, MemoryView, OverviewView, SurfacesView, WorkflowStudioView};
 
@@ -32,89 +32,90 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
     let metrics = queue_metrics(&snapshot);
     let namespaces = memory_namespaces(&snapshot);
     let mut page = use_signal(|| WorkspacePage::Overview);
+    let mut sidebar_expanded = use_signal(|| false);
+    let mut show_command_palette = use_signal(|| false);
+
+    let sidebar_class = if sidebar_expanded() {
+        "sidebar sidebar-expanded"
+    } else {
+        "sidebar"
+    };
 
     rsx! {
         style { "{APP_STYLES}" }
+
+        // Command palette overlay
+        if show_command_palette() {
+            CommandPalette {
+                current_page: page(),
+                on_navigate: move |target_page| {
+                    page.set(target_page);
+                    show_command_palette.set(false);
+                },
+                on_close: move |_| show_command_palette.set(false),
+            }
+        }
+
         div { class: "app-shell",
-            aside { class: "sidebar",
+            aside { class: "{sidebar_class}",
+                // Brand mark
                 div { class: "sidebar-brand",
-                    div { class: "brand-mark", "C" }
-                    div {
-                        p { class: "sidebar-eyebrow", "Cadet" }
-                        h1 { class: "sidebar-title", "Mission Control" }
-                        p { class: "sidebar-copy", "Native operator client for the Spacetime control plane." }
+                    button {
+                        class: "brand-mark",
+                        title: if sidebar_expanded() { "Collapse sidebar" } else { "Expand sidebar" },
+                        onclick: move |_| sidebar_expanded.set(!sidebar_expanded()),
+                        "C"
                     }
+                    h1 { class: "sidebar-title", "Mission Control" }
                 }
 
                 div { class: "sidebar-section", "Workspace" }
                 nav { class: "sidebar-nav",
                     SidebarNavButton {
+                        icon: "⊞".to_string(),
                         label: "Overview".to_string(),
-                        detail: "Runs, browser work, and approvals".to_string(),
                         count: Some(metrics.active_runs.to_string()),
                         active: page() == WorkspacePage::Overview,
                         onclick: move |_| page.set(WorkspacePage::Overview),
                     }
                     SidebarNavButton {
+                        icon: "💬".to_string(),
                         label: "Conversations".to_string(),
-                        detail: "Live thread operations and replies".to_string(),
                         count: Some(snapshot.threads.len().to_string()),
                         active: page() == WorkspacePage::Conversations,
                         onclick: move |_| page.set(WorkspacePage::Conversations),
                     }
                     SidebarNavButton {
+                        icon: "▶".to_string(),
                         label: "Workflow Studio".to_string(),
-                        detail: "Draft stage choreography over live data".to_string(),
                         count: Some(snapshot.workflow_steps.len().to_string()),
                         active: page() == WorkspacePage::Workflow,
                         onclick: move |_| page.set(WorkspacePage::Workflow),
                     }
                     SidebarNavButton {
+                        icon: "⬡".to_string(),
                         label: "Surfaces".to_string(),
-                        detail: "JSON-to-native control surfaces".to_string(),
-                        count: Some("UI".to_string()),
+                        count: None,
                         active: page() == WorkspacePage::Surfaces,
                         onclick: move |_| page.set(WorkspacePage::Surfaces),
                     }
                     SidebarNavButton {
+                        icon: "🧠".to_string(),
                         label: "Memory".to_string(),
-                        detail: "Vectors, documents, and retrieval lineage".to_string(),
                         count: Some(snapshot.memory_embeddings.len().to_string()),
                         active: page() == WorkspacePage::Memory,
                         onclick: move |_| page.set(WorkspacePage::Memory),
                     }
                 }
 
-                div { class: "sidebar-section", "Queues" }
-                div { class: "sidebar-metrics",
-                    MetricTile {
-                        label: "Active".to_string(),
-                        value: metrics.active_runs.to_string(),
-                        detail: "workflow runs".to_string(),
-                        tone: "accent".to_string(),
-                    }
-                    MetricTile {
-                        label: "Approvals".to_string(),
-                        value: metrics.pending_approvals.to_string(),
-                        detail: "pending review".to_string(),
-                        tone: "warn".to_string(),
-                    }
-                    MetricTile {
-                        label: "Browser".to_string(),
-                        value: metrics.browser_tasks.to_string(),
-                        detail: "task queue".to_string(),
-                        tone: "neutral".to_string(),
-                    }
-                }
-
                 div { class: "sidebar-footer",
+                    // Connection status dot
+                    div { class: "connection-dot", title: "Connected" }
                     p { class: "sidebar-footnote", "{snapshot.environment}" }
-                    p { class: "sidebar-footnote", "Snapshot {snapshot.generated_at}" }
                     if !namespaces.is_empty() {
-                        div { class: "sidebar-badges",
-                            for namespace in namespaces {
-                                span { class: "pill pill-subtle", "{namespace}" }
-                            }
+                        p {
+                            class: "sidebar-footnote",
+                            "{namespaces.len()} namespaces"
                         }
                     }
                 }
@@ -128,6 +129,12 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                         p { class: "topbar-subtitle", "{page().description()}" }
                     }
                     div { class: "topbar-meta",
+                        button {
+                            class: "secondary-button",
+                            title: "Open command palette",
+                            onclick: move |_| show_command_palette.set(true),
+                            "⌘K"
+                        }
                         span { class: "pill pill-live", "Streaming" }
                         span { class: "pill", "{metrics.active_runs} active" }
                         span { class: "pill", "{metrics.pending_approvals} approvals" }
@@ -142,6 +149,58 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                         WorkspacePage::Workflow => rsx! { WorkflowStudioView { snapshot: snapshot.clone() } },
                         WorkspacePage::Surfaces => rsx! { SurfacesView { snapshot: snapshot.clone() } },
                         WorkspacePage::Memory => rsx! { MemoryView { snapshot: snapshot.clone() } },
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn CommandPalette(
+    current_page: WorkspacePage,
+    on_navigate: EventHandler<WorkspacePage>,
+    on_close: EventHandler<MouseEvent>,
+) -> Element {
+    let nav_items: &[(WorkspacePage, &str, &str)] = &[
+        (WorkspacePage::Overview,      "⊞", "Overview"),
+        (WorkspacePage::Conversations, "💬", "Conversations"),
+        (WorkspacePage::Workflow,      "▶", "Workflow Studio"),
+        (WorkspacePage::Surfaces,      "⬡", "Surfaces"),
+        (WorkspacePage::Memory,        "🧠", "Memory"),
+    ];
+
+    rsx! {
+        div {
+            class: "command-palette",
+            onclick: move |event| on_close.call(event),
+            div {
+                class: "command-palette-panel",
+                // Stop click propagation so clicks inside the panel don't close it
+                onclick: move |event| event.stop_propagation(),
+                input {
+                    class: "command-palette-input",
+                    r#type: "text",
+                    placeholder: "Navigate to…",
+                    autofocus: true,
+                }
+                ul { class: "command-palette-list",
+                    for (target_page, icon, label) in nav_items.iter().cloned() {
+                        li {
+                            button {
+                                class: if current_page == target_page {
+                                    "command-palette-item command-palette-item-active"
+                                } else {
+                                    "command-palette-item"
+                                },
+                                onclick: {
+                                    let target = target_page;
+                                    move |_| on_navigate.call(target)
+                                },
+                                span { "{icon} {label}" }
+                                span { class: "command-palette-kbd", "↵" }
+                            }
+                        }
                     }
                 }
             }
