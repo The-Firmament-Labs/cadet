@@ -186,6 +186,8 @@ a {
   font-size: clamp(3.25rem, 7vw, 6.5rem);
   line-height: 0.9;
   letter-spacing: -0.04em;
+  color: #FFFFFF;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 
 .lede {
@@ -193,7 +195,7 @@ a {
   max-width: 60ch;
   font-size: 1.1rem;
   line-height: 1.8;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .posterActions {
@@ -226,8 +228,9 @@ a {
 }
 
 .secondaryAction {
-  border: 1px solid rgba(177, 205, 255, 0.26);
-  background: rgba(5, 11, 24, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
 }
 
 .primaryAction:hover,
@@ -270,7 +273,7 @@ a {
 .posterNote {
   margin: 0;
   max-width: 54ch;
-  color: rgba(219, 228, 255, 0.84);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .cadetLanding {
