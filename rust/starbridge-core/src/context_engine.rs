@@ -624,6 +624,76 @@ mod tests {
         assert!(!result.contains("memory_context"));
     }
 
+    // ── build_prompt with large thread_history ──────────────────────
+
+    #[test]
+    fn build_prompt_large_thread_history_drops_sections_but_keeps_agent_and_mission() {
+        // 20 messages, each long enough to consume budget
+        let thread_history: Vec<ThreadMessage> = (0..20)
+            .map(|i| ThreadMessage {
+                sender: format!("user_{i}"),
+                text: format!(
+                    "This is a fairly verbose message number {i} that adds many tokens to the prompt context window.",
+                ),
+                timestamp_micros: 1711612800000000 + i as i64,
+            })
+            .collect();
+
+        let data = PromptData {
+            agent_id: "saturn".into(),
+            agent_name: "Saturn".into(),
+            agent_runtime: "rust-core".into(),
+            namespace: "operations".into(),
+            system_prompt: String::new(),
+            run_id: "run_tight".into(),
+            goal: "Handle tight budget".into(),
+            priority: "high".into(),
+            current_stage: "gather".into(),
+            requested_by: "scheduler".into(),
+            sender_name: None,
+            sender_channel: None,
+            sender_entity_id: None,
+            thread_history,
+            memory_chunks: vec![],
+            previous_step_output: None,
+            recent_trajectories: vec![],
+            active_routes: vec![],
+            tools: vec![],
+            loadable_prompts: vec![],
+            token_budget: 500,
+        };
+
+        let result = build_prompt(&data);
+        let tokens = estimate_tokens(&result);
+        assert!(tokens <= 500, "Prompt exceeded budget: {tokens} tokens");
+        // Agent identity and mission are always the first fragments — must survive
+        assert!(result.contains("agent:"), "agent section must survive budget trim");
+        assert!(result.contains("mission:"), "mission section must survive budget trim");
+    }
+
+    // ── encode_table with empty rows ────────────────────────────────
+
+    #[test]
+    fn encode_table_with_zero_rows_produces_correct_header() {
+        let result = encode_table("mykey", &["field1", "field2"], &[]);
+        // Expected: "mykey[0]{field1,field2}:\n"
+        assert_eq!(result, "mykey[0]{field1,field2}:\n");
+    }
+
+    // ── estimate_tokens edge cases ──────────────────────────────────
+
+    #[test]
+    fn estimate_tokens_empty_string_returns_zero() {
+        // (0 + 3) / 4 = 0 with integer division
+        assert_eq!(estimate_tokens(""), 0);
+    }
+
+    #[test]
+    fn estimate_tokens_single_char_returns_one() {
+        // (1 + 3) / 4 = 1
+        assert_eq!(estimate_tokens("a"), 1);
+    }
+
     #[test]
     fn build_prompt_respects_token_budget() {
         let big_memory = (0..50).map(|i| MemoryChunk {

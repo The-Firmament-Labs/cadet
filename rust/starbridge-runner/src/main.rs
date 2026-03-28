@@ -1024,3 +1024,582 @@ fn main() {
         process::exit(1);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use starbridge_core::{
+        AgentManifest, AgentRuntime, BrowserToolPolicy, ControlPlaneTarget, DeploymentPolicy,
+        ExecutionOwner, ExecutionTarget, LearningPolicy, MemoryPolicy, ToolPolicy, WorkflowStage,
+    };
+    use starbridge_control_client::cadet_control::{
+        BrowserTask, MessageEvent, WorkflowRun, WorkflowStep,
+    };
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    fn make_manifest(execution: ExecutionTarget) -> AgentManifest {
+        AgentManifest {
+            id: "test-agent".to_string(),
+            name: "Test Agent".to_string(),
+            description: "".to_string(),
+            system: "".to_string(),
+            model: "claude-3-5-sonnet".to_string(),
+            runtime: AgentRuntime::RustCore,
+            deployment: DeploymentPolicy {
+                control_plane: ControlPlaneTarget::Local,
+                execution,
+                workflow: "default".to_string(),
+            },
+            tags: vec![],
+            tools: ToolPolicy {
+                allow_exec: false,
+                allow_browser: false,
+                allow_network: false,
+                allow_mcp: false,
+                browser: BrowserToolPolicy::default(),
+            },
+            memory: MemoryPolicy {
+                namespace: "test".to_string(),
+                max_notes: 10,
+                summarize_after: 5,
+            },
+            schedules: vec![],
+            workflow_templates: vec![],
+            tool_profiles: vec![],
+            handoff_rules: vec![],
+            learning_policy: LearningPolicy::default(),
+        }
+    }
+
+    fn make_workflow_run() -> WorkflowRun {
+        WorkflowRun {
+            run_id: "run_001".to_string(),
+            thread_id: "thread_001".to_string(),
+            agent_id: "agent_001".to_string(),
+            goal: "Do the thing".to_string(),
+            priority: "normal".to_string(),
+            trigger_source: "operator".to_string(),
+            requested_by: "user".to_string(),
+            current_stage: "route".to_string(),
+            status: "running".to_string(),
+            summary: Some("All good".to_string()),
+            context_json: r#"{"key":"value"}"#.to_string(),
+            created_at_micros: 1_000_000,
+            updated_at_micros: 2_000_000,
+            completed_at_micros: Some(3_000_000),
+        }
+    }
+
+    fn make_workflow_step() -> WorkflowStep {
+        WorkflowStep {
+            step_id: "step_001".to_string(),
+            run_id: "run_001".to_string(),
+            agent_id: "agent_001".to_string(),
+            stage: "route".to_string(),
+            owner_execution: "local-runner".to_string(),
+            status: "running".to_string(),
+            input_json: r#"{"goal":"Do it"}"#.to_string(),
+            output_json: Some(r#"{"summary":"done"}"#.to_string()),
+            retry_count: 0,
+            depends_on_step_id: None,
+            approval_request_id: None,
+            runner_id: Some("runner-42".to_string()),
+            created_at_micros: 100,
+            updated_at_micros: 200,
+            claimed_at_micros: Some(150),
+            completed_at_micros: Some(250),
+        }
+    }
+
+    fn make_browser_task() -> BrowserTask {
+        BrowserTask {
+            task_id: "task_001".to_string(),
+            run_id: "run_001".to_string(),
+            step_id: "step_001".to_string(),
+            agent_id: "agent_001".to_string(),
+            mode: "read".to_string(),
+            risk: "medium".to_string(),
+            status: "queued".to_string(),
+            owner_execution: "browser-worker".to_string(),
+            url: "https://example.com".to_string(),
+            request_json: r#"{"instructions":"browse"}"#.to_string(),
+            result_json: Some(r#"{"content":"page text"}"#.to_string()),
+            runner_id: None,
+            created_at_micros: 100,
+            updated_at_micros: 200,
+        }
+    }
+
+    fn make_message_event() -> MessageEvent {
+        MessageEvent {
+            event_id: "evt_001".to_string(),
+            thread_id: "thread_001".to_string(),
+            run_id: Some("run_001".to_string()),
+            channel: "web".to_string(),
+            direction: "outbound".to_string(),
+            actor: "agent_001".to_string(),
+            content: "Hello world".to_string(),
+            metadata_json: r#"{"key":"meta"}"#.to_string(),
+            created_at_micros: 999,
+        }
+    }
+
+    // ── read_flag ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn read_flag_present_with_value() {
+        let args = vec![
+            "--foo".to_string(),
+            "bar".to_string(),
+            "--baz".to_string(),
+            "qux".to_string(),
+        ];
+        assert_eq!(read_flag(&args, "--foo"), Some("bar".to_string()));
+    }
+
+    #[test]
+    fn read_flag_second_flag_present() {
+        let args = vec![
+            "--foo".to_string(),
+            "bar".to_string(),
+            "--baz".to_string(),
+            "qux".to_string(),
+        ];
+        assert_eq!(read_flag(&args, "--baz"), Some("qux".to_string()));
+    }
+
+    #[test]
+    fn read_flag_absent_returns_none() {
+        let args = vec!["--foo".to_string(), "bar".to_string()];
+        assert_eq!(read_flag(&args, "--missing"), None);
+    }
+
+    #[test]
+    fn read_flag_at_end_no_value_returns_none() {
+        let args = vec!["--foo".to_string(), "bar".to_string(), "--last".to_string()];
+        // "--last" is the final element; index+1 is out-of-bounds
+        assert_eq!(read_flag(&args, "--last"), None);
+    }
+
+    #[test]
+    fn read_flag_empty_args() {
+        let args: Vec<String> = vec![];
+        assert_eq!(read_flag(&args, "--foo"), None);
+    }
+
+    // ── websocket_url ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn websocket_url_http_becomes_ws() {
+        assert_eq!(websocket_url("http://localhost:3000"), "ws://localhost:3000");
+    }
+
+    #[test]
+    fn websocket_url_https_becomes_wss() {
+        assert_eq!(
+            websocket_url("https://myhost.example.com"),
+            "wss://myhost.example.com"
+        );
+    }
+
+    #[test]
+    fn websocket_url_already_ws_unchanged() {
+        assert_eq!(websocket_url("ws://already"), "ws://already");
+    }
+
+    #[test]
+    fn websocket_url_already_wss_unchanged() {
+        assert_eq!(websocket_url("wss://already"), "wss://already");
+    }
+
+    #[test]
+    fn websocket_url_arbitrary_scheme_unchanged() {
+        assert_eq!(websocket_url("tcp://something"), "tcp://something");
+    }
+
+    // ── shell_escape ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn shell_escape_plain_string() {
+        assert_eq!(shell_escape("hello world"), "'hello world'");
+    }
+
+    #[test]
+    fn shell_escape_empty_string() {
+        assert_eq!(shell_escape(""), "''");
+    }
+
+    #[test]
+    fn shell_escape_contains_single_quote() {
+        // The pattern replaces ' with '\'' so "it's" → 'it'\''s'
+        assert_eq!(shell_escape("it's"), "'it'\\''s'");
+    }
+
+    #[test]
+    fn shell_escape_multiple_single_quotes() {
+        // "a'b'c" → 'a'\''b'\''c'
+        assert_eq!(shell_escape("a'b'c"), "'a'\\''b'\\''c'");
+    }
+
+    #[test]
+    fn shell_escape_no_special_chars() {
+        assert_eq!(shell_escape("no-specials"), "'no-specials'");
+    }
+
+    // ── parse_json ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_json_valid_object() {
+        let result = parse_json(r#"{"key":"value","num":42}"#);
+        assert_eq!(result["key"], json!("value"));
+        assert_eq!(result["num"], json!(42));
+    }
+
+    #[test]
+    fn parse_json_valid_array() {
+        let result = parse_json(r#"[1,2,3]"#);
+        assert_eq!(result, json!([1, 2, 3]));
+    }
+
+    #[test]
+    fn parse_json_invalid_returns_empty_object() {
+        let result = parse_json("not json at all");
+        assert_eq!(result, json!({}));
+    }
+
+    #[test]
+    fn parse_json_empty_string_returns_empty_object() {
+        let result = parse_json("");
+        assert_eq!(result, json!({}));
+    }
+
+    #[test]
+    fn parse_json_empty_object_literal() {
+        let result = parse_json("{}");
+        assert_eq!(result, json!({}));
+    }
+
+    // ── workflow_run_value ────────────────────────────────────────────────────
+
+    #[test]
+    fn workflow_run_value_fields_present() {
+        let run = make_workflow_run();
+        let v = workflow_run_value(&run);
+        assert_eq!(v["runId"], json!("run_001"));
+        assert_eq!(v["threadId"], json!("thread_001"));
+        assert_eq!(v["agentId"], json!("agent_001"));
+        assert_eq!(v["goal"], json!("Do the thing"));
+        assert_eq!(v["priority"], json!("normal"));
+        assert_eq!(v["triggerSource"], json!("operator"));
+        assert_eq!(v["requestedBy"], json!("user"));
+        assert_eq!(v["currentStage"], json!("route"));
+        assert_eq!(v["status"], json!("running"));
+        assert_eq!(v["summary"], json!("All good"));
+        assert_eq!(v["createdAtMicros"], json!(1_000_000_i64));
+        assert_eq!(v["updatedAtMicros"], json!(2_000_000_i64));
+        assert_eq!(v["completedAtMicros"], json!(3_000_000_i64));
+    }
+
+    #[test]
+    fn workflow_run_value_context_parsed() {
+        let run = make_workflow_run();
+        let v = workflow_run_value(&run);
+        // context_json is parsed into an object, not left as a string
+        assert_eq!(v["context"]["key"], json!("value"));
+    }
+
+    #[test]
+    fn workflow_run_value_null_summary() {
+        let mut run = make_workflow_run();
+        run.summary = None;
+        let v = workflow_run_value(&run);
+        assert_eq!(v["summary"], json!(null));
+    }
+
+    // ── workflow_step_value ───────────────────────────────────────────────────
+
+    #[test]
+    fn workflow_step_value_fields_present() {
+        let step = make_workflow_step();
+        let v = workflow_step_value(&step);
+        assert_eq!(v["stepId"], json!("step_001"));
+        assert_eq!(v["runId"], json!("run_001"));
+        assert_eq!(v["agentId"], json!("agent_001"));
+        assert_eq!(v["stage"], json!("route"));
+        assert_eq!(v["ownerExecution"], json!("local-runner"));
+        assert_eq!(v["status"], json!("running"));
+        assert_eq!(v["retryCount"], json!(0_u32));
+        assert_eq!(v["runnerId"], json!("runner-42"));
+        assert_eq!(v["createdAtMicros"], json!(100_i64));
+        assert_eq!(v["updatedAtMicros"], json!(200_i64));
+        assert_eq!(v["claimedAtMicros"], json!(150_i64));
+        assert_eq!(v["completedAtMicros"], json!(250_i64));
+    }
+
+    #[test]
+    fn workflow_step_value_output_parsed() {
+        let step = make_workflow_step();
+        let v = workflow_step_value(&step);
+        // output_json is Some → parsed
+        assert_eq!(v["output"]["summary"], json!("done"));
+    }
+
+    #[test]
+    fn workflow_step_value_null_output_when_none() {
+        let mut step = make_workflow_step();
+        step.output_json = None;
+        let v = workflow_step_value(&step);
+        assert_eq!(v["output"], json!(null));
+    }
+
+    // ── browser_task_value ────────────────────────────────────────────────────
+
+    #[test]
+    fn browser_task_value_fields_present() {
+        let task = make_browser_task();
+        let v = browser_task_value(&task);
+        assert_eq!(v["taskId"], json!("task_001"));
+        assert_eq!(v["runId"], json!("run_001"));
+        assert_eq!(v["stepId"], json!("step_001"));
+        assert_eq!(v["agentId"], json!("agent_001"));
+        assert_eq!(v["mode"], json!("read"));
+        assert_eq!(v["risk"], json!("medium"));
+        assert_eq!(v["status"], json!("queued"));
+        assert_eq!(v["ownerExecution"], json!("browser-worker"));
+        assert_eq!(v["url"], json!("https://example.com"));
+        assert_eq!(v["createdAtMicros"], json!(100_i64));
+        assert_eq!(v["updatedAtMicros"], json!(200_i64));
+    }
+
+    #[test]
+    fn browser_task_value_request_parsed() {
+        let task = make_browser_task();
+        let v = browser_task_value(&task);
+        assert_eq!(v["request"]["instructions"], json!("browse"));
+    }
+
+    #[test]
+    fn browser_task_value_result_parsed() {
+        let task = make_browser_task();
+        let v = browser_task_value(&task);
+        assert_eq!(v["result"]["content"], json!("page text"));
+    }
+
+    #[test]
+    fn browser_task_value_null_result_when_none() {
+        let mut task = make_browser_task();
+        task.result_json = None;
+        let v = browser_task_value(&task);
+        assert_eq!(v["result"], json!(null));
+    }
+
+    // ── message_event_value ───────────────────────────────────────────────────
+
+    #[test]
+    fn message_event_value_fields_present() {
+        let msg = make_message_event();
+        let v = message_event_value(&msg);
+        assert_eq!(v["eventId"], json!("evt_001"));
+        assert_eq!(v["threadId"], json!("thread_001"));
+        assert_eq!(v["runId"], json!("run_001"));
+        assert_eq!(v["channel"], json!("web"));
+        assert_eq!(v["direction"], json!("outbound"));
+        assert_eq!(v["actor"], json!("agent_001"));
+        assert_eq!(v["content"], json!("Hello world"));
+        assert_eq!(v["createdAtMicros"], json!(999_i64));
+    }
+
+    #[test]
+    fn message_event_value_metadata_parsed() {
+        let msg = make_message_event();
+        let v = message_event_value(&msg);
+        assert_eq!(v["metadata"]["key"], json!("meta"));
+    }
+
+    #[test]
+    fn message_event_value_null_run_id() {
+        let mut msg = make_message_event();
+        msg.run_id = None;
+        let v = message_event_value(&msg);
+        assert_eq!(v["runId"], json!(null));
+    }
+
+    // ── next_stage ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn next_stage_route_to_plan() {
+        assert_eq!(next_stage(WorkflowStage::Route), Some(WorkflowStage::Plan));
+    }
+
+    #[test]
+    fn next_stage_plan_to_gather() {
+        assert_eq!(next_stage(WorkflowStage::Plan), Some(WorkflowStage::Gather));
+    }
+
+    #[test]
+    fn next_stage_gather_to_act() {
+        assert_eq!(next_stage(WorkflowStage::Gather), Some(WorkflowStage::Act));
+    }
+
+    #[test]
+    fn next_stage_act_to_verify() {
+        assert_eq!(next_stage(WorkflowStage::Act), Some(WorkflowStage::Verify));
+    }
+
+    #[test]
+    fn next_stage_verify_to_summarize() {
+        assert_eq!(
+            next_stage(WorkflowStage::Verify),
+            Some(WorkflowStage::Summarize)
+        );
+    }
+
+    #[test]
+    fn next_stage_summarize_to_learn() {
+        assert_eq!(
+            next_stage(WorkflowStage::Summarize),
+            Some(WorkflowStage::Learn)
+        );
+    }
+
+    #[test]
+    fn next_stage_learn_is_none() {
+        assert_eq!(next_stage(WorkflowStage::Learn), None);
+    }
+
+    // ── browser_required ─────────────────────────────────────────────────────
+
+    #[test]
+    fn browser_required_true_when_flag_is_true() {
+        let context = json!({ "browserRequired": true });
+        assert!(browser_required(&context));
+    }
+
+    #[test]
+    fn browser_required_false_when_flag_is_false() {
+        let context = json!({ "browserRequired": false });
+        assert!(!browser_required(&context));
+    }
+
+    #[test]
+    fn browser_required_false_when_key_missing() {
+        let context = json!({ "goal": "do something" });
+        assert!(!browser_required(&context));
+    }
+
+    #[test]
+    fn browser_required_false_for_non_bool_value() {
+        let context = json!({ "browserRequired": "yes" });
+        assert!(!browser_required(&context));
+    }
+
+    #[test]
+    fn browser_required_false_for_empty_object() {
+        let context = json!({});
+        assert!(!browser_required(&context));
+    }
+
+    // ── owner_for_stage ───────────────────────────────────────────────────────
+
+    #[test]
+    fn owner_for_stage_learn_always_learning_worker() {
+        let manifest = make_manifest(ExecutionTarget::LocalRunner);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Learn, false),
+            ExecutionOwner::LearningWorker
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_learn_ignores_browser_required() {
+        let manifest = make_manifest(ExecutionTarget::LocalRunner);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Learn, true),
+            ExecutionOwner::LearningWorker
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_gather_with_browser_required() {
+        let manifest = make_manifest(ExecutionTarget::LocalRunner);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Gather, true),
+            ExecutionOwner::BrowserWorker
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_verify_with_browser_required() {
+        let manifest = make_manifest(ExecutionTarget::LocalRunner);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Verify, true),
+            ExecutionOwner::BrowserWorker
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_gather_without_browser_uses_manifest() {
+        let manifest = make_manifest(ExecutionTarget::LocalRunner);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Gather, false),
+            ExecutionOwner::LocalRunner
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_verify_without_browser_uses_manifest() {
+        let manifest = make_manifest(ExecutionTarget::LocalRunner);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Verify, false),
+            ExecutionOwner::LocalRunner
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_route_uses_manifest_execution() {
+        let manifest = make_manifest(ExecutionTarget::ContainerRunner);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Route, false),
+            ExecutionOwner::ContainerRunner
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_act_vercel_edge_becomes_container_runner() {
+        // vercel-edge cannot run heavy stages; the wildcard arm redirects to ContainerRunner
+        let manifest = make_manifest(ExecutionTarget::VercelEdge);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Act, false),
+            ExecutionOwner::ContainerRunner
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_plan_vercel_edge_becomes_container_runner() {
+        let manifest = make_manifest(ExecutionTarget::VercelEdge);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Plan, false),
+            ExecutionOwner::ContainerRunner
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_act_local_runner_stays_local() {
+        let manifest = make_manifest(ExecutionTarget::LocalRunner);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Act, false),
+            ExecutionOwner::LocalRunner
+        );
+    }
+
+    #[test]
+    fn owner_for_stage_summarize_container_runner() {
+        let manifest = make_manifest(ExecutionTarget::ContainerRunner);
+        assert_eq!(
+            owner_for_stage(&manifest, WorkflowStage::Summarize, false),
+            ExecutionOwner::ContainerRunner
+        );
+    }
+}

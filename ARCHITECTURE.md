@@ -1,4 +1,4 @@
-# Starbridge Architecture
+# Cadet Architecture
 
 Starbridge takes the strongest reusable patterns from ElizaOS, Hermes, and OpenClaw, then re-centers them around a SpacetimeDB v2 control plane with two operator surfaces:
 

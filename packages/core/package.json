@@ -40,6 +40,6 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run src/__tests__/core.test.ts"
+    "test": "vitest run src/__tests__/core.test.ts src/__tests__/tools.test.ts src/__tests__/prompt.test.ts src/__tests__/orchestration.test.ts src/__tests__/edge-agent.test.ts src/__tests__/catalog.test.ts src/__tests__/fs.test.ts"
   }
 }

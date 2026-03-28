@@ -1348,4 +1348,125 @@ mod tests {
             ToolRisk::Medium
         );
     }
+
+    // ── deterministic_embedding edge cases ──────────────────────────
+
+    #[test]
+    fn deterministic_embedding_empty_string_returns_zeros() {
+        let result = deterministic_embedding("", 8);
+        assert_eq!(result.len(), 8);
+        assert!(result.iter().all(|&v| v == 0.0), "empty string should yield all-zero vector");
+    }
+
+    #[test]
+    fn deterministic_embedding_single_char_is_unit_vector() {
+        let result = deterministic_embedding("x", 8);
+        assert_eq!(result.len(), 8);
+        // After normalization every component must be in [-1, 1]
+        assert!(result.iter().all(|&v| (-1.0..=1.0).contains(&v)));
+        // Norm should be ~1.0 (single non-zero slot normalised to 1)
+        let norm: f64 = result.iter().map(|v| v * v).sum::<f64>().sqrt();
+        assert!((norm - 1.0).abs() < 1e-10, "norm should be ~1.0, got {norm}");
+    }
+
+    #[test]
+    fn deterministic_embedding_zero_dimensions_coerced_to_4() {
+        let result = deterministic_embedding("hello", 0);
+        assert_eq!(result.len(), 4, "dimensions=0 should be coerced to 4");
+    }
+
+    #[test]
+    fn deterministic_embedding_distinct_inputs_produce_distinct_vectors() {
+        let a = deterministic_embedding("alpha", 8);
+        let b = deterministic_embedding("beta", 8);
+        assert_ne!(a, b, "distinct inputs should yield distinct vectors");
+    }
+
+    // ── EventBus error path ─────────────────────────────────────────
+
+    #[test]
+    fn event_bus_emit_without_subscriber_returns_err() {
+        let bus = EventBus::new(16);
+        // No subscriber created — emit must return Err
+        let result = bus.emit(RuntimeEvent::JobQueued {
+            job_id: "job_x".to_string(),
+            agent_id: "researcher".to_string(),
+        });
+        assert!(
+            result.is_err(),
+            "emit with no subscribers should return Err(NoSubscribers)"
+        );
+        assert!(result.unwrap_err().to_string().contains("no event listeners"));
+    }
+
+    // ── compose_prompt ordering and capabilities ────────────────────
+
+    #[test]
+    fn compose_prompt_saturn_section_before_mission() {
+        let prompt = compose_prompt(&sample_manifest(), &sample_job());
+        let agent_pos = prompt.find("# Agent").expect("# Agent section must exist");
+        let mission_pos = prompt.find("# Mission").expect("# Mission section must exist");
+        assert!(
+            agent_pos < mission_pos,
+            "# Agent section should appear before # Mission"
+        );
+    }
+
+    #[test]
+    fn compose_prompt_all_true_flags_contains_capability_keywords() {
+        // sample_manifest has allow_exec, allow_browser, allow_network, allow_mcp all true
+        let prompt = compose_prompt(&sample_manifest(), &sample_job());
+        assert!(prompt.contains("exec=true"), "should mention exec capability");
+        assert!(prompt.contains("browser=true"), "should mention browser capability");
+        assert!(prompt.contains("network=true"), "should mention network capability");
+        assert!(prompt.contains("mcp=true"), "should mention mcp capability");
+    }
+
+    // ── execute_workflow_stage browser fork ────────────────────────
+
+    #[test]
+    fn execute_workflow_stage_gather_without_browser_uses_local_actions() {
+        let manifest = sample_manifest();
+        let input = serde_json::json!({ "goal": "test goal", "browserRequired": false });
+        let outcome = execute_workflow_stage(&manifest, WorkflowStage::Gather, &input);
+        assert_eq!(outcome.stage, WorkflowStage::Gather);
+        let actions_text = outcome.actions.join(" ");
+        assert!(
+            actions_text.contains("local context"),
+            "browserRequired=false should use local context actions, got: {actions_text}"
+        );
+    }
+
+    #[test]
+    fn execute_workflow_stage_gather_with_browser_uses_browser_actions() {
+        let manifest = sample_manifest();
+        let input = serde_json::json!({ "goal": "test goal", "browserRequired": true });
+        let outcome = execute_workflow_stage(&manifest, WorkflowStage::Gather, &input);
+        assert_eq!(outcome.stage, WorkflowStage::Gather);
+        let actions_text = outcome.actions.join(" ");
+        assert!(
+            actions_text.contains("browser"),
+            "browserRequired=true should use browser evidence actions, got: {actions_text}"
+        );
+    }
+
+    // ── WorkflowStage::ALL completeness ────────────────────────────
+
+    #[test]
+    fn workflow_stage_all_has_7_members() {
+        assert_eq!(WorkflowStage::ALL.len(), 7, "WorkflowStage::ALL should contain exactly 7 stages");
+    }
+
+    #[test]
+    fn workflow_stage_all_members_roundtrip_from_str_to_string() {
+        for stage in WorkflowStage::ALL {
+            let s = stage.to_string();
+            let parsed = WorkflowStage::from_str(&s)
+                .unwrap_or_else(|e| panic!("stage '{s}' failed from_str: {e}"));
+            assert_eq!(
+                parsed, stage,
+                "stage '{s}' should roundtrip through from_str/to_string"
+            );
+        }
+    }
 }

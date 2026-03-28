@@ -1198,12 +1198,9 @@ pub fn complete_workflow_step(
         ..step
     });
 
-    let status = if stage == WORKFLOW_STAGE_LEARN {
-        WORKFLOW_RUN_STATUS_COMPLETED.to_string()
-    } else {
-        WORKFLOW_RUN_STATUS_RUNNING.to_string()
-    };
-    let completed_at_micros = if stage == WORKFLOW_STAGE_LEARN {
+    let (status_str, is_final) = run_status_after_step_completion(&stage);
+    let status = status_str.to_string();
+    let completed_at_micros = if is_final.is_some() {
         Some(now)
     } else {
         None
@@ -1340,11 +1337,7 @@ pub fn resolve_approval(
         return Err("workflow step not found".to_string());
     };
 
-    let step_status = if status == "approved" {
-        WORKFLOW_STEP_STATUS_READY.to_string()
-    } else {
-        WORKFLOW_STEP_STATUS_FAILED.to_string()
-    };
+    let step_status = step_status_for_approval(&status).to_string();
 
     ctx.db.workflow_step().step_id().update(WorkflowStep {
         status: step_status.clone(),
@@ -1352,11 +1345,7 @@ pub fn resolve_approval(
         ..step
     });
 
-    let run_status = if step_status == WORKFLOW_STEP_STATUS_READY {
-        WORKFLOW_RUN_STATUS_RUNNING.to_string()
-    } else {
-        WORKFLOW_RUN_STATUS_FAILED.to_string()
-    };
+    let run_status = run_status_for_step_status(&step_status).to_string();
 
     update_workflow_run_status(
         ctx,
@@ -2267,4 +2256,781 @@ pub fn log_trajectory(
         created_at_micros: now,
     });
     Ok(())
+}
+
+// ── Extracted Pure Business Logic ──────────────────────────────────
+// These functions contain critical status-transition rules extracted
+// from reducers for testability. Reducers call these directly.
+
+/// Determine run status after a workflow step completes.
+/// Learn stage → run completed. Any other stage → run still running.
+fn run_status_after_step_completion(stage: &str) -> (&'static str, Option<()>) {
+    if stage == WORKFLOW_STAGE_LEARN {
+        (WORKFLOW_RUN_STATUS_COMPLETED, Some(()))
+    } else {
+        (WORKFLOW_RUN_STATUS_RUNNING, None)
+    }
+}
+
+/// Determine step status after an approval is resolved.
+/// Approved → step ready to resume. Rejected → step failed.
+fn step_status_for_approval(approval_status: &str) -> &'static str {
+    if approval_status == "approved" {
+        WORKFLOW_STEP_STATUS_READY
+    } else {
+        WORKFLOW_STEP_STATUS_FAILED
+    }
+}
+
+/// Determine run status after a step status change from approval resolution.
+/// Ready step → run running. Failed step → run failed.
+fn run_status_for_step_status(step_status: &str) -> &'static str {
+    if step_status == WORKFLOW_STEP_STATUS_READY {
+        WORKFLOW_RUN_STATUS_RUNNING
+    } else {
+        WORKFLOW_RUN_STATUS_FAILED
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -------------------------------------------------------------------------
+    // validate_identifier
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn identifier_empty_string_is_err() {
+        let result = validate_identifier("".to_string(), "agent_id");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("agent_id"));
+    }
+
+    #[test]
+    fn identifier_whitespace_only_is_err() {
+        let result = validate_identifier("   ".to_string(), "agent_id");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn identifier_valid_alphanumeric_dash_underscore() {
+        let result = validate_identifier("run-01_test".to_string(), "run_id");
+        assert_eq!(result.unwrap(), "run-01_test");
+    }
+
+    #[test]
+    fn identifier_trims_leading_trailing_whitespace() {
+        let result = validate_identifier("  run-01  ".to_string(), "run_id");
+        assert_eq!(result.unwrap(), "run-01");
+    }
+
+    #[test]
+    fn identifier_dot_is_err() {
+        let result = validate_identifier("run.01".to_string(), "run_id");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("run_id"));
+    }
+
+    #[test]
+    fn identifier_space_in_value_is_err() {
+        let result = validate_identifier("run 01".to_string(), "run_id");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn identifier_unicode_char_is_err() {
+        let result = validate_identifier("rün-01".to_string(), "run_id");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn identifier_error_message_contains_field_name() {
+        let field = "my_special_field";
+        let err = validate_identifier("bad.value".to_string(), field).unwrap_err();
+        assert!(err.contains(field));
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_text
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn text_empty_is_err() {
+        let result = validate_text("".to_string(), "description");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("description"));
+    }
+
+    #[test]
+    fn text_whitespace_only_is_err() {
+        let result = validate_text("   \t\n  ".to_string(), "description");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn text_non_empty_returns_trimmed_ok() {
+        let result = validate_text("  hello world  ".to_string(), "description");
+        assert_eq!(result.unwrap(), "hello world");
+    }
+
+    #[test]
+    fn text_any_non_empty_is_ok() {
+        assert!(validate_text("x".to_string(), "f").is_ok());
+        assert!(validate_text("some text with spaces".to_string(), "f").is_ok());
+        assert!(validate_text("123".to_string(), "f").is_ok());
+    }
+
+    // -------------------------------------------------------------------------
+    // normalize_json_blob
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn json_blob_empty_is_err() {
+        let result = normalize_json_blob("".to_string(), "payload");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("payload"));
+    }
+
+    #[test]
+    fn json_blob_whitespace_only_is_err() {
+        let result = normalize_json_blob("   ".to_string(), "payload");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn json_blob_valid_json_object_is_ok() {
+        let result = normalize_json_blob(r#"{"key":"value"}"#.to_string(), "payload");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn json_blob_non_json_non_empty_is_ok() {
+        // normalize_json_blob only checks non-empty; it does not parse
+        let result = normalize_json_blob("not-json-at-all".to_string(), "payload");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn json_blob_trims_whitespace() {
+        let result = normalize_json_blob("  {}  ".to_string(), "payload");
+        assert_eq!(result.unwrap(), "{}");
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_control_plane
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn control_plane_local_is_ok() {
+        assert_eq!(
+            validate_control_plane("local".to_string()).unwrap(),
+            "local"
+        );
+    }
+
+    #[test]
+    fn control_plane_cloud_is_ok() {
+        assert_eq!(
+            validate_control_plane("cloud".to_string()).unwrap(),
+            "cloud"
+        );
+    }
+
+    #[test]
+    fn control_plane_invalid_is_err() {
+        assert!(validate_control_plane("mars".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_priority
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn priority_normal_is_ok() {
+        assert_eq!(validate_priority("normal".to_string()).unwrap(), "normal");
+    }
+
+    #[test]
+    fn priority_invalid_is_err() {
+        assert!(validate_priority("urgent".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_channel
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn channel_slack_is_ok() {
+        assert_eq!(validate_channel("slack".to_string()).unwrap(), "slack");
+    }
+
+    #[test]
+    fn channel_invalid_is_err() {
+        assert!(validate_channel("discord".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_direction
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn direction_inbound_is_ok() {
+        assert_eq!(
+            validate_direction("inbound".to_string()).unwrap(),
+            "inbound"
+        );
+    }
+
+    #[test]
+    fn direction_invalid_is_err() {
+        assert!(validate_direction("sideways".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_stage
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn stage_route_is_ok() {
+        assert_eq!(validate_stage("route".to_string()).unwrap(), "route");
+    }
+
+    #[test]
+    fn stage_act_is_ok() {
+        assert_eq!(validate_stage("act".to_string()).unwrap(), "act");
+    }
+
+    #[test]
+    fn stage_invalid_is_err() {
+        assert!(validate_stage("deploy".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_workflow_run_status
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn workflow_run_status_queued_is_ok() {
+        assert_eq!(
+            validate_workflow_run_status("queued".to_string()).unwrap(),
+            "queued"
+        );
+    }
+
+    #[test]
+    fn workflow_run_status_awaiting_approval_is_ok() {
+        assert_eq!(
+            validate_workflow_run_status("awaiting-approval".to_string()).unwrap(),
+            "awaiting-approval"
+        );
+    }
+
+    #[test]
+    fn workflow_run_status_invalid_is_err() {
+        assert!(validate_workflow_run_status("pending".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_step_status
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn step_status_ready_is_ok() {
+        assert_eq!(
+            validate_step_status("ready".to_string()).unwrap(),
+            "ready"
+        );
+    }
+
+    #[test]
+    fn step_status_invalid_is_err() {
+        assert!(validate_step_status("scheduled".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_browser_mode
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn browser_mode_navigate_is_ok() {
+        assert_eq!(
+            validate_browser_mode("navigate".to_string()).unwrap(),
+            "navigate"
+        );
+    }
+
+    #[test]
+    fn browser_mode_invalid_is_err() {
+        assert!(validate_browser_mode("click".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_browser_risk
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn browser_risk_low_is_ok() {
+        assert_eq!(validate_browser_risk("low".to_string()).unwrap(), "low");
+    }
+
+    #[test]
+    fn browser_risk_invalid_is_err() {
+        assert!(validate_browser_risk("none".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_approval_status
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn approval_status_approved_is_ok() {
+        assert_eq!(
+            validate_approval_status("approved".to_string()).unwrap(),
+            "approved"
+        );
+    }
+
+    #[test]
+    fn approval_status_invalid_is_err() {
+        assert!(validate_approval_status("granted".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_delivery_status
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn delivery_status_sent_is_ok() {
+        assert_eq!(
+            validate_delivery_status("sent".to_string()).unwrap(),
+            "sent"
+        );
+    }
+
+    #[test]
+    fn delivery_status_invalid_is_err() {
+        assert!(validate_delivery_status("delivered".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_execution_target
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn execution_target_local_runner_is_ok() {
+        assert_eq!(
+            validate_execution_target("local-runner".to_string()).unwrap(),
+            "local-runner"
+        );
+    }
+
+    #[test]
+    fn execution_target_invalid_is_err() {
+        assert!(validate_execution_target("cloud-runner".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_execution_owner
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn execution_owner_browser_worker_is_ok() {
+        assert_eq!(
+            validate_execution_owner("browser-worker".to_string()).unwrap(),
+            "browser-worker"
+        );
+    }
+
+    #[test]
+    fn execution_owner_invalid_is_err() {
+        assert!(validate_execution_owner("unknown-worker".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_runtime
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn runtime_rust_core_is_ok() {
+        assert_eq!(
+            validate_runtime("rust-core".to_string()).unwrap(),
+            "rust-core"
+        );
+    }
+
+    #[test]
+    fn runtime_invalid_is_err() {
+        assert!(validate_runtime("python".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_browser_task_status
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn browser_task_status_queued_is_ok() {
+        assert_eq!(
+            validate_browser_task_status("queued".to_string()).unwrap(),
+            "queued"
+        );
+    }
+
+    #[test]
+    fn browser_task_status_invalid_is_err() {
+        assert!(validate_browser_task_status("waiting".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_job_status
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn job_status_running_is_ok() {
+        assert_eq!(
+            validate_job_status("running".to_string()).unwrap(),
+            "running"
+        );
+    }
+
+    #[test]
+    fn job_status_invalid_is_err() {
+        assert!(validate_job_status("paused".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_schedule_status
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn schedule_status_ready_is_ok() {
+        assert_eq!(
+            validate_schedule_status("ready".to_string()).unwrap(),
+            "ready"
+        );
+    }
+
+    #[test]
+    fn schedule_status_claimed_is_ok() {
+        assert_eq!(
+            validate_schedule_status("claimed".to_string()).unwrap(),
+            "claimed"
+        );
+    }
+
+    #[test]
+    fn schedule_status_invalid_is_err() {
+        assert!(validate_schedule_status("expired".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_runner_presence_status
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn runner_presence_alive_is_ok() {
+        assert_eq!(
+            validate_runner_presence_status("alive".to_string()).unwrap(),
+            "alive"
+        );
+    }
+
+    #[test]
+    fn runner_presence_invalid_is_err() {
+        assert!(validate_runner_presence_status("offline".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_tool_call_status
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn tool_call_status_pending_is_ok() {
+        assert_eq!(
+            validate_tool_call_status("pending".to_string()).unwrap(),
+            "pending"
+        );
+    }
+
+    #[test]
+    fn tool_call_status_invalid_is_err() {
+        assert!(validate_tool_call_status("queued".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // validate_artifact_kind
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn artifact_kind_screenshot_is_ok() {
+        assert_eq!(
+            validate_artifact_kind("screenshot".to_string()).unwrap(),
+            "screenshot"
+        );
+    }
+
+    #[test]
+    fn artifact_kind_invalid_is_err() {
+        assert!(validate_artifact_kind("video".to_string()).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // interval_to_micros
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn interval_one_minute() {
+        assert_eq!(interval_to_micros(1), 60_000_000);
+    }
+
+    #[test]
+    fn interval_sixty_minutes() {
+        assert_eq!(interval_to_micros(60), 3_600_000_000);
+    }
+
+    #[test]
+    fn interval_zero_minutes() {
+        assert_eq!(interval_to_micros(0), 0);
+    }
+
+    // -------------------------------------------------------------------------
+    // Constants vs starbridge_core enum as_str() — safety net
+    // -------------------------------------------------------------------------
+
+    // WORKFLOW_STAGE_*
+    #[test]
+    fn constant_workflow_stage_route_matches_enum() {
+        assert_eq!(WORKFLOW_STAGE_ROUTE, WorkflowStage::Route.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_stage_act_matches_enum() {
+        assert_eq!(WORKFLOW_STAGE_ACT, WorkflowStage::Act.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_stage_gather_matches_enum() {
+        assert_eq!(WORKFLOW_STAGE_GATHER, WorkflowStage::Gather.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_stage_verify_matches_enum() {
+        assert_eq!(WORKFLOW_STAGE_VERIFY, WorkflowStage::Verify.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_stage_learn_matches_enum() {
+        assert_eq!(WORKFLOW_STAGE_LEARN, WorkflowStage::Learn.as_str());
+    }
+
+    // WORKFLOW_RUN_STATUS_*
+    #[test]
+    fn constant_workflow_run_status_queued_matches_enum() {
+        assert_eq!(WORKFLOW_RUN_STATUS_QUEUED, RunState::Queued.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_run_status_running_matches_enum() {
+        assert_eq!(WORKFLOW_RUN_STATUS_RUNNING, RunState::Running.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_run_status_blocked_matches_enum() {
+        assert_eq!(WORKFLOW_RUN_STATUS_BLOCKED, RunState::Blocked.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_run_status_awaiting_approval_matches_enum() {
+        assert_eq!(
+            WORKFLOW_RUN_STATUS_AWAITING_APPROVAL,
+            RunState::WaitingApproval.as_str()
+        );
+    }
+
+    #[test]
+    fn constant_workflow_run_status_completed_matches_enum() {
+        assert_eq!(
+            WORKFLOW_RUN_STATUS_COMPLETED,
+            RunState::Completed.as_str()
+        );
+    }
+
+    #[test]
+    fn constant_workflow_run_status_failed_matches_enum() {
+        assert_eq!(WORKFLOW_RUN_STATUS_FAILED, RunState::Failed.as_str());
+    }
+
+    // WORKFLOW_STEP_STATUS_*
+    #[test]
+    fn constant_workflow_step_status_ready_matches_enum() {
+        assert_eq!(WORKFLOW_STEP_STATUS_READY, StepState::Ready.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_step_status_running_matches_enum() {
+        assert_eq!(WORKFLOW_STEP_STATUS_RUNNING, StepState::Running.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_step_status_blocked_matches_enum() {
+        assert_eq!(WORKFLOW_STEP_STATUS_BLOCKED, StepState::Blocked.as_str());
+    }
+
+    #[test]
+    fn constant_workflow_step_status_awaiting_approval_matches_enum() {
+        assert_eq!(
+            WORKFLOW_STEP_STATUS_AWAITING_APPROVAL,
+            StepState::WaitingApproval.as_str()
+        );
+    }
+
+    #[test]
+    fn constant_workflow_step_status_completed_matches_enum() {
+        assert_eq!(
+            WORKFLOW_STEP_STATUS_COMPLETED,
+            StepState::Completed.as_str()
+        );
+    }
+
+    #[test]
+    fn constant_workflow_step_status_failed_matches_enum() {
+        assert_eq!(WORKFLOW_STEP_STATUS_FAILED, StepState::Failed.as_str());
+    }
+
+    // BROWSER_TASK_STATUS_*
+    #[test]
+    fn constant_browser_task_status_queued_matches_enum() {
+        assert_eq!(
+            BROWSER_TASK_STATUS_QUEUED,
+            BrowserTaskState::Queued.as_str()
+        );
+    }
+
+    #[test]
+    fn constant_browser_task_status_running_matches_enum() {
+        assert_eq!(
+            BROWSER_TASK_STATUS_RUNNING,
+            BrowserTaskState::Running.as_str()
+        );
+    }
+
+    #[test]
+    fn constant_browser_task_status_completed_matches_enum() {
+        assert_eq!(
+            BROWSER_TASK_STATUS_COMPLETED,
+            BrowserTaskState::Completed.as_str()
+        );
+    }
+
+    #[test]
+    fn constant_browser_task_status_failed_matches_enum() {
+        assert_eq!(
+            BROWSER_TASK_STATUS_FAILED,
+            BrowserTaskState::Failed.as_str()
+        );
+    }
+
+    // JOB_STATUS_*
+    #[test]
+    fn constant_job_status_queued_matches_enum() {
+        assert_eq!(JOB_STATUS_QUEUED, JobStatus::Queued.as_str());
+    }
+
+    #[test]
+    fn constant_job_status_running_matches_enum() {
+        assert_eq!(JOB_STATUS_RUNNING, JobStatus::Running.as_str());
+    }
+
+    #[test]
+    fn constant_job_status_completed_matches_enum() {
+        assert_eq!(JOB_STATUS_COMPLETED, JobStatus::Completed.as_str());
+    }
+
+    #[test]
+    fn constant_job_status_failed_matches_enum() {
+        assert_eq!(JOB_STATUS_FAILED, JobStatus::Failed.as_str());
+    }
+
+    // SCHEDULE_STATUS_*
+    #[test]
+    fn constant_schedule_status_ready_matches_enum() {
+        assert_eq!(SCHEDULE_STATUS_READY, ScheduleStatus::Ready.as_str());
+    }
+
+    #[test]
+    fn constant_schedule_status_claimed_matches_enum() {
+        assert_eq!(SCHEDULE_STATUS_CLAIMED, ScheduleStatus::Claimed.as_str());
+    }
+
+    // ── Extracted Business Logic Tests ──────────────────────────────
+
+    #[test]
+    fn run_status_learn_stage_completes_run() {
+        let (status, is_final) = run_status_after_step_completion(WORKFLOW_STAGE_LEARN);
+        assert_eq!(status, WORKFLOW_RUN_STATUS_COMPLETED);
+        assert!(is_final.is_some());
+    }
+
+    #[test]
+    fn run_status_route_stage_keeps_running() {
+        let (status, is_final) = run_status_after_step_completion(WORKFLOW_STAGE_ROUTE);
+        assert_eq!(status, WORKFLOW_RUN_STATUS_RUNNING);
+        assert!(is_final.is_none());
+    }
+
+    #[test]
+    fn run_status_act_stage_keeps_running() {
+        let (status, is_final) = run_status_after_step_completion(WORKFLOW_STAGE_ACT);
+        assert_eq!(status, WORKFLOW_RUN_STATUS_RUNNING);
+        assert!(is_final.is_none());
+    }
+
+    #[test]
+    fn run_status_gather_stage_keeps_running() {
+        let (status, is_final) = run_status_after_step_completion(WORKFLOW_STAGE_GATHER);
+        assert_eq!(status, WORKFLOW_RUN_STATUS_RUNNING);
+        assert!(is_final.is_none());
+    }
+
+    #[test]
+    fn run_status_verify_stage_keeps_running() {
+        let (status, is_final) = run_status_after_step_completion(WORKFLOW_STAGE_VERIFY);
+        assert_eq!(status, WORKFLOW_RUN_STATUS_RUNNING);
+        assert!(is_final.is_none());
+    }
+
+    #[test]
+    fn approval_approved_sets_step_ready() {
+        assert_eq!(step_status_for_approval("approved"), WORKFLOW_STEP_STATUS_READY);
+    }
+
+    #[test]
+    fn approval_rejected_sets_step_failed() {
+        assert_eq!(step_status_for_approval("rejected"), WORKFLOW_STEP_STATUS_FAILED);
+    }
+
+    #[test]
+    fn approval_expired_sets_step_failed() {
+        assert_eq!(step_status_for_approval("expired"), WORKFLOW_STEP_STATUS_FAILED);
+    }
+
+    #[test]
+    fn approval_unknown_sets_step_failed() {
+        assert_eq!(step_status_for_approval("garbage"), WORKFLOW_STEP_STATUS_FAILED);
+    }
+
+    #[test]
+    fn run_status_for_ready_step_is_running() {
+        assert_eq!(run_status_for_step_status(WORKFLOW_STEP_STATUS_READY), WORKFLOW_RUN_STATUS_RUNNING);
+    }
+
+    #[test]
+    fn run_status_for_failed_step_is_failed() {
+        assert_eq!(run_status_for_step_status(WORKFLOW_STEP_STATUS_FAILED), WORKFLOW_RUN_STATUS_FAILED);
+    }
+
+    #[test]
+    fn run_status_for_unknown_step_status_is_failed() {
+        assert_eq!(run_status_for_step_status("nonsense"), WORKFLOW_RUN_STATUS_FAILED);
+    }
 }

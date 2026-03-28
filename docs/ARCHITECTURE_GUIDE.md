@@ -215,6 +215,18 @@ SpacetimeDB is the canonical model for:
 - `retrieval_trace`
 - `runner_presence`
 - `schedule_record`
+- `job_record` — queued and running job requests
+- `memory_note` — simple key/value notes (legacy; prefer `memory_document` for RAG)
+- `raw_message` — Layer 0: raw inbound payloads exactly as received
+- `message_extraction` — Layer 1: structured entities, intents, sentiment extracted from messages
+- `message_entity` — Layer 2: cross-channel entity identity graph
+- `message_embedding` — Layer 3: vector representations for semantic message search
+- `conversation_link` — cross-channel conversation mapping
+- `message_route` — routing rules mapping channel patterns to target agents
+- `trajectory_log` — TOON-encoded training data for SFT/RL self-improvement
+- `operator_account` — registered human operators (WebAuthn passkeys)
+- `webauthn_credential` — WebAuthn passkey credentials for operators
+- `auth_challenge` — ephemeral WebAuthn challenges (auto-expired)
 
 ### What these tables mean
 
@@ -401,27 +413,37 @@ Do not:
 
 Already implemented:
 
-- durable workflow schema
-- Rust subscription-driven workers
-- browser task model
-- semantic memory tables and retrieval trace storage
-- web inbox and run detail pages
-- Vercel-ready control plane
+- durable workflow schema (7 stages, full lifecycle)
+- Rust subscription-driven workers (starbridge-runner)
+- browser task model (enqueue/claim/complete/fail + artifacts)
+- semantic memory tables and retrieval trace storage (document/chunk/embedding/trace)
+- web inbox and run detail pages (Next.js 16 dashboard)
+- Vercel-ready control plane (cloud + local dual-plane)
+- 3-layer message bus: raw ingest, extraction, entity identity graph
+- WebAuthn passkey authentication (operator accounts)
+- TOON prompt builder (~40% fewer tokens, priority-ordered, budget-fitted)
+- Multi-agent subscription system (shared inbox + per-agent SQL filters)
+- Chat SDK integration (Slack, Discord, Telegram, GitHub adapters)
+- 30 agent tools across 7 categories (direct API, no MCP)
+- Trajectory logging for SFT/RL training data
 
 Planned next:
 
 - Cloudflare Worker ingress parity
-- stronger Chat SDK channel adapters
 - dynamic agent UI from manifest-backed catalogs
 - crate-based specialized agents
 
 ## 14. Related docs
 
 - [Docs index](README.md)
+- [Prompt system](PROMPT_SYSTEM.md) — TOON encoding, token budgets, TS bridge
+- [Subscription system](SUBSCRIPTION_SYSTEM.md) — SpacetimeDB multi-agent subscriptions
+- [API routes](API_ROUTES.md) — 20 HTTP endpoints
+- [Tools reference](TOOLS_REFERENCE.md) — 30 agent tools
 - [Conversation synthesis](CONVERSATION_SYNTHESIS.md)
 - [Agent manifests guide](AGENT_MANIFESTS.md)
 - [Dynamic agent UI](DYNAMIC_AGENT_UI.md)
 - [GitHub automation guide](GITHUB_AUTOMATION.md)
 - [RALPH loop](RALPH_LOOP.md)
 - [Implementation phases](../IMPLEMENTATION_PHASES.md)
-- [Session tracker](../SESSION.md)
+- [Contributing](../CONTRIBUTING.md)
