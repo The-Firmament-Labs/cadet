@@ -398,12 +398,14 @@ fn app() -> Element {
     let mut command_center_spawned = use_signal(|| false);
     let mut show_splash = use_signal(|| true);
 
-    if cadet_config.widget.enabled && !show_splash() {
-        // Ctrl+Shift+Space — open the Command Center
+    // Widget hotkeys — registered unconditionally (Dioxus hook rules),
+    // but behavior is gated on widget.enabled + splash dismissed
+    {
         let bridge_cc = widget_bridge.clone();
+        let splash = show_splash;
+        let enabled = cadet_config.widget.enabled;
         let _ = use_global_shortcut("Ctrl+Shift+Space", move |state| {
-            if state == HotKeyState::Pressed {
-                // Also capture clipboard context while opening
+            if state == HotKeyState::Pressed && enabled && !splash() {
                 if let Ok(mut cb) = arboard::Clipboard::new() {
                     if let Ok(text) = cb.get_text() {
                         if !text.trim().is_empty() {
@@ -414,6 +416,9 @@ fn app() -> Element {
                 bridge_cc.dispatch("__system__".into(), "show-command-center".into());
             }
         });
+    }
+
+    if cadet_config.widget.enabled && !show_splash() {
 
         // Spawn only the Command Center on startup; individual widgets are
         // spawned on-demand when toggled on via the Command Center UI.
