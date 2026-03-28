@@ -12,6 +12,7 @@ import {
   Settings,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { HexagonLogo } from "@/components/hexagon-logo"
 
 const navItems = [
   { href: "/dashboard",             icon: LayoutDashboard, label: "Overview"   },
@@ -38,15 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         {/* Brand mark */}
         <div className="flex items-center h-12 px-[10px] shrink-0">
-          <div
-            className={cn(
-              "flex items-center justify-center w-7 h-7 shrink-0",
-              "rounded-sm border border-[#e07b5a]/50 bg-[#e07b5a]/15",
-              "text-[#e07b5a] font-mono font-bold text-sm leading-none",
-            )}
-          >
-            C
-          </div>
+          <HexagonLogo className="w-7 h-7 shrink-0 text-[#e8e4df]" />
           <span className="ml-3 text-sm font-semibold tracking-wide text-[#e8e4df] opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
             Cadet
           </span>

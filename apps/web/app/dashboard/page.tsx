@@ -35,30 +35,31 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-[1400px]">
-      {/* Metric HUDs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricHUD
-          label="MISSIONS"
-          value={runs.length}
-          code="LOG.ALL"
-        />
-        <MetricHUD
-          label="ACTIVE ORBITS"
-          value={activeRuns}
-          variant="charcoal"
-          code="TRK.GEO"
-        />
-        <MetricHUD
-          label="SIGNALS"
-          value={connectedAgents}
-          code="RCV.24H"
-        />
-        <MetricHUD
-          label="PENDING"
-          value={pendingApprovals}
-          variant={pendingApprovals > 0 ? "coral" : undefined}
-          code="LIVE.REC"
-        />
+      {/* Stats strip — matches v0 template layout */}
+      <div className="border border-border">
+        <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border">
+          <MetricHUD
+            label="MISSIONS"
+            value={String(runs.length)}
+            code="LOG.ALL"
+          />
+          <MetricHUD
+            label="ACTIVE ORBITS"
+            value={String(activeRuns)}
+            code="TRK.GEO"
+          />
+          <MetricHUD
+            label="SIGNALS"
+            value={String(connectedAgents)}
+            code="RCV.24H"
+          />
+          <MetricHUD
+            label="PENDING"
+            value={String(pendingApprovals)}
+            code="LIVE.REC"
+            variant={pendingApprovals > 0 ? "highlight" : "default"}
+          />
+        </div>
       </div>
 
       {/* Content grid */}

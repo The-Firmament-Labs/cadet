@@ -1,40 +1,41 @@
-import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
-export function MetricHUD({
-  label,
-  value,
-  variant,
-  code,
-}: {
+interface MetricHUDProps {
+  value: string | number
   label: string
-  value: number | string
-  variant?: "coral" | "charcoal" | "sage" | undefined
   code?: string | undefined
-}) {
+  variant?: "default" | "highlight" | undefined
+}
+
+export function MetricHUD({
+  value,
+  label,
+  code,
+  variant = "default",
+}: MetricHUDProps) {
   return (
-    <Card
+    <div
       className={cn(
-        "rounded-sm",
-        variant === "coral" && "bg-[#e07b5a] text-white border-[#e07b5a]",
-        variant === "charcoal" && "bg-[#3a3a3a] text-[#e8e4df] border-[#3a3a3a]",
-        variant === "sage" && "bg-[var(--card-light)] text-[#1a1a1a] border-transparent",
-        !variant && "bg-[var(--card-light)] text-[#1a1a1a] border-transparent",
+        "py-8 px-6",
+        variant === "highlight"
+          ? "bg-primary text-primary-foreground"
+          : "bg-background border-r border-border last:border-r-0"
       )}
     >
-      <CardContent className="p-5 flex flex-col justify-between min-h-[140px]">
-        <div className="flex items-start justify-between">
-          <p className="text-[48px] font-mono font-bold tracking-tighter leading-none">
-            {String(value)}
+      <div className="flex items-start justify-between mb-4">
+        <span className="text-5xl font-bold tracking-tight">{String(value)}</span>
+      </div>
+      <div className="border-t border-current/20 pt-3">
+        <p className="text-xs font-medium tracking-wider mb-1">{label}</p>
+        {code && (
+          <p className={cn(
+            "font-mono text-xs",
+            variant === "highlight" ? "text-primary-foreground/80" : "text-muted-foreground"
+          )}>
+            {code}
           </p>
-        </div>
-        <div className="mt-auto pt-3 border-t border-current/10">
-          <p className="text-xs uppercase tracking-[0.12em] font-bold">{label}</p>
-          {code && (
-            <p className="text-xs font-mono opacity-50 mt-0.5">{code}</p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        )}
+      </div>
+    </div>
   )
 }
