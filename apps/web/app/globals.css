@@ -33,13 +33,13 @@
   --chart-4: oklch(0.55 0.01 0);
   --chart-5: oklch(0.75 0.15 35);
   --radius: 0.125rem;
-  --sidebar: oklch(0.82 0.03 140);
-  --sidebar-foreground: oklch(0.22 0.02 140);
-  --sidebar-primary: oklch(0.50 0.18 35);
+  --sidebar: oklch(0.22 0.01 0);
+  --sidebar-foreground: oklch(0.82 0.03 140);
+  --sidebar-primary: oklch(0.67 0.18 35);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.78 0.03 140);
-  --sidebar-accent-foreground: oklch(0.22 0.02 140);
-  --sidebar-border: oklch(0.75 0.03 140);
+  --sidebar-accent: oklch(0.30 0.01 0);
+  --sidebar-accent-foreground: oklch(0.82 0.03 140);
+  --sidebar-border: oklch(0.35 0.01 0);
   --sidebar-ring: oklch(0.67 0.18 35);
 
   /* Legacy tokens (landing page compat) */
@@ -78,13 +78,13 @@
   --chart-3: oklch(0.45 0.01 0);
   --chart-4: oklch(0.75 0.15 35);
   --chart-5: oklch(0.55 0.01 0);
-  --sidebar: oklch(0.78 0.03 140);
-  --sidebar-foreground: oklch(0.20 0.02 140);
-  --sidebar-primary: oklch(0.50 0.18 35);
+  --sidebar: oklch(0.18 0.005 0);
+  --sidebar-foreground: oklch(0.82 0.03 140);
+  --sidebar-primary: oklch(0.67 0.18 35);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.74 0.03 140);
-  --sidebar-accent-foreground: oklch(0.20 0.02 140);
-  --sidebar-border: oklch(0.72 0.03 140);
+  --sidebar-accent: oklch(0.25 0.005 0);
+  --sidebar-accent-foreground: oklch(0.82 0.03 140);
+  --sidebar-border: oklch(0.30 0.005 0);
   --sidebar-ring: oklch(0.67 0.18 35);
 }
 
