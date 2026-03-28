@@ -87,7 +87,11 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                         class: "brand-mark",
                         title: if sidebar_expanded() { "Collapse sidebar" } else { "Expand sidebar" },
                         onclick: move |_| sidebar_expanded.set(!sidebar_expanded()),
-                        "C"
+                        img {
+                            src: "cadet://localhost/icon.png",
+                            alt: "Cadet",
+                            style: "width: 24px; height: 24px; filter: invert(1);",
+                        }
                     }
                     h1 { class: "sidebar-title", "Mission Control" }
                 }
