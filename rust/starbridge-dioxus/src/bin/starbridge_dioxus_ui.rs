@@ -17,7 +17,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 const DESKTOP_STYLES: &str = r#"
     .desktop-shell {
         min-height: 100vh;
-        background: #02050d;
+        background: #c8d1c0;
     }
 
     .desktop-toolbar {
@@ -26,8 +26,8 @@ const DESKTOP_STYLES: &str = r#"
         justify-content: space-between;
         gap: 12px;
         padding: 8px 16px;
-        border-bottom: 1px solid rgba(100, 180, 255, 0.14);
-        background: rgba(2, 5, 13, 0.96);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+        background: rgba(190, 200, 182, 0.96);
     }
 
     .desktop-context {
@@ -42,9 +42,9 @@ const DESKTOP_STYLES: &str = r#"
         align-items: center;
         padding: 4px 10px;
         border-radius: 4px;
-        border: 1px solid rgba(0, 229, 255, 0.28);
-        background: rgba(0, 229, 255, 0.08);
-        color: #00e5ff;
+        border: 1px solid rgba(224, 123, 90, 0.4);
+        background: rgba(224, 123, 90, 0.12);
+        color: #e07b5a;
         font-family: "JetBrains Mono", monospace;
         font-size: 10px;
         letter-spacing: 0.06em;
@@ -52,7 +52,7 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .desktop-note {
-        color: rgba(220, 228, 255, 0.6);
+        color: rgba(26, 26, 26, 0.55);
         font-size: 11px;
         white-space: nowrap;
         overflow: hidden;
@@ -66,10 +66,10 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .desktop-button {
-        border: 1px solid rgba(100, 180, 255, 0.2);
+        border: 1px solid rgba(0, 0, 0, 0.15);
         border-radius: 4px;
-        background: rgba(0, 229, 255, 0.06);
-        color: #f5f7ff;
+        background: rgba(0, 0, 0, 0.05);
+        color: #1a1a1a;
         font: inherit;
         font-size: 11px;
         padding: 6px 12px;
@@ -77,17 +77,17 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .desktop-button:hover {
-        background: rgba(0, 229, 255, 0.12);
-        border-color: rgba(0, 229, 255, 0.3);
+        background: rgba(0, 0, 0, 0.08);
+        border-color: rgba(0, 0, 0, 0.2);
     }
 
     .desktop-error {
         margin: 8px 16px 0;
         padding: 8px 12px;
         border-radius: 4px;
-        border: 1px solid rgba(255, 77, 77, 0.24);
-        background: rgba(255, 77, 77, 0.08);
-        color: #ff9999;
+        border: 1px solid rgba(201, 74, 74, 0.3);
+        background: rgba(201, 74, 74, 0.08);
+        color: #c94a4a;
         font-size: 12px;
     }
 "#;

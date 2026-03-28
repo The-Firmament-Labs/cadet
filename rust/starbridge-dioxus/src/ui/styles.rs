@@ -5,52 +5,54 @@ pub const APP_STYLES: &str = r#"
        ================================================================ */
 
     :root {
-        color-scheme: dark;
+        color-scheme: light;
 
         /* Color tokens */
-        --bg-canvas:       #02050d;
-        --bg-sidebar:      rgba(2, 5, 13, 0.98);
-        --bg-topbar:       rgba(2, 5, 13, 0.94);
-        --bg-panel:        rgba(8, 12, 26, 0.72);
-        --bg-panel-strong: rgba(7, 10, 22, 0.88);
-        --bg-elevated:     rgba(12, 18, 36, 0.92);
-        --bg-hover:        rgba(0, 229, 255, 0.04);
+        --bg-canvas:       #c8d1c0;
+        --bg-sidebar:      #3a3a3a;
+        --bg-topbar:       rgba(190, 200, 182, 0.96);
+        --bg-panel:        #3a3a3a;
+        --bg-panel-strong: #2e2e2e;
+        --bg-elevated:     rgba(58, 58, 58, 0.96);
+        --bg-hover:        rgba(224, 123, 90, 0.08);
 
-        --border:          rgba(100, 180, 255, 0.14);
-        --border-strong:   rgba(100, 180, 255, 0.28);
+        --border:          rgba(0, 0, 0, 0.12);
+        --border-strong:   rgba(0, 0, 0, 0.22);
+        --border-on-dark:  rgba(255, 255, 255, 0.1);
 
-        --primary:         #00e5ff;
-        --primary-soft:    rgba(0, 229, 255, 0.12);
+        --primary:         #e07b5a;
+        --primary-soft:    rgba(224, 123, 90, 0.15);
 
-        --accent:          #ffd66b;
-        --accent-soft:     rgba(255, 214, 107, 0.12);
+        --accent:          #e07b5a;
+        --accent-soft:     rgba(224, 123, 90, 0.12);
 
-        --destructive:     #ff4d4d;
-        --destructive-soft: rgba(255, 77, 77, 0.12);
+        --destructive:     #c94a4a;
+        --destructive-soft: rgba(201, 74, 74, 0.12);
 
-        --success:         #4dff88;
-        --success-soft:    rgba(77, 255, 136, 0.12);
+        --success:         #5a8a5a;
+        --success-soft:    rgba(90, 138, 90, 0.12);
 
-        --warning:         #ffaa33;
-        --warning-soft:    rgba(255, 170, 51, 0.12);
+        --warning:         #c98a3a;
+        --warning-soft:    rgba(201, 138, 58, 0.12);
 
-        --text:            #f5f7ff;
-        --text-strong:     #ffffff;
-        --muted:           rgba(220, 228, 255, 0.6);
-        --muted-subtle:    rgba(220, 228, 255, 0.36);
+        --text:            #1a1a1a;
+        --text-strong:     #0d0d0d;
+        --text-on-dark:    #e8e4df;
+        --muted:           rgba(26, 26, 26, 0.55);
+        --muted-subtle:    rgba(26, 26, 26, 0.35);
+        --muted-on-dark:   rgba(255, 255, 255, 0.5);
 
         /* Typography */
         --sans: "Inter", "SF Pro Display", system-ui, sans-serif;
         --mono: "JetBrains Mono", "SFMono-Regular", "Cascadia Code", ui-monospace, monospace;
 
-        /* Effects */
-        --glow-primary: 0 0 12px rgba(0, 229, 255, 0.15);
-        --glow-accent:  0 0 12px rgba(255, 214, 107, 0.12);
-        --shadow:       0 14px 28px rgba(0, 0, 0, 0.24);
+        /* Effects — flat, no glow */
+        --shadow:    0 1px 3px rgba(0, 0, 0, 0.08);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
 
         /* Grid */
-        --grid-line: rgba(100, 180, 255, 0.04);
-        --grid-size: 28px;
+        --grid-line: rgba(0, 0, 0, 0.06);
+        --grid-size: 24px;
     }
 
     * {
@@ -62,10 +64,9 @@ pub const APP_STYLES: &str = r#"
         height: 100%;
         min-height: 100%;
         background:
-            linear-gradient(var(--grid-line) 1px, transparent 1px),
-            linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
-            var(--bg-canvas);
-        background-size: var(--grid-size) var(--grid-size), var(--grid-size) var(--grid-size), auto;
+            radial-gradient(circle, var(--grid-line) 1px, transparent 1px);
+        background-color: var(--bg-canvas);
+        background-size: var(--grid-size) var(--grid-size);
         color: var(--text);
         font-family: var(--sans);
         font-size: 12px;
@@ -104,8 +105,8 @@ pub const APP_STYLES: &str = r#"
         padding: 12px 0;
         width: 48px;
         min-width: 48px;
-        border-right: 1px solid var(--border);
-        background: linear-gradient(180deg, var(--bg-sidebar) 0%, rgba(2, 5, 13, 1) 100%);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
         overflow: hidden;
         transition: width 0.2s ease, min-width 0.2s ease, padding 0.2s ease;
         position: relative;
@@ -125,7 +126,7 @@ pub const APP_STYLES: &str = r#"
         align-items: center;
         gap: 8px;
         padding: 4px 10px 10px;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         overflow: hidden;
         white-space: nowrap;
     }
@@ -142,18 +143,18 @@ pub const APP_STYLES: &str = r#"
         width: 28px;
         height: 28px;
         border-radius: 6px;
-        border: 1px solid rgba(0, 229, 255, 0.35);
-        background: linear-gradient(180deg, rgba(0, 229, 255, 0.14) 0%, rgba(0, 229, 255, 0.06) 100%);
-        color: var(--primary);
+        border: 1px solid rgba(224, 123, 90, 0.5);
+        background: linear-gradient(180deg, rgba(224, 123, 90, 0.2) 0%, rgba(224, 123, 90, 0.1) 100%);
+        color: #e07b5a;
         font-weight: 700;
         font-size: 13px;
         letter-spacing: 0.04em;
-        box-shadow: var(--glow-primary);
+        box-shadow: var(--shadow);
     }
 
     .sidebar-title {
         margin: 0;
-        color: var(--text-strong);
+        color: #e8e4df;
         font-size: 13px;
         font-weight: 650;
         letter-spacing: 0.01em;
@@ -168,7 +169,7 @@ pub const APP_STYLES: &str = r#"
 
     .sidebar-section {
         margin: 8px 10px 2px;
-        color: var(--muted-subtle);
+        color: rgba(255, 255, 255, 0.4);
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.12em;
@@ -200,7 +201,7 @@ pub const APP_STYLES: &str = r#"
         border-radius: 6px;
         padding: 8px 6px;
         background: transparent;
-        color: var(--text);
+        color: rgba(232, 228, 223, 0.8);
         text-align: left;
         cursor: pointer;
         transition: border-color 0.18s ease, background 0.18s ease;
@@ -218,15 +219,15 @@ pub const APP_STYLES: &str = r#"
 
     .nav-button:hover,
     .list-item:hover {
-        border-color: var(--border-strong);
-        background: var(--bg-hover);
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.06);
     }
 
     .nav-button-active,
     .list-item-active {
-        border-color: rgba(0, 229, 255, 0.28);
-        background: var(--primary-soft);
-        box-shadow: inset 2px 0 0 var(--primary);
+        border-color: rgba(224, 123, 90, 0.4);
+        background: rgba(224, 123, 90, 0.12);
+        box-shadow: inset 2px 0 0 #e07b5a;
     }
 
     .nav-label,
@@ -244,6 +245,7 @@ pub const APP_STYLES: &str = r#"
         opacity: 0;
         transition: opacity 0.15s ease;
         font-size: 12px;
+        color: #e8e4df;
     }
 
     .sidebar.sidebar-expanded .nav-label {
@@ -266,8 +268,8 @@ pub const APP_STYLES: &str = r#"
         min-width: 22px;
         padding: 1px 5px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.04);
-        color: var(--muted);
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.5);
         font-family: var(--mono);
         font-size: 10px;
         text-align: center;
@@ -288,7 +290,7 @@ pub const APP_STYLES: &str = r#"
     .sidebar-footer {
         margin-top: auto;
         padding: 8px 0 4px;
-        border-top: 1px solid var(--border);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -302,7 +304,7 @@ pub const APP_STYLES: &str = r#"
 
     .sidebar-footnote {
         margin: 0;
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.5);
         font-size: 11px;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -401,9 +403,9 @@ pub const APP_STYLES: &str = r#"
     .thread-header,
     .detail-hero,
     .document-viewer {
-        border: 1px solid var(--border);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 6px;
-        background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-strong) 100%);
+        background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
         box-shadow: var(--shadow);
     }
 
@@ -436,7 +438,7 @@ pub const APP_STYLES: &str = r#"
     .panel-head,
     .detail-hero,
     .thread-header {
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .panel-title-row,
@@ -456,7 +458,7 @@ pub const APP_STYLES: &str = r#"
 
     .detail-summary {
         margin: 6px 0 0;
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.5);
         max-width: 70ch;
         font-size: 11px;
     }
@@ -501,18 +503,16 @@ pub const APP_STYLES: &str = r#"
         font-size: 18px;
         line-height: 1;
         letter-spacing: -0.03em;
-        color: var(--text-strong);
+        color: #e8e4df;
         font-family: var(--mono);
     }
 
     .metric-value-primary {
-        color: var(--primary);
-        text-shadow: var(--glow-primary);
+        color: #e07b5a;
     }
 
     .metric-value-accent {
-        color: var(--accent);
-        text-shadow: var(--glow-accent);
+        color: #e07b5a;
     }
 
     .simple-list,
@@ -530,12 +530,12 @@ pub const APP_STYLES: &str = r#"
         align-items: center;
         justify-content: space-between;
         gap: 6px;
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.5);
         font-size: 11px;
     }
 
     .key-value-list strong {
-        color: var(--text);
+        color: #e8e4df;
         font-weight: 600;
     }
 
@@ -549,7 +549,7 @@ pub const APP_STYLES: &str = r#"
         padding: 3px;
         border-radius: 6px;
         border: 1px solid var(--border);
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(0, 0, 0, 0.04);
         gap: 2px;
     }
 
@@ -570,30 +570,30 @@ pub const APP_STYLES: &str = r#"
     }
 
     .segmented-button-active {
-        border-color: rgba(0, 229, 255, 0.28);
+        border-color: rgba(224, 123, 90, 0.35);
         background: var(--primary-soft);
         color: var(--text);
     }
 
     .primary-button {
-        border-color: rgba(0, 229, 255, 0.28);
-        background: rgba(0, 229, 255, 0.12);
+        border-color: rgba(224, 123, 90, 0.4);
+        background: rgba(224, 123, 90, 0.15);
         color: var(--text-strong);
     }
 
     .primary-button:hover {
-        background: rgba(0, 229, 255, 0.2);
-        box-shadow: var(--glow-primary);
+        background: rgba(224, 123, 90, 0.25);
+        box-shadow: var(--shadow);
     }
 
     .secondary-button {
         border-color: var(--border);
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(0, 0, 0, 0.04);
         color: var(--text);
     }
 
     .secondary-button:hover {
-        background: rgba(255, 255, 255, 0.06);
+        background: rgba(0, 0, 0, 0.08);
     }
 
     .secondary-button:disabled,
@@ -617,31 +617,31 @@ pub const APP_STYLES: &str = r#"
 
     .pill-live,
     .pill-accent {
-        border-color: rgba(0, 229, 255, 0.28);
-        background: var(--primary-soft);
-        color: var(--primary);
+        border-color: rgba(224, 123, 90, 0.4);
+        background: rgba(224, 123, 90, 0.12);
+        color: #e07b5a;
     }
 
     .pill-success {
-        border-color: rgba(77, 255, 136, 0.28);
+        border-color: rgba(90, 138, 90, 0.35);
         background: var(--success-soft);
         color: var(--success);
     }
 
     .pill-warn {
-        border-color: rgba(255, 170, 51, 0.28);
+        border-color: rgba(201, 138, 58, 0.35);
         background: var(--warning-soft);
         color: var(--warning);
     }
 
     .pill-danger {
-        border-color: rgba(255, 77, 77, 0.28);
+        border-color: rgba(201, 74, 74, 0.35);
         background: var(--destructive-soft);
         color: var(--destructive);
     }
 
     .pill-subtle {
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(0, 0, 0, 0.06);
         color: var(--muted);
     }
 
@@ -651,7 +651,7 @@ pub const APP_STYLES: &str = r#"
         resize: vertical;
         border: 1px solid var(--border);
         border-radius: 6px;
-        background: rgba(2, 5, 13, 0.72);
+        background: rgba(255, 255, 255, 0.55);
         color: var(--text);
         padding: 10px 12px;
         outline: none;
@@ -659,8 +659,8 @@ pub const APP_STYLES: &str = r#"
     }
 
     textarea:focus {
-        border-color: rgba(0, 229, 255, 0.35);
-        box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.15);
+        border-color: rgba(224, 123, 90, 0.45);
+        box-shadow: 0 0 0 1px rgba(224, 123, 90, 0.2);
     }
 
     /* ================================================================
@@ -668,28 +668,28 @@ pub const APP_STYLES: &str = r#"
        connection dot, badges, callouts, empty state
        ================================================================ */
 
-    /* Pulsing connection dot — green = connected, red = disconnected */
+    /* Pulsing connection dot — coral = connected, red = disconnected */
     .connection-dot {
         display: inline-block;
         width: 7px;
         height: 7px;
         border-radius: 50%;
-        background: var(--success);
-        box-shadow: 0 0 0 0 rgba(77, 255, 136, 0.5);
+        background: #e07b5a;
+        box-shadow: 0 0 0 0 rgba(224, 123, 90, 0.5);
         animation: connection-pulse 2.4s ease-in-out infinite;
         flex-shrink: 0;
     }
 
     .connection-dot.disconnected {
         background: var(--destructive);
-        box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.4);
+        box-shadow: none;
         animation: none;
     }
 
     @keyframes connection-pulse {
-        0%   { box-shadow: 0 0 0 0 rgba(77, 255, 136, 0.5); }
-        60%  { box-shadow: 0 0 0 5px rgba(77, 255, 136, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(77, 255, 136, 0); }
+        0%   { box-shadow: 0 0 0 0 rgba(224, 123, 90, 0.5); }
+        60%  { box-shadow: 0 0 0 5px rgba(224, 123, 90, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(224, 123, 90, 0); }
     }
 
     .callout {
@@ -713,28 +713,28 @@ pub const APP_STYLES: &str = r#"
     }
 
     .callout-info {
-        border-color: rgba(0, 229, 255, 0.18);
+        border-color: rgba(224, 123, 90, 0.25);
         background: var(--primary-soft);
     }
 
     .callout-info strong { color: var(--primary); }
 
     .callout-tip {
-        border-color: rgba(77, 255, 136, 0.18);
+        border-color: rgba(90, 138, 90, 0.25);
         background: var(--success-soft);
     }
 
     .callout-tip strong { color: var(--success); }
 
     .callout-warn {
-        border-color: rgba(255, 170, 51, 0.22);
+        border-color: rgba(201, 138, 58, 0.28);
         background: var(--warning-soft);
     }
 
     .callout-warn strong { color: var(--warning); }
 
     .callout-danger {
-        border-color: rgba(255, 77, 77, 0.22);
+        border-color: rgba(201, 74, 74, 0.28);
         background: var(--destructive-soft);
     }
 
@@ -812,8 +812,8 @@ pub const APP_STYLES: &str = r#"
 
     .message-bubble-outbound {
         align-self: flex-end;
-        border-color: rgba(0, 229, 255, 0.18);
-        background: linear-gradient(180deg, rgba(0, 22, 40, 0.92) 0%, rgba(0, 14, 26, 0.96) 100%);
+        border-color: rgba(255, 255, 255, 0.12);
+        background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
         border-bottom-right-radius: 4px;
     }
 
@@ -844,13 +844,13 @@ pub const APP_STYLES: &str = r#"
         min-height: 400px;
         padding: 10px;
         border-radius: 6px;
-        border: 1px solid var(--border);
-        background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-strong) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
     }
 
     .workflow-lane-active {
-        border-color: rgba(0, 229, 255, 0.24);
-        background: linear-gradient(180deg, rgba(0, 20, 36, 0.88) 0%, rgba(0, 12, 24, 0.96) 100%);
+        border-color: rgba(224, 123, 90, 0.35);
+        background: linear-gradient(180deg, rgba(58, 58, 58, 0.96) 0%, rgba(46, 46, 46, 1) 100%);
     }
 
     .lane-head {
@@ -863,15 +863,15 @@ pub const APP_STYLES: &str = r#"
 
     .lane-copy {
         margin: 0 0 8px;
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.5);
         font-size: 11px;
     }
 
     .workflow-card {
         padding: 10px;
         border-radius: 6px;
-        border: 1px solid var(--border);
-        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
         cursor: grab;
         font-size: 11px;
     }
@@ -898,9 +898,9 @@ pub const APP_STYLES: &str = r#"
         margin: 0;
         padding: 10px 12px;
         border-radius: 6px;
-        border: 1px solid var(--border);
-        background: rgba(2, 5, 13, 0.92);
-        color: #edf3f8;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: #2e2e2e;
+        color: #e8e4df;
         white-space: pre-wrap;
         overflow: auto;
         font-family: var(--mono);
@@ -912,8 +912,8 @@ pub const APP_STYLES: &str = r#"
     .surface-preview {
         min-height: 540px;
         border-radius: 6px;
-        border: 1px solid var(--border);
-        background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-strong) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
         padding: 12px;
     }
 
@@ -948,12 +948,11 @@ pub const APP_STYLES: &str = r#"
 
     .memory-field-shell {
         min-height: 420px;
-        border: 1px solid var(--border);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         background:
-            linear-gradient(var(--grid-line) 1px, transparent 1px),
-            linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
-            linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-strong) 100%);
-        background-size: var(--grid-size) var(--grid-size), var(--grid-size) var(--grid-size), auto;
+            radial-gradient(circle, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
+            linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
+        background-size: var(--grid-size) var(--grid-size), auto;
         border-radius: 6px;
         padding: 12px;
     }
@@ -961,8 +960,8 @@ pub const APP_STYLES: &str = r#"
     .memory-field {
         position: relative;
         min-height: 380px;
-        border: 1px solid rgba(0, 229, 255, 0.1);
-        background: linear-gradient(180deg, rgba(2, 5, 13, 0.96) 0%, rgba(2, 5, 13, 1) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, #2e2e2e 0%, #262626 100%);
         overflow: hidden;
     }
 
@@ -975,8 +974,8 @@ pub const APP_STYLES: &str = r#"
 
     .memory-field-grid {
         background:
-            linear-gradient(rgba(0, 229, 255, 0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 229, 255, 0.04) 1px, transparent 1px);
+            linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
         background-size: 48px 48px;
     }
 
@@ -984,7 +983,7 @@ pub const APP_STYLES: &str = r#"
     .memory-field-axis.axis-y::before {
         content: "";
         position: absolute;
-        background: rgba(0, 229, 255, 0.1);
+        background: rgba(255, 255, 255, 0.1);
     }
 
     .memory-field-axis.axis-x::before {
@@ -1019,15 +1018,15 @@ pub const APP_STYLES: &str = r#"
         display: block;
         width: 14px;
         height: 14px;
-        border: 1px solid rgba(0, 229, 255, 0.5);
-        background: rgba(0, 229, 255, 0.14);
-        box-shadow: 0 0 0 1px rgba(2, 5, 13, 0.6);
+        border: 1px solid rgba(224, 123, 90, 0.5);
+        background: rgba(224, 123, 90, 0.15);
+        box-shadow: 0 0 0 1px rgba(46, 46, 46, 0.6);
     }
 
     .memory-point-active .memory-point-core {
-        border-color: rgba(255, 214, 107, 0.8);
-        background: rgba(255, 214, 107, 0.22);
-        box-shadow: 0 0 0 2px rgba(255, 214, 107, 0.12);
+        border-color: rgba(224, 123, 90, 0.9);
+        background: rgba(224, 123, 90, 0.3);
+        box-shadow: 0 0 0 2px rgba(224, 123, 90, 0.15);
     }
 
     .memory-point-label {
@@ -1035,9 +1034,9 @@ pub const APP_STYLES: &str = r#"
         top: 18px;
         left: -6px;
         padding: 1px 5px;
-        border: 1px solid rgba(0, 229, 255, 0.14);
-        background: rgba(2, 5, 13, 0.92);
-        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(46, 46, 46, 0.95);
+        color: #e8e4df;
         font-family: var(--mono);
         font-size: 10px;
         letter-spacing: 0.05em;
@@ -1047,15 +1046,15 @@ pub const APP_STYLES: &str = r#"
     .memory-query-marker {
         width: 22px;
         height: 22px;
-        border: 1px solid rgba(255, 214, 107, 0.6);
-        box-shadow: 0 0 0 1px rgba(255, 214, 107, 0.15);
+        border: 1px solid rgba(224, 123, 90, 0.7);
+        box-shadow: 0 0 0 1px rgba(224, 123, 90, 0.15);
     }
 
     .memory-query-marker::before,
     .memory-query-marker::after {
         content: "";
         position: absolute;
-        background: rgba(255, 214, 107, 0.7);
+        background: rgba(224, 123, 90, 0.75);
     }
 
     .memory-query-marker::before {
@@ -1090,8 +1089,8 @@ pub const APP_STYLES: &str = r#"
     .memory-detail-card {
         padding: 10px 12px;
         border-radius: 6px;
-        border: 1px solid var(--border);
-        background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-strong) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, #3a3a3a 0%, #2e2e2e 100%);
     }
 
     .memory-stat-value {
@@ -1100,7 +1099,7 @@ pub const APP_STYLES: &str = r#"
         font-size: 18px;
         line-height: 1;
         letter-spacing: -0.04em;
-        color: var(--text-strong);
+        color: #e8e4df;
         font-family: var(--mono);
     }
 
@@ -1124,11 +1123,11 @@ pub const APP_STYLES: &str = r#"
     .dimension-bar {
         width: 100%;
         min-height: 4px;
-        background: linear-gradient(180deg, rgba(0, 229, 255, 0.85) 0%, rgba(255, 214, 107, 0.65) 100%);
+        background: linear-gradient(180deg, rgba(224, 123, 90, 0.85) 0%, rgba(201, 138, 58, 0.65) 100%);
     }
 
     .dimension-index {
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.5);
         font-family: var(--mono);
         font-size: 9px;
         letter-spacing: 0.04em;
@@ -1139,10 +1138,10 @@ pub const APP_STYLES: &str = r#"
     .memory-json {
         margin: 0;
         padding: 10px 12px;
-        border: 1px solid var(--border);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 6px;
-        background: rgba(2, 5, 13, 0.92);
-        color: #eef3f8;
+        background: #2e2e2e;
+        color: #e8e4df;
         font-family: var(--mono);
         font-size: 10px;
         line-height: 1.7;
@@ -1159,17 +1158,17 @@ pub const APP_STYLES: &str = r#"
         align-items: flex-start;
         justify-content: center;
         padding-top: 18vh;
-        background: rgba(2, 5, 13, 0.72);
+        background: rgba(26, 26, 26, 0.55);
         backdrop-filter: blur(6px);
     }
 
     .command-palette-panel {
         width: 560px;
         max-width: calc(100vw - 32px);
-        border: 1px solid var(--border-strong);
+        border: 1px solid rgba(0, 0, 0, 0.22);
         border-radius: 8px;
-        background: var(--bg-panel-strong);
-        box-shadow: var(--shadow), var(--glow-primary);
+        background: #3a3a3a;
+        box-shadow: var(--shadow-md);
         overflow: hidden;
     }
 
@@ -1177,16 +1176,16 @@ pub const APP_STYLES: &str = r#"
         width: 100%;
         padding: 14px 16px;
         border: none;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         background: transparent;
-        color: var(--text-strong);
+        color: #e8e4df;
         font-family: var(--sans);
         font-size: 14px;
         outline: none;
     }
 
     .command-palette-input::placeholder {
-        color: var(--muted-subtle);
+        color: rgba(255, 255, 255, 0.4);
     }
 
     .command-palette-list {
@@ -1203,7 +1202,7 @@ pub const APP_STYLES: &str = r#"
         width: 100%;
         padding: 8px 10px;
         border-radius: 6px;
-        color: var(--text);
+        color: #e8e4df;
         font-size: 12px;
         cursor: pointer;
         border: 1px solid transparent;
@@ -1214,9 +1213,9 @@ pub const APP_STYLES: &str = r#"
 
     .command-palette-item:hover,
     .command-palette-item-active {
-        border-color: var(--border);
+        border-color: rgba(255, 255, 255, 0.1);
         background: var(--primary-soft);
-        color: var(--text-strong);
+        color: #ffffff;
     }
 
     .command-palette-label {
@@ -1228,9 +1227,9 @@ pub const APP_STYLES: &str = r#"
         align-items: center;
         padding: 1px 5px;
         border-radius: 3px;
-        border: 1px solid var(--border-strong);
-        background: rgba(255, 255, 255, 0.04);
-        color: var(--muted);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.5);
         font-family: var(--mono);
         font-size: 10px;
     }
@@ -1238,7 +1237,7 @@ pub const APP_STYLES: &str = r#"
     .command-palette-empty {
         padding: 24px 16px;
         text-align: center;
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.5);
         font-size: 12px;
     }
 
