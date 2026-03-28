@@ -436,19 +436,22 @@ pub const WIDGET_STYLES: &str = r#"
 
     .widget-input-row {
         display: flex;
-        gap: 6px;
+        flex-direction: column;
+        gap: 0;
+        background: #FFFFFF;
+        box-shadow: inset 0 0 0 1px rgba(224, 191, 184, 0.15);
     }
 
     .widget-input {
-        flex: 1;
-        padding: 8px 10px;
+        width: 100%;
+        padding: 10px 12px;
         border: none;
-        border-bottom: 2px solid transparent;
+        border-bottom: 1px solid rgba(224, 191, 184, 0.15);
         border-radius: 0;
-        background: #E4E1E0;
+        background: transparent;
         color: #1C1B1B;
-        font: inherit;
-        font-size: 12px;
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 13px;
         outline: none;
         transition: border-color 0.15s;
     }
@@ -461,15 +464,22 @@ pub const WIDGET_STYLES: &str = r#"
         color: #58413C;
     }
 
+    .widget-send-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 10px;
+    }
+
     .widget-send {
-        padding: 8px 14px;
+        padding: 4px 12px;
         border: none;
         border-radius: 0;
         background: #AA3618;
         color: #FFFFFF;
         font: inherit;
         font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -492,6 +502,27 @@ pub const WIDGET_STYLES: &str = r#"
         text-align: center;
         font-family: "JetBrains Mono", monospace;
         letter-spacing: 0.04em;
+    }
+
+    .composer-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border: 1px solid rgba(224, 191, 184, 0.3);
+        border-radius: 0;
+        background: transparent;
+        color: #58413C;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+    }
+
+    .composer-chip-active {
+        background: #E4E1E0;
+        color: #1C1B1B;
+        border-color: #58413C;
     }
 
     /* ── LiveAgentHud ─────────────────────────────────────────── */
@@ -1248,10 +1279,11 @@ pub mod desktop {
                         }
 
                         div { class: "widget-input-row",
+                            // Full-width input on top (Claude Code style)
                             input {
                                 class: "widget-input",
                                 r#type: "text",
-                                placeholder: "Ask about this...",
+                                placeholder: "What would you like to work on?",
                                 value: chat_input(),
                                 oninput: move |e| chat_input.set(e.value()),
                                 onkeydown: {
@@ -1273,7 +1305,7 @@ pub mod desktop {
                                             bridge.dispatch(config_agent.clone(), goal);
                                             local_messages.write().push(ChatMessage {
                                                 role: "assistant".into(),
-                                                content: format!("Dispatched to {}. Check dashboard.", config_agent),
+                                                content: format!("Dispatched to {}.", config_agent),
                                             });
                                             chat_input.set(String::new());
                                         } else if e.key() == Key::Escape {
@@ -1282,35 +1314,43 @@ pub mod desktop {
                                     }
                                 },
                             }
-                            button {
-                                class: "widget-send",
-                                disabled: chat_input().trim().is_empty(),
-                                onclick: {
-                                    let bridge = bridge.clone();
-                                    let context = context_text.clone();
-                                    let config_agent = config.default_agent.clone();
-                                    move |_| {
-                                        if !chat_input().trim().is_empty() {
-                                            let user_msg = chat_input().trim().to_string();
-                                            local_messages.write().push(ChatMessage {
-                                                role: "user".into(),
-                                                content: user_msg.clone(),
-                                            });
-                                            let goal = if context.is_empty() {
-                                                user_msg.clone()
-                                            } else {
-                                                format!("{}\n\nContext: {}", user_msg, context)
-                                            };
-                                            bridge.dispatch(config_agent.clone(), goal);
-                                            local_messages.write().push(ChatMessage {
-                                                role: "assistant".into(),
-                                                content: format!("Dispatched to {}. Check dashboard.", config_agent),
-                                            });
-                                            chat_input.set(String::new());
+                            // Toolbar row below input (agent chips + send)
+                            div { class: "widget-send-row",
+                                div { style: "display:flex; gap:4px; align-items:center;",
+                                    span { class: "composer-chip composer-chip-active", "Saturn" }
+                                    span { class: "composer-chip", "Voyager" }
+                                    span { class: "composer-chip", "● Live" }
+                                }
+                                button {
+                                    class: "widget-send",
+                                    disabled: chat_input().trim().is_empty(),
+                                    onclick: {
+                                        let bridge = bridge.clone();
+                                        let context = context_text.clone();
+                                        let config_agent = config.default_agent.clone();
+                                        move |_| {
+                                            if !chat_input().trim().is_empty() {
+                                                let user_msg = chat_input().trim().to_string();
+                                                local_messages.write().push(ChatMessage {
+                                                    role: "user".into(),
+                                                    content: user_msg.clone(),
+                                                });
+                                                let goal = if context.is_empty() {
+                                                    user_msg.clone()
+                                                } else {
+                                                    format!("{}\n\nContext: {}", user_msg, context)
+                                                };
+                                                bridge.dispatch(config_agent.clone(), goal);
+                                                local_messages.write().push(ChatMessage {
+                                                    role: "assistant".into(),
+                                                    content: format!("Dispatched to {}.", config_agent),
+                                                });
+                                                chat_input.set(String::new());
+                                            }
                                         }
-                                    }
-                                },
-                                "Send"
+                                    },
+                                    "Send"
+                                }
                             }
                         }
                     }

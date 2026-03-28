@@ -912,13 +912,81 @@ pub const APP_STYLES: &str = r#"
     }
 
     .composer {
-        padding: 10px 12px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
         background: var(--surface-container-lowest);
-        box-shadow: var(--ghost-border);
+        box-shadow: var(--ghost-border), var(--shadow);
         border-radius: 0;
+        overflow: hidden;
+    }
+
+    .composer-input {
+        width: 100%;
+        padding: 12px 14px;
+        border: none;
+        border-bottom: 1px solid var(--outline-variant);
+        border-radius: 0;
+        background: transparent;
+        color: var(--on-surface);
+        font-family: var(--sans);
+        font-size: 13px;
+        line-height: 1.5;
+        resize: vertical;
+        min-height: 40px;
+        outline: none;
+    }
+
+    .composer-input:focus {
+        border-bottom-color: var(--primary);
+    }
+
+    .composer-input::placeholder {
+        color: var(--on-surface-variant);
+    }
+
+    .composer-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 10px;
+        gap: 6px;
+    }
+
+    .composer-chips {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .composer-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border: 1px solid var(--outline-variant);
+        border-radius: 0;
+        background: transparent;
+        color: var(--on-surface-variant);
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+    }
+
+    .composer-chip:hover {
+        background: var(--surface-container-high);
+        color: var(--on-surface);
+    }
+
+    .composer-chip-active {
+        background: var(--surface-container-high);
+        color: var(--on-surface);
+        border-color: var(--on-surface-variant);
+    }
+
+    .composer-chip-help {
+        padding: 3px 8px;
     }
 
     /* --- Workflow board (Kanban) --- */

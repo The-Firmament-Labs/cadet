@@ -133,12 +133,24 @@ pub fn ChatView(snapshot: MissionControlSnapshot) -> Element {
 
                         div { class: "composer",
                             textarea {
+                                class: "composer-input",
                                 value: composer_text(),
                                 oninput: move |event| composer_text.set(event.value()),
-                                placeholder: "Reply into the selected live thread"
+                                placeholder: "What would you like to work on?"
+                            }
+                            div { class: "composer-toolbar",
+                                div { class: "composer-chips",
+                                    button { class: "composer-chip", "+" }
+                                    button { class: "composer-chip composer-chip-active", "Saturn" }
+                                    button { class: "composer-chip", "Voyager" }
+                                    button { class: "composer-chip", "● Live" }
+                                }
+                                button {
+                                    class: "composer-chip composer-chip-help",
+                                    "?"
+                                }
                             }
                             div { class: "composer-actions",
-                                p { class: "composer-help", "Messages post back into the durable control-plane thread model." }
                                 div { class: "chip-row",
                                     button {
                                         class: "secondary-button",
