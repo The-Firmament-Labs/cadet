@@ -243,15 +243,13 @@ pub const WIDGET_STYLES: &str = r#"
     }
 
     .widget-glass {
-        backdrop-filter: blur(40px) saturate(180%);
-        -webkit-backdrop-filter: blur(40px) saturate(180%);
-        background: rgba(255, 255, 255, 0.12);
-        border: 1px solid rgba(255, 255, 255, 0.35);
-        border-radius: 20px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        background: rgba(28, 27, 27, 0.15);
+        border-radius: 0;
         box-shadow:
-            0 8px 32px rgba(31, 38, 135, 0.2),
-            inset 0 2px 16px rgba(255, 255, 255, 0.15),
-            inset 0 -1px 4px rgba(0, 0, 0, 0.1);
+            0 24px 48px rgba(28, 27, 27, 0.06),
+            inset 0 0 0 1px rgba(224, 191, 184, 0.15);
         padding: 16px;
         display: flex;
         flex-direction: column;
@@ -261,28 +259,29 @@ pub const WIDGET_STYLES: &str = r#"
     }
 
     .widget-solid {
-        background: #2a2a2a;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        background: #F7F5F4;
+        border-radius: 0;
+        box-shadow: 0 24px 48px rgba(28, 27, 27, 0.06), inset 0 0 0 1px rgba(224, 191, 184, 0.15);
         padding: 16px;
         display: flex;
         flex-direction: column;
         gap: 12px;
         max-height: calc(100vh - 16px);
         overflow: hidden;
+        color: #1C1B1B;
     }
 
     .widget-minimal {
-        background: rgba(20, 20, 20, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
+        background: #FFFFFF;
+        border-radius: 0;
+        box-shadow: 0 24px 48px rgba(28, 27, 27, 0.06);
         padding: 12px;
         display: flex;
         flex-direction: column;
         gap: 10px;
         max-height: calc(100vh - 16px);
         overflow: hidden;
+        color: #1C1B1B;
     }
 
     .widget-header {
@@ -311,9 +310,8 @@ pub const WIDGET_STYLES: &str = r#"
     .widget-brand-dot {
         width: 8px;
         height: 8px;
-        border-radius: 50%;
-        background: #e07b5a;
-        box-shadow: 0 0 6px rgba(224, 123, 90, 0.5);
+        border-radius: 0;
+        background: #AA3618;
     }
 
     .widget-brand-label {
@@ -327,26 +325,28 @@ pub const WIDGET_STYLES: &str = r#"
     .widget-close {
         background: none;
         border: none;
-        color: rgba(255, 255, 255, 0.4);
+        color: #58413C;
         cursor: pointer;
         font-size: 14px;
         padding: 4px;
-        border-radius: 4px;
+        border-radius: 0;
+        transition: background 0.15s, color 0.15s;
     }
 
     .widget-close:hover {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.7);
+        background: #E4E1E0;
+        color: #1C1B1B;
     }
 
     .widget-context {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 8px;
+        background: #F0EDED;
+        border-radius: 0;
+        box-shadow: inset 0 0 0 1px rgba(224, 191, 184, 0.15);
         padding: 10px 12px;
         font-size: 12px;
+        font-family: "JetBrains Mono", monospace;
         line-height: 1.5;
-        color: rgba(255, 255, 255, 0.8);
+        color: #1C1B1B;
         max-height: 80px;
         overflow-y: auto;
         white-space: pre-wrap;
@@ -364,19 +364,22 @@ pub const WIDGET_STYLES: &str = r#"
         align-items: center;
         gap: 6px;
         padding: 8px 10px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.04);
-        color: #e8e8e8;
+        border: none;
+        border-radius: 0;
+        background: #E4E2E1;
+        color: #AA3618;
         font: inherit;
         font-size: 11px;
+        font-family: "JetBrains Mono", monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
         cursor: pointer;
-        transition: background 0.15s, border-color 0.15s;
+        transition: background 0.15s, color 0.15s;
     }
 
     .widget-action-btn:hover {
-        background: rgba(224, 123, 90, 0.12);
-        border-color: rgba(224, 123, 90, 0.3);
+        background: #EF6745;
+        color: #FFFFFF;
     }
 
     .widget-action-icon {
@@ -389,7 +392,7 @@ pub const WIDGET_STYLES: &str = r#"
 
     .widget-divider {
         height: 1px;
-        background: rgba(255, 255, 255, 0.06);
+        background: rgba(224, 191, 184, 0.15);
     }
 
     .widget-chat {
@@ -420,17 +423,15 @@ pub const WIDGET_STYLES: &str = r#"
     }
 
     .widget-msg-user {
-        background: rgba(224, 123, 90, 0.15);
-        border: 1px solid rgba(224, 123, 90, 0.2);
+        background: rgba(170, 54, 24, 0.08);
         align-self: flex-end;
-        color: #f0d0c0;
+        color: #AA3618;
     }
 
     .widget-msg-assistant {
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: #F0EDED;
         align-self: flex-start;
-        color: rgba(255, 255, 255, 0.85);
+        color: #1C1B1B;
     }
 
     .widget-input-row {
@@ -441,37 +442,43 @@ pub const WIDGET_STYLES: &str = r#"
     .widget-input {
         flex: 1;
         padding: 8px 10px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.04);
-        color: #e8e8e8;
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        background: #E4E1E0;
+        color: #1C1B1B;
         font: inherit;
         font-size: 12px;
         outline: none;
+        transition: border-color 0.15s;
     }
 
     .widget-input:focus {
-        border-color: rgba(224, 123, 90, 0.4);
+        border-bottom-color: #AA3618;
     }
 
     .widget-input::placeholder {
-        color: rgba(255, 255, 255, 0.3);
+        color: #58413C;
     }
 
     .widget-send {
         padding: 8px 14px;
-        border: 1px solid rgba(224, 123, 90, 0.3);
-        border-radius: 8px;
-        background: rgba(224, 123, 90, 0.15);
-        color: #e07b5a;
+        border: none;
+        border-radius: 0;
+        background: #AA3618;
+        color: #FFFFFF;
         font: inherit;
+        font-family: "JetBrains Mono", monospace;
         font-size: 11px;
         font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
         cursor: pointer;
+        transition: background 0.15s;
     }
 
     .widget-send:hover {
-        background: rgba(224, 123, 90, 0.25);
+        background: #EF6745;
     }
 
     .widget-send:disabled {
@@ -481,9 +488,10 @@ pub const WIDGET_STYLES: &str = r#"
 
     .widget-status {
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.35);
+        color: #58413C;
         text-align: center;
         font-family: "JetBrains Mono", monospace;
+        letter-spacing: 0.04em;
     }
 
     /* ── LiveAgentHud ─────────────────────────────────────────── */

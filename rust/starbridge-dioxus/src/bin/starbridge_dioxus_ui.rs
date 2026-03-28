@@ -39,8 +39,7 @@ const DESKTOP_STYLES: &str = r#"
         justify-content: space-between;
         gap: 12px;
         padding: 8px 16px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-        background: rgba(190, 200, 182, 0.96);
+        background: #F0EDED;
     }
 
     .desktop-context {
@@ -54,10 +53,9 @@ const DESKTOP_STYLES: &str = r#"
         display: inline-flex;
         align-items: center;
         padding: 4px 10px;
-        border-radius: 4px;
-        border: 1px solid rgba(224, 123, 90, 0.4);
-        background: rgba(224, 123, 90, 0.12);
-        color: #e07b5a;
+        border-radius: 0;
+        background: #AA3618;
+        color: #FFFFFF;
         font-family: "JetBrains Mono", monospace;
         font-size: 10px;
         letter-spacing: 0.06em;
@@ -65,7 +63,8 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .desktop-note {
-        color: rgba(26, 26, 26, 0.55);
+        color: #58413C;
+        font-family: "JetBrains Mono", monospace;
         font-size: 11px;
         white-space: nowrap;
         overflow: hidden;
@@ -79,46 +78,47 @@ const DESKTOP_STYLES: &str = r#"
     }
 
     .desktop-button {
-        border: 1px solid rgba(0, 0, 0, 0.15);
-        border-radius: 4px;
-        background: rgba(0, 0, 0, 0.05);
-        color: #1a1a1a;
+        border: none;
+        border-radius: 0;
+        background: #AA3618;
+        color: #FFFFFF;
         font: inherit;
         font-size: 11px;
-        padding: 6px 12px;
+        font-family: "JetBrains Mono", monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 6px 14px;
         cursor: pointer;
+        transition: background 0.15s;
     }
 
     .desktop-button:hover {
-        background: rgba(0, 0, 0, 0.08);
-        border-color: rgba(0, 0, 0, 0.2);
+        background: #EF6745;
     }
 
     .desktop-error {
         margin: 8px 16px 0;
         padding: 8px 12px;
-        border-radius: 4px;
-        border: 1px solid rgba(201, 74, 74, 0.3);
-        background: rgba(201, 74, 74, 0.08);
-        color: #c94a4a;
+        border-radius: 0;
+        background: rgba(170, 54, 24, 0.08);
+        color: #AA3618;
         font-size: 12px;
+        font-family: "JetBrains Mono", monospace;
     }
 
     .status-dot {
         width: 8px;
         height: 8px;
-        border-radius: 50%;
+        border-radius: 0;
         flex-shrink: 0;
     }
 
     .status-dot-live {
-        background: #5a8a5a;
-        box-shadow: 0 0 4px rgba(90, 138, 90, 0.4);
+        background: #526258;
     }
 
     .status-dot-error {
-        background: #c94a4a;
-        box-shadow: 0 0 4px rgba(201, 74, 74, 0.4);
+        background: #AA3618;
     }
 "#;
 

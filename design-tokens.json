@@ -1,36 +1,30 @@
 {
   "color": {
-    "background": "#c8d1c0",
-    "backgroundSubtle": "#bec8b6",
-    "card": "#3a3a3a",
-    "cardStrong": "#2e2e2e",
-    "cardLight": "rgba(255, 255, 255, 0.45)",
-    "border": "rgba(0, 0, 0, 0.12)",
-    "borderStrong": "rgba(0, 0, 0, 0.22)",
-    "borderOnDark": "rgba(255, 255, 255, 0.1)",
-    "primary": "#e07b5a",
-    "primaryForeground": "#ffffff",
-    "primarySoft": "rgba(224, 123, 90, 0.15)",
-    "accent": "#e07b5a",
-    "accentSoft": "rgba(224, 123, 90, 0.12)",
-    "destructive": "#c94a4a",
-    "destructiveSoft": "rgba(201, 74, 74, 0.12)",
-    "success": "#5a8a5a",
-    "successSoft": "rgba(90, 138, 90, 0.12)",
-    "warning": "#c98a3a",
-    "warningSoft": "rgba(201, 138, 58, 0.12)",
-    "text": "#1a1a1a",
-    "textStrong": "#0d0d0d",
-    "textOnDark": "#e8e4df",
-    "textOnDarkStrong": "#ffffff",
-    "muted": "rgba(26, 26, 26, 0.55)",
-    "mutedOnDark": "rgba(255, 255, 255, 0.5)",
-    "mutedSubtle": "rgba(26, 26, 26, 0.35)",
-    "liveIndicator": "#e07b5a"
+    "primary": "#AA3618",
+    "primaryContainer": "#EF6745",
+    "onPrimary": "#FFFFFF",
+    "onPrimaryContainer": "#1C1B1B",
+    "secondary": "#5F5E5E",
+    "secondaryContainer": "#E4E2E1",
+    "tertiary": "#526258",
+    "tertiaryContainer": "#D4E8D9",
+    "surface": "#F7F5F4",
+    "surfaceContainerLowest": "#FFFFFF",
+    "surfaceContainerLow": "#F0EDED",
+    "surfaceContainer": "#EAE7E6",
+    "surfaceContainerHigh": "#E4E1E0",
+    "surfaceDim": "#DCD9D9",
+    "onSurface": "#1C1B1B",
+    "onSurfaceVariant": "#58413C",
+    "outlineVariant": "#E0BFB8",
+    "backgroundSage": "#c8d1c0",
+    "destructive": "#AA3618",
+    "success": "#526258",
+    "warning": "#EF6745"
   },
   "font": {
-    "sans": "\"Space Grotesk\", ui-sans-serif, system-ui, sans-serif",
-    "mono": "\"JetBrains Mono\", \"SFMono-Regular\", \"Cascadia Code\", ui-monospace, monospace"
+    "sans": "\"Space Grotesk\", sans-serif",
+    "mono": "\"JetBrains Mono\", monospace"
   },
   "fontSize": {
     "xs": "10px",
@@ -41,6 +35,7 @@
     "xl": "18px",
     "2xl": "24px",
     "3xl": "36px",
+    "display": "56px",
     "metric": "48px"
   },
   "spacing": {
@@ -51,14 +46,13 @@
     "xl": "20px"
   },
   "radius": {
-    "sm": "4px",
-    "md": "6px",
-    "lg": "8px"
+    "all": "0px"
   },
   "effect": {
-    "shadow": "0 1px 3px rgba(0, 0, 0, 0.08)",
-    "shadowMd": "0 4px 12px rgba(0, 0, 0, 0.1)",
-    "gridDot": "rgba(0, 0, 0, 0.08)",
+    "shadow": "0 24px 48px rgba(28, 27, 27, 0.06)",
+    "ghostBorder": "inset 0 0 0 1px rgba(224, 191, 184, 0.15)",
+    "glassBlur": "blur(12px)",
+    "gridDot": "rgba(28, 27, 27, 0.06)",
     "gridSize": "24px"
   }
 }
