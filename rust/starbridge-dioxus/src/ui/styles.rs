@@ -32,8 +32,8 @@ pub const APP_STYLES: &str = r#"
         --mono: "JetBrains Mono", "SFMono-Regular", "Cascadia Code", ui-monospace, monospace;
 
         /* Effects */
-        --shadow:      0 24px 48px rgba(28, 27, 27, 0.06);
-        --ghost-border: inset 0 0 0 1px rgba(224, 191, 184, 0.20);
+        --shadow:      0 4px 12px rgba(28, 27, 27, 0.10), 0 1px 3px rgba(28, 27, 27, 0.06);
+        --ghost-border: inset 0 0 0 1px rgba(224, 191, 184, 0.35);
 
         /* Grid */
         --grid-size: 24px;
@@ -116,32 +116,38 @@ pub const APP_STYLES: &str = r#"
     .sidebar-brand {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
-        padding: 4px 10px 10px;
+        padding: 4px 4px 10px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         overflow: hidden;
         white-space: nowrap;
     }
 
-    .sidebar:not(.sidebar-expanded) .sidebar-brand {
-        padding: 4px 0 10px;
-        justify-content: center;
+    .sidebar.sidebar-expanded .sidebar-brand {
+        justify-content: flex-start;
+        padding: 4px 10px 10px;
     }
 
     .brand-mark {
         display: grid;
         place-items: center;
         flex-shrink: 0;
-        width: 28px;
-        height: 28px;
+        width: 40px;
+        height: 40px;
         border-radius: 0;
-        border: 1px solid rgba(170, 54, 24, 0.5);
-        background: linear-gradient(180deg, rgba(170, 54, 24, 0.2) 0%, rgba(170, 54, 24, 0.1) 100%);
-        color: var(--primary-container);
+        border: none;
+        background: var(--primary);
+        color: var(--on-primary);
         font-weight: 700;
-        font-size: 13px;
+        font-size: 15px;
         letter-spacing: 0.04em;
-        box-shadow: var(--shadow);
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .brand-mark:hover {
+        background: var(--primary-container);
     }
 
     .sidebar-title {
@@ -217,17 +223,22 @@ pub const APP_STYLES: &str = r#"
     }
 
     .nav-button {
-        padding: 8px 6px;
+        /* 48px wide collapsed: center icon in 48x40px hit area */
+        height: 40px;
+        padding: 0 6px;
         border-bottom: none;
+        justify-content: flex-start;
     }
 
     .sidebar:not(.sidebar-expanded) .nav-button {
         justify-content: center;
-        padding: 8px 0;
+        padding: 0;
+        width: 48px;
     }
 
     .nav-button:hover {
-        background: rgba(255, 255, 255, 0.04);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.95);
         transition: background 0.15s, box-shadow 0.15s;
     }
 
@@ -237,9 +248,13 @@ pub const APP_STYLES: &str = r#"
     }
 
     .nav-button-active {
-        background: rgba(170, 54, 24, 0.08);
+        background: rgba(170, 54, 24, 0.12);
         color: rgba(255, 255, 255, 0.95);
         box-shadow: inset 3px 0 0 var(--primary);
+    }
+
+    .nav-button-active:hover {
+        background: rgba(170, 54, 24, 0.18);
     }
 
     .list-item-active {
@@ -319,16 +334,17 @@ pub const APP_STYLES: &str = r#"
 
     .sidebar-footer {
         margin-top: auto;
-        padding: 8px 0 4px;
+        padding: 8px 0 6px;
         border-top: 1px solid rgba(255, 255, 255, 0.06);
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 4px;
         align-items: center;
+        overflow: hidden;
     }
 
     .sidebar.sidebar-expanded .sidebar-footer {
-        padding: 8px 10px 4px;
+        padding: 8px 10px 6px;
         align-items: flex-start;
     }
 
@@ -365,7 +381,10 @@ pub const APP_STYLES: &str = r#"
         padding: 0 16px;
         height: 48px;
         min-height: 48px;
+        flex-shrink: 0;
         background: var(--surface-container-low);
+        border-bottom: 1px solid rgba(224, 191, 184, 0.18);
+        z-index: 10;
     }
 
     .topbar-title {
@@ -427,7 +446,7 @@ pub const APP_STYLES: &str = r#"
         min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 16px 20px 20px;
+        padding: 16px;
     }
 
     .page-grid {
@@ -435,7 +454,8 @@ pub const APP_STYLES: &str = r#"
         gap: 12px;
         align-items: start;
         min-width: 0;
-        min-height: 100%;
+        min-height: 0;
+        overflow: hidden;
     }
 
     /* ================================================================
@@ -491,6 +511,7 @@ pub const APP_STYLES: &str = r#"
     }
 
     .panel-head {
+        padding: 14px 16px;
         padding-bottom: 12px;
         margin-bottom: 0;
     }
@@ -498,7 +519,7 @@ pub const APP_STYLES: &str = r#"
     .panel-head,
     .detail-hero,
     .thread-header {
-        border-bottom: 1px solid rgba(224, 191, 184, 0.15);
+        border-bottom: 1px solid rgba(224, 191, 184, 0.22);
     }
 
     .panel-title-row,
@@ -1463,8 +1484,12 @@ pub const APP_STYLES: &str = r#"
     .nav-icon {
         flex-shrink: 0;
         width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         text-align: center;
-        font-size: 13px;
+        font-size: 14px;
         line-height: 1;
     }
 

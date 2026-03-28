@@ -44,90 +44,102 @@ const DESKTOP_STYLES: &str = r#"
         max-height: none;
     }
 
+    /* Minimal title-bar strip — dark, unobtrusive */
     .desktop-toolbar {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        padding: 8px 16px;
-        background: #F0EDED;
+        gap: 8px;
+        padding: 0 12px;
+        height: 26px;
+        min-height: 26px;
+        max-height: 26px;
+        flex-shrink: 0;
+        background: #0F0E0E;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .desktop-context {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         min-width: 0;
+        overflow: hidden;
     }
 
     .desktop-chip {
         display: inline-flex;
         align-items: center;
-        padding: 4px 10px;
+        padding: 1px 6px;
         border-radius: 0;
-        border: 1px solid #AA3618;
+        border: 1px solid rgba(170, 54, 24, 0.6);
         background: transparent;
-        color: #AA3618;
+        color: #EF6745;
         font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
+        font-size: 9px;
         letter-spacing: 0.06em;
         text-transform: uppercase;
+        line-height: 16px;
     }
 
     .desktop-note {
-        color: #58413C;
+        color: rgba(255, 255, 255, 0.38);
         font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-size: 10px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        max-width: 400px;
     }
 
     .desktop-actions {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 6px;
+        flex-shrink: 0;
     }
 
     .desktop-button {
-        border: 1px solid rgba(28, 27, 27, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 0;
         background: transparent;
-        color: #1C1B1B;
+        color: rgba(255, 255, 255, 0.55);
         font: inherit;
-        font-size: 10px;
+        font-size: 9px;
         font-family: "JetBrains Mono", monospace;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        padding: 5px 12px;
+        padding: 2px 8px;
+        line-height: 18px;
         cursor: pointer;
         transition: background 0.15s, color 0.15s;
     }
 
     .desktop-button:hover {
-        background: #1C1B1B;
-        color: #FFFFFF;
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.9);
     }
 
     .desktop-error {
-        margin: 8px 16px 0;
-        padding: 10px 14px;
+        flex-shrink: 0;
+        margin: 0;
+        padding: 6px 12px;
         border-radius: 0;
-        background: var(--surface-container-high, #E4E1E0);
-        color: #58413C;
-        font-size: 11px;
+        background: rgba(170, 54, 24, 0.08);
+        color: #EF6745;
+        font-size: 10px;
         font-family: "JetBrains Mono", monospace;
-        line-height: 1.5;
-        box-shadow: inset 3px 0 0 #AA3618;
+        line-height: 1.4;
+        border-bottom: 1px solid rgba(170, 54, 24, 0.2);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
     .status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 0;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
         flex-shrink: 0;
     }
 
@@ -137,6 +149,7 @@ const DESKTOP_STYLES: &str = r#"
 
     .status-dot-error {
         background: #AA3618;
+        animation: pulse 2s ease-in-out infinite;
     }
 "#;
 
@@ -207,6 +220,116 @@ const SPLASH_STYLES: &str = r#"
         font-size: 10px;
         color: rgba(255, 255, 255, 0.3);
         letter-spacing: 0.06em;
+    }
+    /* ── Connection form ────────────────────────────── */
+    .splash-conn-form {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        width: 360px;
+        max-width: 360px;
+        margin-bottom: 24px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.10);
+        padding: 20px 24px 18px;
+        z-index: 1;
+    }
+    .splash-conn-title {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.45);
+        margin-bottom: 4px;
+    }
+    .splash-conn-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .splash-conn-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.35);
+    }
+    .splash-conn-input {
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid rgba(255,255,255,0.20);
+        color: #FFFFFF;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        padding: 4px 0 5px;
+        outline: none;
+        width: 100%;
+        transition: border-color 0.15s;
+    }
+    .splash-conn-input:focus {
+        border-bottom-color: rgba(255,255,255,0.60);
+    }
+    /* Status row */
+    .splash-conn-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 2px;
+    }
+    .splash-status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .splash-status-connected { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+    .splash-status-failed    { background: #AA3618; box-shadow: 0 0 6px #AA3618; }
+    .splash-status-checking  { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+    .splash-status-text {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        color: rgba(255,255,255,0.50);
+        letter-spacing: 0.06em;
+    }
+    /* Buttons row */
+    .splash-conn-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+    }
+    .splash-secondary {
+        padding: 8px 16px;
+        background: transparent;
+        color: rgba(255,255,255,0.75);
+        border: 1px solid rgba(255,255,255,0.25);
+        border-radius: 0;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+        flex-shrink: 0;
+    }
+    .splash-secondary:hover {
+        background: rgba(255,255,255,0.10);
+        border-color: rgba(255,255,255,0.50);
+        color: #FFFFFF;
+    }
+    .splash-secondary-outline {
+        color: rgba(255,255,255,0.45);
+        border-color: rgba(255,255,255,0.15);
+        font-size: 10px;
+    }
+    .splash-launch-disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+    .splash-launch-disabled:hover {
+        background: #AA3618;
     }
 "#;
 
@@ -379,6 +502,11 @@ fn app() -> Element {
     let mut command_center_spawned = use_signal(|| false);
     let mut show_splash = use_signal(|| true);
     let spawned_flags = use_signal(|| std::collections::HashSet::<String>::new());
+
+    // SpacetimeDB connection form signals — must be unconditional (Dioxus hook rules)
+    let mut spacetime_url = use_signal(|| bootstrap.options.base_url.clone());
+    let mut spacetime_db = use_signal(|| bootstrap.options.database.clone());
+    let mut connection_status = use_signal(|| "checking".to_string());
 
     // Global keyboard shortcuts — each must be its own hook call (no loops!)
     // Dioxus hooks must be called unconditionally in the same order every render.
@@ -632,11 +760,111 @@ fn app() -> Element {
                     alt: "Cadet astronaut",
                 }
                 span { class: "splash-welcome", "WELCOME TO CADET" }
-                button {
-                    class: "splash-launch",
-                    onclick: move |_| show_splash.set(false),
-                    "LAUNCH"
+
+                // SpacetimeDB connection form
+                div { class: "splash-conn-form",
+                    span { class: "splash-conn-title", "SPACETIMEDB CONNECTION" }
+
+                    div { class: "splash-conn-field",
+                        label { class: "splash-conn-label", "SERVER URL" }
+                        input {
+                            class: "splash-conn-input",
+                            r#type: "text",
+                            value: "{spacetime_url}",
+                            oninput: move |evt| spacetime_url.set(evt.value()),
+                        }
+                    }
+
+                    div { class: "splash-conn-field",
+                        label { class: "splash-conn-label", "DATABASE" }
+                        input {
+                            class: "splash-conn-input",
+                            r#type: "text",
+                            value: "{spacetime_db}",
+                            oninput: move |evt| spacetime_db.set(evt.value()),
+                        }
+                    }
+
+                    // Status indicator
+                    div { class: "splash-conn-status",
+                        div {
+                            class: {
+                                let s = connection_status();
+                                if s == "connected" {
+                                    "splash-status-dot splash-status-connected"
+                                } else if s == "failed" {
+                                    "splash-status-dot splash-status-failed"
+                                } else {
+                                    "splash-status-dot splash-status-checking"
+                                }
+                            }
+                        }
+                        span { class: "splash-status-text",
+                            {
+                                let s = connection_status();
+                                if s == "connected" {
+                                    "Connected"
+                                } else if s == "failed" {
+                                    "Connection failed"
+                                } else if s == "skipped" {
+                                    "Offline mode"
+                                } else {
+                                    "Not connected"
+                                }
+                            }
+                        }
+                    }
+
+                    // Action buttons row
+                    div { class: "splash-conn-actions",
+                        button {
+                            class: "splash-secondary",
+                            onclick: move |_| {
+                                let url = spacetime_url();
+                                let db = spacetime_db();
+                                connection_status.set("checking".to_string());
+                                spawn(async move {
+                                    let opts = LiveSnapshotOptions {
+                                        base_url: url,
+                                        database: db,
+                                    };
+                                    let result = tokio::task::spawn_blocking(move || {
+                                        load_live_snapshot(&opts)
+                                    }).await;
+                                    match result {
+                                        Ok(Ok(_)) => connection_status.set("connected".to_string()),
+                                        _ => connection_status.set("failed".to_string()),
+                                    }
+                                });
+                            },
+                            "CONNECT"
+                        }
+                        button {
+                            class: "splash-secondary splash-secondary-outline",
+                            onclick: move |_| connection_status.set("skipped".to_string()),
+                            "SKIP (OFFLINE)"
+                        }
+                        button {
+                            class: {
+                                let s = connection_status();
+                                let ready = s == "connected" || s == "skipped";
+                                if ready { "splash-launch" } else { "splash-launch splash-launch-disabled" }
+                            },
+                            disabled: {
+                                let s = connection_status();
+                                s != "connected" && s != "skipped"
+                            },
+                            onclick: move |_| {
+                                let s = connection_status();
+                                if s == "connected" || s == "skipped" {
+                                    show_splash.set(false);
+                                }
+                            },
+                            "LAUNCH"
+                        }
+                    }
                 }
+
                 div { class: "splash-massive", "CADET" }
                 span { class: "splash-version", "v0.1.0 // ORBITAL.OPS" }
             }
