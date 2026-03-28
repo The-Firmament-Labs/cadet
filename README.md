@@ -25,6 +25,7 @@ Cadet is an event-driven agent platform scaffold that blends:
 - [Dynamic agent UI](docs/DYNAMIC_AGENT_UI.md)
 - [GitHub automation guide](docs/GITHUB_AUTOMATION.md)
 - GitHub Pages project hub: generated from `SESSION.md`, `MASTER_IMPLEMENTATION_PLAN.md`, `IMPLEMENTATION_PHASES.md`, and `docs/**` through `.github/workflows/github-pages.yml`, with the built source also uploaded in CI as `cadet-project-hub-source`
+- GitHub Releases: cut from `v*.*.*` tags through `.github/workflows/release.yml`, attaching the current session tracker, implementation plans, and a packaged project-hub snapshot
 
 ## Repo layout
 
@@ -210,6 +211,7 @@ SPACETIME_DELETE_DATA=1 bun run spacetime:publish
 - Optional secret:
   - `GH_PAT` when the default `GITHUB_TOKEN` does not have enough permission to push agent-authored branches or open PRs under repository policy.
 - Until the Vercel secrets exist, the deploy workflow exits cleanly in a skipped state so the repo stays green.
+- Successful Vercel deploys now write a GitHub deployment/status record back to the repository so production URLs show up in the repo deployment history.
 
 Branch conventions:
 

@@ -5,6 +5,7 @@ Cadet uses a compact Milady-style GitHub automation layer tuned for a two-person
 ## Workflow map
 
 - `ci.yml`: required validation pipeline for pushes to `main`, `codex/**`, and `agent/**`, plus PRs to `main`.
+- `release.yml`: creates Git tags on demand and publishes real GitHub Releases from `v*.*.*` tags with session and planning assets attached.
 - `vercel-deploy.yml`: production deploy workflow for the Vercel control plane on `main`.
 - `github-pages.yml`: publishes the project hub to GitHub Pages from the canonical docs and session files after successful `CI` runs on `main`, gated by `ENABLE_GITHUB_PAGES=true` for repositories that support Pages.
 - `sync-labels.yml`: keeps repository labels in sync with `.github/labels.json`.
@@ -92,4 +93,11 @@ If these commands drift, the workflows must change with them.
 
 - `bun run docs:build` generates the Pages-ready project hub from the canonical markdown files.
 - `ci.yml` uploads the generated source as the `cadet-project-hub-source` artifact on every run so collaborators can inspect the published docs surface even when GitHub Pages is not available for the repository.
+- `github-pages.yml` is the only deployment path for the session/project hub. Vercel does not build or host this surface.
 - `github-pages.yml` is ready for repositories that support Pages. Enable it by setting the repository variable `ENABLE_GITHUB_PAGES=true`.
+
+## Vercel deployment visibility
+
+- `vercel-deploy.yml` now writes a real GitHub deployment record before the Vercel deploy starts.
+- On success, the workflow posts a GitHub deployment status with the live Vercel URL and the Actions run log URL.
+- On failure, the workflow marks the GitHub deployment as failed so the repo history reflects actual deployment state instead of a green Actions run with no deployment record.

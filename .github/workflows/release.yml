@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver tag to cut from the repository, for example v0.1.0"
+        required: true
+      target:
+        description: "Git ref to tag"
+        required: false
+        default: "main"
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-tag:
+    name: Prepare tag
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.target }}
+
+      - name: Validate tag input
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! printf '%s' "${VERSION}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'; then
+            echo "Version must be a semver tag like v0.1.0"
+            exit 1
+          fi
+
+      - name: Ensure tag does not already exist
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git fetch --tags origin
+          if git rev-parse "${VERSION}" >/dev/null 2>&1; then
+            echo "Tag ${VERSION} already exists."
+            exit 1
+          fi
+
+      - name: Create and push tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${VERSION}"
+          git push origin "refs/tags/${VERSION}"
+          echo "Queued release creation for ${VERSION} from ${GITHUB_SHA}." >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-cadet-workspace
+
+      - name: Build project hub source
+        run: bun run docs:build
+
+      - name: Package release assets
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          tar -czf cadet-project-hub-source.tgz -C .generated pages-src
+          jq -n \
+            --arg tag "${TAG}" \
+            --arg sha "${GITHUB_SHA}" \
+            --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            '{
+              tag: $tag,
+              commit: $sha,
+              generated_at: $generated_at,
+              assets: [
+                "cadet-project-hub-source.tgz",
+                "SESSION.md",
+                "MASTER_IMPLEMENTATION_PLAN.md",
+                "IMPLEMENTATION_PHASES.md"
+              ]
+            }' > release-manifest.json
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" \
+              cadet-project-hub-source.tgz \
+              release-manifest.json \
+              SESSION.md \
+              MASTER_IMPLEMENTATION_PLAN.md \
+              IMPLEMENTATION_PHASES.md \
+              --clobber
+            gh release edit "${TAG}" --title "Cadet ${TAG}" --latest
+          else
+            gh release create "${TAG}" \
+              cadet-project-hub-source.tgz \
+              release-manifest.json \
+              SESSION.md \
+              MASTER_IMPLEMENTATION_PLAN.md \
+              IMPLEMENTATION_PHASES.md \
+              --title "Cadet ${TAG}" \
+              --generate-notes \
+              --latest
+          fi
+
+      - name: Summarize release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          {
+            echo "Release published: ${TAG}"
+            echo ""
+            echo "Assets:"
+            echo "- cadet-project-hub-source.tgz"
+            echo "- release-manifest.json"
+            echo "- SESSION.md"
+            echo "- MASTER_IMPLEMENTATION_PLAN.md"
+            echo "- IMPLEMENTATION_PHASES.md"
+          } >> "$GITHUB_STEP_SUMMARY"

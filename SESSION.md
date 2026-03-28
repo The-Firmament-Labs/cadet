@@ -1,8 +1,8 @@
 # Session State
 
 **Current Phase**: Phase 1 - Deployment Portability Layer  
-**Current Stage**: Planning / Implementation  
-**Last Checkpoint**: Phase 0 completed and pushed  
+**Current Stage**: Release automation / deployment visibility  
+**Last Checkpoint**: GitHub release and deployment-status hardening in progress  
 **Planning Docs**: [MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md), [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md), [docs/CONVERSATION_SYNTHESIS.md](docs/CONVERSATION_SYNTHESIS.md), [docs/RALPH_LOOP.md](docs/RALPH_LOOP.md), [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
@@ -137,6 +137,9 @@ If the active user is `SYMBaiEX`, default to non-UI implementation work first un
 - [x] GitHub and Vercel pipeline foundations are already in place
 - [x] GitHub Pages site now builds from canonical docs, plans, and `SESSION.md`
 - [x] CI docs validation now covers both markdown links and the generated Pages source
+- [x] GitHub Releases are cut from `v*.*.*` tags with the current session tracker, plans, and project-hub package attached
+- [x] Vercel production deploys now write GitHub deployment/status records back to the repository
+- [x] Session/project-hub publishing remains isolated to GitHub Pages instead of being folded into the Vercel app build
 - [ ] Add multi-target deployment docs and provider-specific rollout checks
 
 ## Known Issues
