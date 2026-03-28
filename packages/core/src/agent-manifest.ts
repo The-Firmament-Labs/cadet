@@ -88,6 +88,44 @@ export interface LearningPolicy {
   maxRetrievedChunks: number;
 }
 
+/** Context trigger — maps agent events to prompt/memory/trajectory actions. */
+export interface ContextTrigger {
+  id: string;
+  /** Event that activates this trigger */
+  event: "step_started" | "goal_received" | "step_completed" | "run_completed" | "channel_message" | "approval_created";
+  /** Conditions that must all pass */
+  conditions: ContextTriggerCondition[];
+  /** Actions to take when triggered */
+  actions: ContextTriggerAction[];
+  /** Higher priority triggers inject context first (default: 50) */
+  priority?: number | undefined;
+}
+
+export interface ContextTriggerCondition {
+  type: "goal_contains" | "stage_is" | "channel_is" | "risk_at_least" | "step_count_at_least";
+  value: string | string[] | number;
+}
+
+export interface ContextTriggerAction {
+  type: "inject_prompt" | "query_memory" | "inject_trajectory" | "log_trajectory" | "consolidate_memory" | "inject_channel_format";
+  /** Prompt path (relative to .cadet/prompts/), memory namespace, or channel name */
+  target?: string | undefined;
+  /** Max chunks for memory queries */
+  maxChunks?: number | undefined;
+  /** Number of recent steps for trajectory injection */
+  lastNSteps?: number | undefined;
+}
+
+/** Agent prompt references — paths to prompt files loaded at runtime */
+export interface AgentPrompts {
+  /** System prompt path (relative to .cadet/prompts/) */
+  system: string;
+  /** Agent personality prompt path */
+  personality: string;
+  /** Per-stage prompt overrides */
+  stages?: Record<string, string> | undefined;
+}
+
 export interface AgentScheduleDefinition {
   id: string;
   goal: string;
@@ -117,6 +155,10 @@ export interface AgentManifest {
   toolProfiles: ToolProfile[];
   handoffRules: HandoffRule[];
   learningPolicy: LearningPolicy;
+  /** Context triggers — programmatic rules for dynamic prompt/memory assembly */
+  contextTriggers?: ContextTrigger[] | undefined;
+  /** Prompt file references for this agent */
+  prompts?: AgentPrompts | undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -527,6 +569,36 @@ export function parseAgentManifest(value: unknown): AgentManifest {
               learningPolicy.maxRetrievedChunks,
               "learningPolicy.maxRetrievedChunks"
             )
-    }
+    },
+    contextTriggers: parseContextTriggers(value.contextTriggers),
+    prompts: parseAgentPrompts(value.prompts),
+  };
+}
+
+function parseContextTriggers(value: unknown): ContextTrigger[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) return undefined;
+  return value.map((trigger, index) => {
+    const t = trigger as Record<string, unknown>;
+    return {
+      id: expectString(t.id, `contextTriggers[${index}].id`),
+      event: expectString(t.event, `contextTriggers[${index}].event`) as ContextTrigger["event"],
+      conditions: Array.isArray(t.conditions)
+        ? (t.conditions as ContextTriggerCondition[])
+        : [],
+      actions: Array.isArray(t.actions)
+        ? (t.actions as ContextTriggerAction[])
+        : [],
+      priority: typeof t.priority === "number" ? t.priority : 50,
+    };
+  });
+}
+
+function parseAgentPrompts(value: unknown): AgentPrompts | undefined {
+  if (value === undefined || value === null || !isRecord(value)) return undefined;
+  return {
+    system: typeof value.system === "string" ? value.system : "system/core.md",
+    personality: typeof value.personality === "string" ? value.personality : "",
+    stages: isRecord(value.stages) ? (value.stages as Record<string, string>) : undefined,
   };
 }
