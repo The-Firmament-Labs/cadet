@@ -11,3 +11,4 @@ Cargo.lock
 .env.*.local
 *.tsbuildinfo
 .generated
+dexscreener-cli-mcp-tool

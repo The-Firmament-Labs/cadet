@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@chat-adapter/discord": "^4.23.0",
+    "@chat-adapter/github": "^4.23.0",
+    "@chat-adapter/slack": "^4.23.0",
+    "@chat-adapter/telegram": "^4.23.0",
     "@gsap/react": "^2.1.2",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
@@ -11,6 +15,7 @@
     "@starbridge/core": "workspace:*",
     "@starbridge/sdk": "workspace:*",
     "@tailwindcss/postcss": "^4.2.2",
+    "chat": "^4.23.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

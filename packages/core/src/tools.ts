@@ -10,8 +10,8 @@
  * - Browser: web extraction and automation
  * - Crypto: DexScreener, Jupiter, CoinGecko
  * - Platform: Vercel, GitHub
- * - Communication: Slack, Discord, GitHub issues
- * - Execution: code sandboxes, file operations
+ * - Communication: email (himalaya), multi-platform messaging (Chat SDK)
+ * - Execution: Spotify Web API, web search, code sandboxes
  */
 
 export interface ToolDefinition {
@@ -295,31 +295,74 @@ export const AGENT_TOOLS: ToolDefinition[] = [
   },
 
   // ── Communication Tools ─────────────────────────────────────────
+  // EMAIL (himalaya CLI — installed at /opt/homebrew/bin/himalaya)
   {
-    name: "post_slack",
-    description: "Send a message to a Slack channel",
+    name: "send_email",
+    description: "Send an email via himalaya CLI",
     category: "communication",
-    api: "POST https://slack.com/api/chat.postMessage",
+    cli: "himalaya send --to {to} --subject \"{subject}\" --body \"{body}\"",
     params: [
-      { name: "channel", type: "string", required: true, description: "Slack channel ID" },
-      { name: "text", type: "string", required: true, description: "Message text (mrkdwn supported)" },
+      { name: "to", type: "string", required: true, description: "Recipient email" },
+      { name: "subject", type: "string", required: true, description: "Email subject" },
+      { name: "body", type: "string", required: true, description: "Email body" },
     ],
     requiresApproval: true,
   },
   {
-    name: "post_github_comment",
-    description: "Comment on a GitHub issue or PR",
+    name: "list_emails",
+    description: "List emails in a mailbox folder via himalaya",
     category: "communication",
-    api: "POST https://api.github.com/repos/{repo}/issues/{number}/comments",
+    cli: "himalaya list --folder {folder}",
     params: [
-      { name: "repo", type: "string", required: true, description: "owner/repo" },
-      { name: "number", type: "number", required: true, description: "Issue or PR number" },
-      { name: "body", type: "string", required: true, description: "Comment body (markdown)" },
+      { name: "folder", type: "string", required: false, description: "Folder name (default: INBOX)" },
+    ],
+    requiresApproval: false,
+  },
+  {
+    name: "read_email",
+    description: "Read a specific email by ID via himalaya",
+    category: "communication",
+    cli: "himalaya read {id}",
+    params: [
+      { name: "id", type: "string", required: true, description: "Email ID" },
+    ],
+    requiresApproval: false,
+  },
+  // CHAT SDK (unified multi-platform messaging — replaces post_slack + post_github_comment)
+  {
+    name: "post_message",
+    description: "Send message to any connected platform via Chat SDK (Slack, Discord, GitHub, Telegram)",
+    category: "communication",
+    api: "POST /api/bot/{platform}/send",
+    params: [
+      { name: "platform", type: "string", required: true, description: "slack | discord | github | telegram" },
+      { name: "channel", type: "string", required: true, description: "Channel or thread ID" },
+      { name: "text", type: "string", required: true, description: "Message text" },
     ],
     requiresApproval: true,
   },
 
   // ── Execution Tools ─────────────────────────────────────────────
+  // SPOTIFY (Web API — spotify-tui doesn't compile, use API directly)
+  {
+    name: "spotify_now_playing",
+    description: "Get currently playing track from Spotify Web API",
+    category: "execution",
+    api: "GET https://api.spotify.com/v1/me/player/currently-playing",
+    params: [],
+    requiresApproval: false,
+  },
+  {
+    name: "spotify_search",
+    description: "Search Spotify for tracks, albums, or artists",
+    category: "execution",
+    api: "GET https://api.spotify.com/v1/search?q={query}&type={type}",
+    params: [
+      { name: "query", type: "string", required: true, description: "Search query" },
+      { name: "type", type: "string", required: false, description: "track | album | artist (default: track)" },
+    ],
+    requiresApproval: false,
+  },
   {
     name: "search_web",
     description: "Search the web for information",
