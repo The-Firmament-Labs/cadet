@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% if page.title %}{{ page.title }} · {% endif %}Cadet Project Hub</title>
+    <meta
+      name="description"
+      content="{{ page.description | default: 'Shared Cadet planning, docs, and session tracking.' }}"
+    />
+    <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}" />
+  </head>
+  <body class="dark">
+    <div class="site-shell">
+      <aside class="site-sidebar">
+        <a class="brand-link" href="{{ '/' | relative_url }}">
+          <span class="brand-mark">Cadet</span>
+          <span class="brand-subtitle">Project Hub</span>
+        </a>
+        <p class="brand-copy">
+          Shared planning, session tracking, architecture, and operating notes
+          published from the repo.
+        </p>
+        {% include sidebar.html %}
+      </aside>
+      <main class="site-main">
+        <header class="page-header">
+          {% if page.section %}
+            <p class="page-section">{{ page.section }}</p>
+          {% endif %}
+          <div class="page-header-row">
+            <div>
+              <h1>{{ page.title }}</h1>
+              {% if page.description %}
+                <p class="page-description">{{ page.description }}</p>
+              {% endif %}
+            </div>
+            <div class="page-actions">
+              <a href="https://github.com/Dexploarer/cadet">Repository</a>
+              {% if page.source_path %}
+                <a href="https://github.com/Dexploarer/cadet/blob/main/{{ page.source_path }}"
+                  >Source file</a
+                >
+              {% endif %}
+            </div>
+          </div>
+        </header>
+        <article class="markdown-body">{{ content }}</article>
+      </main>
+    </div>
+  </body>
+</html>

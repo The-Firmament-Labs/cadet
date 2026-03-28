@@ -1,8 +1,8 @@
 # Session State
 
 **Current Phase**: Phase 0 - Canonical Architecture Consolidation  
-**Current Stage**: Planning / Implementation  
-**Last Checkpoint**: loop 0.24 landed locally  
+**Current Stage**: CI/CD hardening / shared docs portal  
+**Last Checkpoint**: live Dioxus mission control and Pages-backed docs portal landed locally  
 **Planning Docs**: [MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md), [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md), [docs/CONVERSATION_SYNTHESIS.md](docs/CONVERSATION_SYNTHESIS.md), [docs/RALPH_LOOP.md](docs/RALPH_LOOP.md), [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
@@ -70,10 +70,10 @@ If the active user is `SYMBaiEX`, default to non-UI implementation work first un
 **Next Action**: Continue removing duplicated workflow/runtime literals from remaining operator/control-plane surfaces and residual test fixtures, then normalize any remaining storage read models and queue/operator contracts so inspection, recovery, SDK, orchestration, and worker paths all speak one canonical state model.
 
 **Key Files**:
-- [rust/starbridge-core/src/lib.rs](/Users/home/Documents/New%20project/rust/starbridge-core/src/lib.rs)
-- [rust/starbridge-runner/src/main.rs](/Users/home/Documents/New%20project/rust/starbridge-runner/src/main.rs)
-- [packages/core/src/workflow.ts](/Users/home/Documents/New%20project/packages/core/src/workflow.ts)
-- [packages/core/src/orchestration.ts](/Users/home/Documents/New%20project/packages/core/src/orchestration.ts)
+- [rust/starbridge-core/src/lib.rs](rust/starbridge-core/src/lib.rs)
+- [rust/starbridge-runner/src/main.rs](rust/starbridge-runner/src/main.rs)
+- [packages/core/src/workflow.ts](packages/core/src/workflow.ts)
+- [packages/core/src/orchestration.ts](packages/core/src/orchestration.ts)
 
 ## Phase 1: Deployment Portability Layer 🔄
 **Spec**: [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
@@ -129,6 +129,8 @@ If the active user is `SYMBaiEX`, default to non-UI implementation work first un
 **Progress**:
 - [x] Bun, Rust, SpacetimeDB, and web build gates are green locally
 - [x] GitHub and Vercel pipeline foundations are already in place
+- [x] GitHub Pages site now builds from canonical docs, plans, and `SESSION.md`
+- [x] CI docs validation now covers both markdown links and the generated Pages source
 - [ ] Add multi-target deployment docs and provider-specific rollout checks
 
 ## Known Issues

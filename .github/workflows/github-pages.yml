@@ -1,0 +1,81 @@
+name: GitHub Pages
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_enabled: ${{ steps.gate.outputs.deploy_enabled }}
+    steps:
+      - name: Check Pages deployment gate
+        id: gate
+        env:
+          ENABLE_GITHUB_PAGES: ${{ vars.ENABLE_GITHUB_PAGES }}
+        run: |
+          if [ "${ENABLE_GITHUB_PAGES}" = "true" ]; then
+            echo "deploy_enabled=true" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages deployment is enabled for this repository." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "deploy_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping GitHub Pages deployment. Set ENABLE_GITHUB_PAGES=true after the repository plan or visibility supports Pages." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    needs: preflight
+    if: >-
+      needs.preflight.outputs.deploy_enabled == 'true' &&
+      (
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'workflow_run' &&
+         github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.event == 'push' &&
+         github.event.workflow_run.head_branch == 'main')
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-cadet-workspace
+
+      - name: Build Pages source
+        run: bun run docs:build
+
+      - name: Render Pages site
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./.generated/pages-src
+          destination: ./.generated/pages-dist
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./.generated/pages-dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

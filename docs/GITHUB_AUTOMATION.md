@@ -6,6 +6,7 @@ Cadet uses a compact Milady-style GitHub automation layer tuned for a two-person
 
 - `ci.yml`: required validation pipeline for pushes to `main`, `codex/**`, and `agent/**`, plus PRs to `main`.
 - `vercel-deploy.yml`: production deploy workflow for the Vercel control plane on `main`.
+- `github-pages.yml`: publishes the project hub to GitHub Pages from the canonical docs and session files after successful `CI` runs on `main`, gated by `ENABLE_GITHUB_PAGES=true` for repositories that support Pages.
 - `sync-labels.yml`: keeps repository labels in sync with `.github/labels.json`.
 - `auto-label.yml`: applies PR path labels and issue keyword labels.
 - `agent-review.yml`: Claude-powered PR review and issue triage.
@@ -77,6 +78,7 @@ The GitHub automation layer is built around real repo commands:
 
 ```bash
 bun run docs:check
+bun run docs:build
 bun run typecheck
 bun run test
 bun run build
@@ -85,3 +87,9 @@ cd spacetimedb && spacetime build
 ```
 
 If these commands drift, the workflows must change with them.
+
+## Project hub publishing
+
+- `bun run docs:build` generates the Pages-ready project hub from the canonical markdown files.
+- `ci.yml` uploads the generated source as the `cadet-project-hub-source` artifact on every run so collaborators can inspect the published docs surface even when GitHub Pages is not available for the repository.
+- `github-pages.yml` is ready for repositories that support Pages. Enable it by setting the repository variable `ENABLE_GITHUB_PAGES=true`.

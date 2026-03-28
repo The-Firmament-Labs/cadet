@@ -2,6 +2,8 @@
 
 Cadet’s docs are split into planning artifacts, architecture guides, and operator-facing implementation guides.
 
+These docs are also published to the GitHub Pages project hub, which is generated from the canonical markdown files in this repo so collaborators can read the active session tracker and plans without cloning the repo. The same generated source is uploaded by CI as the `cadet-project-hub-source` artifact.
+
 ## Planning docs
 
 - [Conversation synthesis](CONVERSATION_SYNTHESIS.md)
