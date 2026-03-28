@@ -372,25 +372,6 @@ fn app() -> Element {
         menu_action_signal.set(Some(event.id.0.clone()));
     });
 
-    // Global keyboard shortcuts — ⌘K opens command palette, ⌘1-5 navigate views
-    let shortcuts: [(&str, &str); 6] = [
-        ("Super+K", "toggle-palette"),
-        ("Super+1", "view-overview"),
-        ("Super+2", "view-conversations"),
-        ("Super+3", "view-workflow"),
-        ("Super+4", "view-catalog"),
-        ("Super+5", "view-memory"),
-    ];
-    for (accel, action_id) in shortcuts {
-        let mut signal = menu_action;
-        let id = action_id.to_string();
-        let _ = use_global_shortcut(accel, move |state| {
-            if state == HotKeyState::Pressed {
-                signal.set(Some(id.clone()));
-            }
-        });
-    }
-
     // ── Widget System ────────────────────────────────────────────────
     let cadet_config = use_hook(CadetConfig::load);
     let widget_bridge = use_hook(WidgetBridge::new);
@@ -398,8 +379,27 @@ fn app() -> Element {
     let mut command_center_spawned = use_signal(|| false);
     let mut show_splash = use_signal(|| true);
 
-    // Widget hotkeys — registered unconditionally (Dioxus hook rules),
-    // but behavior is gated on widget.enabled + splash dismissed
+    // Global keyboard shortcuts — each must be its own hook call (no loops!)
+    // Dioxus hooks must be called unconditionally in the same order every render.
+    macro_rules! register_shortcut {
+        ($accel:expr, $action:expr, $signal:expr) => {
+            {
+                let mut s = $signal;
+                let a = $action.to_string();
+                let _ = use_global_shortcut($accel, move |state| {
+                    if state == HotKeyState::Pressed { s.set(Some(a.clone())); }
+                });
+            }
+        };
+    }
+    register_shortcut!("Super+K", "toggle-palette", menu_action);
+    register_shortcut!("Super+1", "view-overview", menu_action);
+    register_shortcut!("Super+2", "view-conversations", menu_action);
+    register_shortcut!("Super+3", "view-workflow", menu_action);
+    register_shortcut!("Super+4", "view-catalog", menu_action);
+    register_shortcut!("Super+5", "view-memory", menu_action);
+
+    // Ctrl+Shift+Space — Command Center (gated on splash dismissed)
     {
         let bridge_cc = widget_bridge.clone();
         let splash = show_splash;
