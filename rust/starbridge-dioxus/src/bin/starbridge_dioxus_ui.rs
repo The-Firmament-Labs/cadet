@@ -15,10 +15,12 @@ use starbridge_core::MissionControlSnapshot;
 use starbridge_dioxus::{
     load_live_snapshot, sample_snapshot, subscribe_live_snapshots, CadetConfig, LiveSnapshotOptions,
     MenuAction, MissionControlApp, OperatorRuntimeContext, WidgetBridge,
+    auth_provider::AuthProviderRegistry,
     clipboard::ClipboardHistory,
     widget::desktop::{
-        FloatingWidget, LiveAgentHud, QuickDispatchPalette, ToastOverlay,
-        widget_window_config, widget_window_config_dispatch, widget_window_config_hud,
+        CommandCenter, FloatingWidget, LiveAgentHud, QuickDispatchPalette, ToastOverlay,
+        widget_window_config, widget_window_config_command_center, widget_window_config_dispatch,
+        widget_window_config_hud,
     },
 };
 use starbridge_dioxus::clipboard::desktop::{ClipboardWidget, clipboard_window_config};
@@ -288,98 +290,146 @@ fn app() -> Element {
     let cadet_config = use_hook(CadetConfig::load);
     let widget_bridge = use_hook(WidgetBridge::new);
     let clipboard_history = use_hook(|| ClipboardHistory::new(100));
-    let mut widgets_spawned = use_signal(|| false);
+    let mut command_center_spawned = use_signal(|| false);
 
     if cadet_config.widget.enabled {
-        // Ctrl+Shift+Space — Context widget (read clipboard, show floating chat)
-        let bridge_ctx = widget_bridge.clone();
+        // Ctrl+Shift+Space — open the Command Center
+        let bridge_cc = widget_bridge.clone();
         let _ = use_global_shortcut("Ctrl+Shift+Space", move |state| {
             if state == HotKeyState::Pressed {
+                // Also capture clipboard context while opening
                 if let Ok(mut cb) = arboard::Clipboard::new() {
                     if let Ok(text) = cb.get_text() {
                         if !text.trim().is_empty() {
-                            bridge_ctx.set_context(text);
+                            bridge_cc.set_context(text);
                         }
                     }
                 }
+                bridge_cc.dispatch("__system__".into(), "show-command-center".into());
             }
         });
 
-        // Ctrl+Shift+H — Live Agent HUD
-        let bridge_hud = widget_bridge.clone();
-        let _ = use_global_shortcut("Ctrl+Shift+H", move |_state| {
-            // HUD window is always visible — toggle not needed, just ensure spawned
-            let _ = &bridge_hud;
-        });
+        // Spawn only the Command Center on startup; individual widgets are
+        // spawned on-demand when toggled on via the Command Center UI.
+        if !command_center_spawned() {
+            // Discover auth providers once at startup
+            let auth = AuthProviderRegistry::discover();
 
-        // Ctrl+Shift+D — Quick Dispatch Palette
-        let mut dispatch_signal = menu_action;
-        let _ = use_global_shortcut("Ctrl+Shift+D", move |state| {
-            if state == HotKeyState::Pressed {
-                dispatch_signal.set(Some("show-dispatch".to_string()));
-            }
-        });
-
-        // Ctrl+Shift+V — Clipboard History
-        let _ = use_global_shortcut("Ctrl+Shift+V", move |_state| {
-            // Clipboard widget shows on hotkey
-        });
-
-        // Ctrl+Shift+M — 3D Mascot toggle
-        let _ = use_global_shortcut("Ctrl+Shift+M", move |_state| {
-            // Mascot window toggle
-        });
-
-        // Spawn all widget windows once
-        if !widgets_spawned() {
-            // 1. Context Widget
             let b = widget_bridge.clone();
             let c = cadet_config.widget.clone();
+            let a = auth.clone();
             spawn(async move {
-                let dom = VirtualDom::new_with_props(FloatingWidget,
-                    starbridge_dioxus::widget::desktop::FloatingWidgetProps { bridge: b, config: c });
-                let _ctx = dioxus_desktop::window().new_window(dom, widget_window_config()).await;
+                let dom = VirtualDom::new_with_props(
+                    CommandCenter,
+                    starbridge_dioxus::widget::desktop::CommandCenterProps {
+                        bridge: b,
+                        config: c,
+                        auth: a,
+                    },
+                );
+                let _ctx = dioxus_desktop::window()
+                    .new_window(dom, widget_window_config_command_center())
+                    .await;
             });
 
-            // 2. Live Agent HUD
-            let b = widget_bridge.clone();
-            spawn(async move {
-                let dom = VirtualDom::new_with_props(LiveAgentHud,
-                    starbridge_dioxus::widget::desktop::LiveAgentHudProps { bridge: b });
-                let _ctx = dioxus_desktop::window().new_window(dom, widget_window_config_hud()).await;
-            });
-
-            // 3. Quick Dispatch Palette
-            let b = widget_bridge.clone();
-            let c = cadet_config.widget.clone();
-            spawn(async move {
-                let dom = VirtualDom::new_with_props(QuickDispatchPalette,
-                    starbridge_dioxus::widget::desktop::QuickDispatchPaletteProps { bridge: b, config: c });
-                let _ctx = dioxus_desktop::window().new_window(dom, widget_window_config_dispatch()).await;
-            });
-
-            // 4. Clipboard History
-            let b = widget_bridge.clone();
-            let h = clipboard_history.clone();
-            spawn(async move {
-                let dom = VirtualDom::new_with_props(ClipboardWidget,
-                    starbridge_dioxus::clipboard::desktop::ClipboardWidgetProps { history: h, bridge: b });
-                let _ctx = dioxus_desktop::window().new_window(dom, clipboard_window_config()).await;
-            });
-
-            // 5. 3D Mascot PiP
-            let b = widget_bridge.clone();
-            spawn(async move {
-                let dom = VirtualDom::new_with_props(MascotWidget,
-                    starbridge_dioxus::mascot::desktop::MascotWidgetProps { bridge: b });
-                let _ctx = dioxus_desktop::window().new_window(dom, mascot_window_config()).await;
-            });
-
-            // Start clipboard watcher
+            // Start clipboard watcher so context capture works even before
+            // the Clipboard widget is toggled on.
             let h = clipboard_history.clone();
             starbridge_dioxus::clipboard::start_clipboard_watcher(h);
 
-            widgets_spawned.set(true);
+            command_center_spawned.set(true);
+        }
+
+        // On-demand widget spawning: watch widget_toggles and spawn windows
+        // when a widget is switched on for the first time.
+        // Each widget tracks its own "has been spawned" flag.
+        let spawned_flags = use_signal(|| std::collections::HashSet::<String>::new());
+
+        {
+            let bridge_ref = widget_bridge.clone();
+            let h = clipboard_history.clone();
+            let c = cadet_config.widget.clone();
+
+            // Check each widget toggle and spawn if newly enabled
+            let toggles_snapshot = bridge_ref.widget_toggles.lock().unwrap().clone();
+            for (id, visible) in toggles_snapshot.iter() {
+                if *visible && !spawned_flags().contains(id.as_str()) {
+                    let widget_id = id.clone();
+                    let b = bridge_ref.clone();
+                    let cfg = c.clone();
+                    let history = h.clone();
+                    let mut flags = spawned_flags;
+
+                    match widget_id.as_str() {
+                        "context-chat" => {
+                            let bc = b.clone();
+                            let cc = cfg.clone();
+                            spawn(async move {
+                                let dom = VirtualDom::new_with_props(FloatingWidget,
+                                    starbridge_dioxus::widget::desktop::FloatingWidgetProps {
+                                        bridge: bc, config: cc,
+                                    });
+                                let _ctx = dioxus_desktop::window()
+                                    .new_window(dom, widget_window_config())
+                                    .await;
+                            });
+                        }
+                        "agent-hud" => {
+                            let bh = b.clone();
+                            spawn(async move {
+                                let dom = VirtualDom::new_with_props(LiveAgentHud,
+                                    starbridge_dioxus::widget::desktop::LiveAgentHudProps {
+                                        bridge: bh,
+                                    });
+                                let _ctx = dioxus_desktop::window()
+                                    .new_window(dom, widget_window_config_hud())
+                                    .await;
+                            });
+                        }
+                        "quick-dispatch" => {
+                            let bd = b.clone();
+                            let cd = cfg.clone();
+                            spawn(async move {
+                                let dom = VirtualDom::new_with_props(QuickDispatchPalette,
+                                    starbridge_dioxus::widget::desktop::QuickDispatchPaletteProps {
+                                        bridge: bd, config: cd,
+                                    });
+                                let _ctx = dioxus_desktop::window()
+                                    .new_window(dom, widget_window_config_dispatch())
+                                    .await;
+                            });
+                        }
+                        "clipboard" => {
+                            let bv = b.clone();
+                            let hv = history.clone();
+                            spawn(async move {
+                                let dom = VirtualDom::new_with_props(ClipboardWidget,
+                                    starbridge_dioxus::clipboard::desktop::ClipboardWidgetProps {
+                                        history: hv, bridge: bv,
+                                    });
+                                let _ctx = dioxus_desktop::window()
+                                    .new_window(dom, clipboard_window_config())
+                                    .await;
+                            });
+                        }
+                        "mascot" => {
+                            let bm = b.clone();
+                            spawn(async move {
+                                let dom = VirtualDom::new_with_props(MascotWidget,
+                                    starbridge_dioxus::mascot::desktop::MascotWidgetProps {
+                                        bridge: bm,
+                                    });
+                                let _ctx = dioxus_desktop::window()
+                                    .new_window(dom, mascot_window_config())
+                                    .await;
+                            });
+                        }
+                        _ => {}
+                    }
+
+                    flags.write().insert(widget_id);
+                }
+            }
         }
     }
 

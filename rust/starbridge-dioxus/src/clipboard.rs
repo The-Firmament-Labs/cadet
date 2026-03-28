@@ -556,11 +556,13 @@ pub mod desktop {
             div { class: "clipboard-shell",
                 div { class: "clipboard-glass",
 
-                    // Header
+                    // Header — draggable
                     div { class: "cb-header",
-                        div { class: "cb-brand",
-                            div { class: "cb-brand-dot" }
-                            span { class: "cb-brand-label", "Clipboard" }
+                        div { style: "-webkit-app-region: drag; cursor: grab; flex: 1;",
+                            div { class: "cb-brand",
+                                div { class: "cb-brand-dot" }
+                                span { class: "cb-brand-label", "Clipboard" }
+                            }
                         }
                         button {
                             class: "cb-close",

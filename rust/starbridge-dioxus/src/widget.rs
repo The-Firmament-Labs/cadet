@@ -155,6 +155,8 @@ pub struct WidgetBridge {
     pub recent_dispatches: Arc<Mutex<Vec<RecentDispatch>>>,
     /// Active notification toasts for ToastOverlay.
     pub toasts: Arc<Mutex<Vec<Toast>>>,
+    /// Per-widget visibility toggles keyed by widget id.
+    pub widget_toggles: Arc<Mutex<std::collections::HashMap<String, bool>>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,6 +167,10 @@ pub struct ChatMessage {
 
 impl WidgetBridge {
     pub fn new() -> Self {
+        let mut default_toggles = std::collections::HashMap::new();
+        for id in &["context-chat", "agent-hud", "quick-dispatch", "clipboard", "mascot"] {
+            default_toggles.insert(id.to_string(), false);
+        }
         Self {
             context_text: Arc::new(Mutex::new(None)),
             chat_messages: Arc::new(Mutex::new(Vec::new())),
@@ -172,7 +178,19 @@ impl WidgetBridge {
             metrics: Arc::new(Mutex::new(HudMetrics::default())),
             recent_dispatches: Arc::new(Mutex::new(Vec::new())),
             toasts: Arc::new(Mutex::new(Vec::new())),
+            widget_toggles: Arc::new(Mutex::new(default_toggles)),
         }
+    }
+
+    /// Get the visibility state of a widget by id.
+    pub fn widget_visible(&self, id: &str) -> bool {
+        self.widget_toggles.lock().unwrap().get(id).copied().unwrap_or(false)
+    }
+
+    /// Set the visibility state of a widget by id.
+    pub fn set_widget_visible(&self, id: &str, visible: bool) {
+        let mut toggles = self.widget_toggles.lock().unwrap();
+        toggles.insert(id.to_string(), visible);
     }
 
     pub fn set_context(&self, text: String) {
@@ -270,6 +288,17 @@ pub const WIDGET_STYLES: &str = r#"
         display: flex;
         align-items: center;
         justify-content: space-between;
+    }
+
+    .widget-drag-handle {
+        cursor: grab;
+        flex: 1;
+        min-height: 24px;
+        -webkit-app-region: drag;
+    }
+
+    .widget-drag-handle:active {
+        cursor: grabbing;
     }
 
     .widget-brand {
@@ -474,8 +503,9 @@ pub const WIDGET_STYLES: &str = r#"
         justify-content: center;
         gap: 2px;
         overflow: hidden;
-        cursor: pointer;
+        cursor: grab;
         user-select: none;
+        -webkit-app-region: drag;
     }
 
     .hud-strip:hover {
@@ -788,6 +818,270 @@ pub const WIDGET_STYLES: &str = r#"
             transform: translateX(0);
         }
     }
+
+    /* ── CommandCenter ───────────────────────────────────────────── */
+
+    .command-center {
+        backdrop-filter: blur(28px) saturate(1.5);
+        -webkit-backdrop-filter: blur(28px) saturate(1.5);
+        background: rgba(22, 22, 22, 0.90);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 18px;
+        box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.6),
+            0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        height: calc(100vh - 16px);
+        overflow: hidden;
+    }
+
+    .cc-tabs {
+        display: flex;
+        gap: 4px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 3px;
+    }
+
+    .cc-tab {
+        flex: 1;
+        padding: 6px 10px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.45);
+        font: inherit;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        letter-spacing: 0.03em;
+    }
+
+    .cc-tab:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .cc-tab-active {
+        background: rgba(224, 123, 90, 0.18);
+        color: #e07b5a;
+        border: 1px solid rgba(224, 123, 90, 0.25);
+    }
+
+    .cc-tab-active:hover {
+        background: rgba(224, 123, 90, 0.24);
+        color: #e07b5a;
+    }
+
+    .cc-section-title {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.35);
+        font-family: "JetBrains Mono", monospace;
+        margin-bottom: 4px;
+    }
+
+    .cc-widget-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .cc-widget-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        transition: background 0.12s;
+    }
+
+    .cc-widget-row:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .cc-widget-icon {
+        font-size: 16px;
+        width: 22px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+
+    .cc-widget-name {
+        flex: 1;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.80);
+        font-weight: 500;
+    }
+
+    .cc-widget-hotkey {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.30);
+        font-family: "JetBrains Mono", monospace;
+        flex-shrink: 0;
+    }
+
+    .cc-toggle {
+        position: relative;
+        width: 32px;
+        height: 18px;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.2s, border-color 0.2s;
+        display: flex;
+        align-items: center;
+        padding: 2px;
+    }
+
+    .cc-toggle::after {
+        content: "";
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.45);
+        transition: transform 0.2s, background 0.2s;
+    }
+
+    .cc-toggle-active {
+        background: rgba(224, 123, 90, 0.35);
+        border-color: rgba(224, 123, 90, 0.45);
+    }
+
+    .cc-toggle-active::after {
+        transform: translateX(14px);
+        background: #e07b5a;
+    }
+
+    .cc-provider-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .cc-provider-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .cc-status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .cc-status-dot-discovered {
+        background: #4caf78;
+        box-shadow: 0 0 5px rgba(76, 175, 120, 0.45);
+    }
+
+    .cc-status-dot-configured {
+        background: #e0a85a;
+        box-shadow: 0 0 5px rgba(224, 168, 90, 0.45);
+    }
+
+    .cc-status-dot-missing {
+        background: rgba(255, 255, 255, 0.18);
+    }
+
+    .cc-provider-name {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.80);
+        font-weight: 500;
+        min-width: 110px;
+        flex-shrink: 0;
+    }
+
+    .cc-provider-source {
+        flex: 1;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.35);
+        font-family: "JetBrains Mono", monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .cc-add-btn {
+        padding: 4px 10px;
+        border: 1px solid rgba(224, 123, 90, 0.3);
+        border-radius: 6px;
+        background: rgba(224, 123, 90, 0.10);
+        color: #e07b5a;
+        font: inherit;
+        font-size: 11px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .cc-add-btn:hover {
+        background: rgba(224, 123, 90, 0.20);
+    }
+
+    .cc-key-input {
+        flex: 1;
+        padding: 5px 10px;
+        border: 1px solid rgba(224, 123, 90, 0.35);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        color: #e8e8e8;
+        font: inherit;
+        font-size: 11px;
+        font-family: "JetBrains Mono", monospace;
+        outline: none;
+    }
+
+    .cc-key-input:focus {
+        border-color: rgba(224, 123, 90, 0.55);
+        background: rgba(255, 255, 255, 0.07);
+    }
+
+    .cc-key-input::placeholder {
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .cc-config-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .cc-config-label {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.65);
+    }
+
+    .cc-config-value {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.45);
+        font-family: "JetBrains Mono", monospace;
+    }
 "#;
 
 // ── Dioxus Widget Component ────────────────────────────────────────
@@ -864,11 +1158,13 @@ pub mod desktop {
             style { "{WIDGET_STYLES}" }
             div { class: "widget-shell",
                 div { class: "{widget_class}",
-                    // Header
+                    // Header — drag handle covers the brand area
                     div { class: "widget-header",
-                        div { class: "widget-brand",
-                            div { class: "widget-brand-dot" }
-                            span { class: "widget-brand-label", "CADET" }
+                        div { class: "widget-drag-handle",
+                            div { class: "widget-brand",
+                                div { class: "widget-brand-dot" }
+                                span { class: "widget-brand-label", "CADET" }
+                            }
                         }
                         button {
                             class: "widget-close",
@@ -1163,9 +1459,11 @@ pub mod desktop {
                 style: "width: 100%; height: 100%; padding: 8px; box-sizing: border-box;",
                 div { class: "dispatch-palette",
 
-                    // Header
+                    // Header — draggable
                     div { class: "dispatch-header",
-                        span { class: "dispatch-title", "Dispatch Agent" }
+                        div { class: "widget-drag-handle",
+                            span { class: "dispatch-title", "Dispatch Agent" }
+                        }
                         button {
                             class: "widget-close",
                             onclick: {
@@ -1276,6 +1574,276 @@ pub mod desktop {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // ── CommandCenter ─────────────────────────────────────────────────
+
+    /// Build the Config for the Command Center window (centered, larger).
+    pub fn widget_window_config_command_center() -> Config {
+        let mut wb = WindowBuilder::new()
+            .with_title("Cadet Command Center")
+            .with_decorations(false)
+            .with_transparent(true)
+            .with_always_on_top(true)
+            .with_resizable(true)
+            .with_inner_size(LogicalSize::new(520.0, 640.0));
+
+        #[cfg(target_os = "macos")]
+        {
+            wb = wb
+                .with_titlebar_hidden(true)
+                .with_fullsize_content_view(true)
+                .with_has_shadow(false);
+        }
+
+        Config::new()
+            .with_window(wb)
+            .with_background_color((0, 0, 0, 0))
+    }
+
+    #[derive(Props, Clone, PartialEq)]
+    pub struct CommandCenterProps {
+        pub bridge: WidgetBridge,
+        pub config: WidgetConfig,
+        pub auth: crate::auth_provider::AuthProviderRegistry,
+    }
+
+    /// The unified Command Center — replaces auto-spawn widget behavior.
+    /// Three tabs: Widgets, Providers, Config.
+    /// Hotkey: Ctrl+Shift+Space (registered in the binary).
+    #[component]
+    pub fn CommandCenter(props: CommandCenterProps) -> Element {
+        let bridge = props.bridge;
+        let config = props.config;
+        let desktop = use_window();
+
+        // Tab state: 0 = Widgets, 1 = Providers, 2 = Config
+        let mut active_tab = use_signal(|| 0usize);
+
+        // Widget definitions: (id, icon, name, hotkey)
+        let widget_defs: &[(&str, &str, &str, &str)] = &[
+            ("context-chat",  "🔍", "Context Chat",    "Ctrl+Shift+Space"),
+            ("agent-hud",     "📊", "Agent HUD",       "Ctrl+Shift+H"),
+            ("quick-dispatch","⚡", "Quick Dispatch",   "Ctrl+Shift+D"),
+            ("clipboard",     "📋", "Clipboard",        "Ctrl+Shift+V"),
+            ("mascot",        "🤖", "3D Mascot",        "Ctrl+Shift+M"),
+        ];
+
+        // Auth providers snapshot (clone so we can mutate later via set_manual)
+        let mut auth_reg = use_signal(|| props.auth.clone());
+
+        // Per-provider "add key" input open state and value
+        let mut adding_provider = use_signal(|| None::<String>);
+        let mut key_input = use_signal(String::new);
+
+        // Widget toggle states (read from bridge)
+        let mut toggle_version = use_signal(|| 0u32);
+
+        let tab_btn = |idx: usize, label: &str| {
+            let current = active_tab();
+            let cls = if current == idx { "cc-tab cc-tab-active" } else { "cc-tab" };
+            rsx! {
+                button {
+                    class: "{cls}",
+                    onclick: move |_| active_tab.set(idx),
+                    "{label}"
+                }
+            }
+        };
+
+        rsx! {
+            style { "{WIDGET_STYLES}" }
+            div {
+                style: "padding: 8px; height: 100vh; box-sizing: border-box;",
+                div { class: "command-center",
+
+                    // Header row — draggable
+                    div {
+                        style: "display:flex; align-items:center; justify-content:space-between;",
+                        div { class: "widget-drag-handle",
+                            div { class: "widget-brand",
+                                div { class: "widget-brand-dot" }
+                                span { class: "widget-brand-label", "CADET COMMAND CENTER" }
+                            }
+                        }
+                        button {
+                            class: "widget-close",
+                            onclick: {
+                                let desktop = desktop.clone();
+                                move |_| desktop.set_visible(false)
+                            },
+                            "✕"
+                        }
+                    }
+
+                    // Tab bar
+                    div { class: "cc-tabs",
+                        {tab_btn(0, "Widgets")}
+                        {tab_btn(1, "Providers")}
+                        {tab_btn(2, "Config")}
+                    }
+
+                    // ── Widgets Tab ─────────────────────────────────────
+                    if active_tab() == 0 {
+                        div {
+                            style: "display:flex; flex-direction:column; gap:8px; flex:1; min-height:0;",
+                            div { class: "cc-section-title", "WIDGETS" }
+                            div { class: "cc-widget-list",
+                                for (id, icon, name, hotkey) in widget_defs.iter() {
+                                    {
+                                        let widget_id = id.to_string();
+                                        let bridge_ref = bridge.clone();
+                                        // Force re-read on toggle_version change
+                                        let _ = toggle_version();
+                                        let is_on = bridge_ref.widget_visible(&widget_id);
+                                        let toggle_cls = if is_on { "cc-toggle cc-toggle-active" } else { "cc-toggle" };
+                                        rsx! {
+                                            div { class: "cc-widget-row",
+                                                span { class: "cc-widget-icon", "{icon}" }
+                                                span { class: "cc-widget-name", "{name}" }
+                                                span { class: "cc-widget-hotkey", "{hotkey}" }
+                                                div {
+                                                    class: "{toggle_cls}",
+                                                    onclick: {
+                                                        let id = widget_id.clone();
+                                                        let b = bridge_ref.clone();
+                                                        move |_| {
+                                                            let current = b.widget_visible(&id);
+                                                            b.set_widget_visible(&id, !current);
+                                                            // Signal a UI refresh
+                                                            toggle_version.set(toggle_version() + 1);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Providers Tab ───────────────────────────────────
+                    if active_tab() == 1 {
+                        div {
+                            style: "display:flex; flex-direction:column; gap:8px; flex:1; min-height:0;",
+                            div { class: "cc-section-title", "AUTH PROVIDERS" }
+                            div { class: "cc-provider-list",
+                                for provider in auth_reg().providers.iter() {
+                                    {
+                                        use crate::auth_provider::ProviderStatus;
+                                        let pid = provider.provider_id.clone();
+                                        let name = provider.display_name.clone();
+                                        let source = if provider.source.is_empty() {
+                                            "Not found".to_string()
+                                        } else {
+                                            provider.source.clone()
+                                        };
+                                        let dot_cls = match provider.status {
+                                            ProviderStatus::Discovered => "cc-status-dot cc-status-dot-discovered",
+                                            ProviderStatus::Configured => "cc-status-dot cc-status-dot-configured",
+                                            ProviderStatus::Missing    => "cc-status-dot cc-status-dot-missing",
+                                        };
+                                        let is_missing = provider.status == ProviderStatus::Missing;
+                                        let is_adding = adding_provider().as_deref() == Some(&pid);
+
+                                        rsx! {
+                                            div { class: "cc-provider-row",
+                                                div { class: "{dot_cls}" }
+                                                span { class: "cc-provider-name", "{name}" }
+
+                                                if is_adding {
+                                                    input {
+                                                        class: "cc-key-input",
+                                                        r#type: "password",
+                                                        placeholder: "Paste API key...",
+                                                        autofocus: true,
+                                                        value: key_input(),
+                                                        oninput: move |e| key_input.set(e.value()),
+                                                        onkeydown: {
+                                                            let pid2 = pid.clone();
+                                                            move |e: KeyboardEvent| {
+                                                                if e.key() == Key::Enter {
+                                                                    let key = key_input().trim().to_string();
+                                                                    if !key.is_empty() {
+                                                                        auth_reg.write().set_manual(&pid2, key);
+                                                                    }
+                                                                    adding_provider.set(None);
+                                                                    key_input.set(String::new());
+                                                                } else if e.key() == Key::Escape {
+                                                                    adding_provider.set(None);
+                                                                    key_input.set(String::new());
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    span { class: "cc-provider-source", "{source}" }
+                                                    if is_missing {
+                                                        button {
+                                                            class: "cc-add-btn",
+                                                            onclick: {
+                                                                let pid3 = pid.clone();
+                                                                move |_| {
+                                                                    adding_provider.set(Some(pid3.clone()));
+                                                                    key_input.set(String::new());
+                                                                }
+                                                            },
+                                                            "Add Key"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Config Tab ──────────────────────────────────────
+                    if active_tab() == 2 {
+                        div {
+                            style: "display:flex; flex-direction:column; gap:8px; flex:1; min-height:0;",
+                            div { class: "cc-section-title", "CONFIGURATION" }
+                            div { class: "cc-config-row",
+                                span { class: "cc-config-label", "Default Agent" }
+                                span { class: "cc-config-value", "{config.default_agent}" }
+                            }
+                            div { class: "cc-config-row",
+                                span { class: "cc-config-label", "Research Agent" }
+                                span { class: "cc-config-value", "{config.research_agent}" }
+                            }
+                            div { class: "cc-config-row",
+                                span { class: "cc-config-label", "Widget Style" }
+                                span { class: "cc-config-value", "{config.style}" }
+                            }
+                            div { class: "cc-config-row",
+                                span { class: "cc-config-label", "Auto Dismiss" }
+                                span { class: "cc-config-value",
+                                    if config.auto_dismiss_seconds == 0 {
+                                        "Off"
+                                    } else {
+                                        "{config.auto_dismiss_seconds}s"
+                                    }
+                                }
+                            }
+                            div { class: "cc-config-row",
+                                span { class: "cc-config-label", "Quick Actions" }
+                                span { class: "cc-config-value", "{config.actions.len()} configured" }
+                            }
+                            div {
+                                style: "margin-top: 8px; font-size:11px; color:rgba(255,255,255,0.25); text-align:center;",
+                                "Edit .cadet/config.toml to change settings"
+                            }
+                        }
+                    }
+
+                    // Footer status
+                    div { class: "widget-status", "Ctrl+Shift+Space \u{2022} Escape to hide" }
                 }
             }
         }

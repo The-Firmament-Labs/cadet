@@ -45,3 +45,12 @@ label = "Summarize"
 icon = "📋"
 description = "Condense into key points"
 agent = "saturn"
+
+[providers]
+# Auto-discovered providers are used automatically.
+# Add manual keys here as fallback.
+# anthropic_api_key = "sk-..."
+# vercel_oidc_token = ""
+# ai_gateway_api_key = ""
+# openrouter_api_key = ""
+# openai_api_key = ""
