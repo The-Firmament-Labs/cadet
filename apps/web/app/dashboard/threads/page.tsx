@@ -28,7 +28,7 @@ export default async function ThreadsPage() {
       {error ? (
         <div className="py-8 text-center">
           <p className="text-sm text-destructive font-mono">{error}</p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-foreground/50 mt-1">
             Confirm SpacetimeDB is reachable.
           </p>
         </div>
@@ -37,7 +37,7 @@ export default async function ThreadsPage() {
           {/* Thread list */}
           <div className="overflow-y-auto space-y-2 pr-1">
             {threads.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-foreground/40">
                 <MessageSquare size={24} className="opacity-30" />
                 <p className="text-sm">No threads yet.</p>
               </div>

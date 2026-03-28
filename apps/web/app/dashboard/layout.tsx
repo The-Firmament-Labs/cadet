@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { HexagonLogo } from "@/components/hexagon-logo"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 const navItems = [
   { href: "/dashboard",             icon: LayoutDashboard, label: "Overview"   },
@@ -28,19 +29,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#c8d1c0]">
-      {/* Sidebar — charcoal */}
+    <div className="flex h-screen w-full overflow-hidden bg-background">
+      {/* Sidebar */}
       <nav
         className={cn(
           "group flex flex-col shrink-0 h-full z-20",
           "w-12 hover:w-[220px] transition-[width] duration-200 ease-in-out overflow-hidden",
-          "bg-[#3a3a3a] border-r border-white/10"
+          "bg-sidebar border-r border-sidebar-border"
         )}
       >
         {/* Brand mark */}
         <div className="flex items-center h-12 px-[10px] shrink-0">
-          <HexagonLogo className="w-7 h-7 shrink-0 text-[#e8e4df]" />
-          <span className="ml-3 text-sm font-semibold tracking-wide text-[#e8e4df] opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+          <HexagonLogo className="w-7 h-7 shrink-0 text-sidebar-foreground" />
+          <span className="ml-3 text-sm font-semibold tracking-wide text-sidebar-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
             Cadet
           </span>
         </div>
@@ -59,11 +60,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   href={href}
                   className={cn(
                     "flex items-center gap-3 h-9 px-[8px] rounded-md",
-                    "text-white/50 hover:text-[#e8e4df]",
-                    "hover:bg-white/5 transition-colors duration-100",
+                    "text-sidebar-foreground/50 hover:text-sidebar-foreground",
+                    "hover:bg-sidebar-accent/30 transition-colors duration-100",
                     isActive && [
-                      "text-[#e07b5a] border-l-2 border-[#e07b5a]",
-                      "bg-[rgba(224,123,90,0.1)] hover:bg-[rgba(224,123,90,0.15)]",
+                      "text-sidebar-primary border-l-2 border-sidebar-primary",
+                      "bg-sidebar-primary/10 hover:bg-sidebar-primary/15",
                     ]
                   )}
                 >
@@ -71,7 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     size={16}
                     className={cn(
                       "shrink-0",
-                      isActive ? "text-[#e07b5a]" : "text-white/50"
+                      isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50"
                     )}
                   />
                   <span className="text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150">
@@ -84,12 +85,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </ul>
 
         {/* Sidebar footer */}
-        <div className="px-[10px] py-3 border-t border-white/10 shrink-0">
+        <div className="px-[10px] py-3 border-t border-sidebar-border shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 shrink-0 rounded-sm bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-mono text-white/50">
+            <div className="w-7 h-7 shrink-0 rounded-sm bg-sidebar-accent/30 border border-sidebar-border flex items-center justify-center text-[10px] font-mono text-sidebar-foreground/50">
               OP
             </div>
-            <span className="text-xs text-white/40 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 truncate">
+            <span className="text-xs text-sidebar-foreground/40 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 truncate">
               Operator
             </span>
           </div>
@@ -99,21 +100,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main area */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="flex items-center h-12 px-5 shrink-0 border-b border-black/10 bg-[#bec8b6]">
+        <header className="flex items-center h-12 px-5 shrink-0 border-b border-border bg-muted">
           {/* Breadcrumb area */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-xs text-[#1a1a1a]/55 font-mono truncate">
+            <span className="text-xs text-foreground/55 font-mono truncate">
               {buildBreadcrumb(pathname)}
             </span>
           </div>
 
-          {/* Live indicator */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e07b5a] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#e07b5a]" />
-            </span>
-            <span className="text-[11px] text-[#1a1a1a]/55 font-mono uppercase tracking-wider">LIVE.REC</span>
+          {/* Live indicator + theme toggle */}
+          <div className="flex items-center gap-3 shrink-0">
+            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+              <span className="text-[11px] text-foreground/55 font-mono uppercase tracking-wider">LIVE.REC</span>
+            </div>
           </div>
         </header>
 

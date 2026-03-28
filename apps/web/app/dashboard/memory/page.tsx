@@ -47,7 +47,7 @@ export default async function MemoryPage() {
         <Brain size={18} className="text-primary" />
         <h1 className="text-sm font-semibold tracking-wide">Memory Documents</h1>
         {docs.length > 0 && (
-          <span className="text-[10px] font-mono text-muted-foreground">
+          <span className="text-[10px] font-mono text-foreground/50">
             {docs.length} document{docs.length !== 1 ? "s" : ""}
           </span>
         )}
@@ -56,24 +56,24 @@ export default async function MemoryPage() {
       {error ? (
         <div className="py-8 text-center">
           <p className="text-sm text-destructive font-mono">{error}</p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-foreground/50 mt-1">
             Confirm SpacetimeDB is reachable.
           </p>
         </div>
       ) : docs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-2">
-          <Brain size={28} className="text-muted-foreground opacity-20" />
-          <p className="text-sm text-muted-foreground">No memory documents yet.</p>
+          <Brain size={28} className="text-foreground/30 opacity-20" />
+          <p className="text-sm text-foreground/50">No memory documents yet.</p>
         </div>
       ) : (
         <div className="space-y-6">
           {Object.entries(grouped).map(([agentId, agentDocs]) => (
             <section key={agentId} className="space-y-3">
               <div className="flex items-center gap-2">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-foreground/50">
                   {agentId}
                 </p>
-                <span className="text-[9px] font-mono text-muted-foreground opacity-50">
+                <span className="text-[9px] font-mono text-foreground/40 opacity-50">
                   {agentDocs.length} doc{agentDocs.length !== 1 ? "s" : ""}
                 </span>
               </div>

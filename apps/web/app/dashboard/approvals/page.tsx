@@ -48,15 +48,15 @@ export default async function ApprovalsPage() {
       {error ? (
         <div className="py-8 text-center">
           <p className="text-sm text-destructive font-mono">{error}</p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-foreground/50 mt-1">
             Confirm SpacetimeDB is reachable.
           </p>
         </div>
       ) : approvals.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-2">
-          <ShieldCheck size={28} className="text-muted-foreground opacity-20" />
-          <p className="text-sm text-muted-foreground">No active approval gates.</p>
-          <p className="text-xs text-muted-foreground opacity-60">
+          <ShieldCheck size={28} className="text-foreground/30 opacity-20" />
+          <p className="text-sm text-foreground/50">No active approval gates.</p>
+          <p className="text-xs text-foreground/40 opacity-60">
             Low-risk browsing and triage are still autonomous.
           </p>
         </div>
@@ -65,7 +65,7 @@ export default async function ApprovalsPage() {
           {/* Pending approvals */}
           {pending.length > 0 && (
             <section className="space-y-3">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-foreground/50">
                 Pending
               </p>
               {pending.map((approval) => (
@@ -100,7 +100,7 @@ export default async function ApprovalsPage() {
           {/* Resolved approvals */}
           {resolved.length > 0 && (
             <section className="space-y-3">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-foreground/50">
                 Resolved
               </p>
               {resolved.map((approval) => (
