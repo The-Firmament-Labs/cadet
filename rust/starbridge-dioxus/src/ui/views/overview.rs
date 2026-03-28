@@ -7,7 +7,7 @@ use crate::{
         models::{queue_metrics, OverviewTab},
         shared::{
             status_badge_class, BrowserTaskRow, CalloutBox, EmptyState, InspectorCard,
-            RunListItem, WorkflowStepRow, segmented_button_class,
+            MetricTile, RunListItem, WorkflowStepRow, segmented_button_class,
         },
         OperatorRuntimeContext,
     },
@@ -221,11 +221,31 @@ pub fn OverviewView(snapshot: MissionControlSnapshot) -> Element {
                 InspectorCard {
                     eyebrow: "Queue health".to_string(),
                     title: "Current pressure".to_string(),
-                    ul { class: "key-value-list",
-                        li { span { "Active runs" } strong { "{metrics.active_runs}" } }
-                        li { span { "Pending approvals" } strong { "{metrics.pending_approvals}" } }
-                        li { span { "Browser tasks" } strong { "{metrics.browser_tasks}" } }
-                        li { span { "Blocked items" } strong { "{metrics.blocked_items}" } }
+                    div { class: "metric-tile-grid",
+                        MetricTile {
+                            label: "Active runs".to_string(),
+                            value: metrics.active_runs.to_string(),
+                            detail: "Queued or running".to_string(),
+                            tone: "accent".to_string(),
+                        }
+                        MetricTile {
+                            label: "Pending approvals".to_string(),
+                            value: metrics.pending_approvals.to_string(),
+                            detail: "Awaiting operator".to_string(),
+                            tone: (if metrics.pending_approvals > 0 { "warn" } else { "neutral" }).to_string(),
+                        }
+                        MetricTile {
+                            label: "Browser tasks".to_string(),
+                            value: metrics.browser_tasks.to_string(),
+                            detail: "In-flight web tasks".to_string(),
+                            tone: "neutral".to_string(),
+                        }
+                        MetricTile {
+                            label: "Blocked items".to_string(),
+                            value: metrics.blocked_items.to_string(),
+                            detail: "Blocked or failed".to_string(),
+                            tone: (if metrics.blocked_items > 0 { "danger" } else { "neutral" }).to_string(),
+                        }
                     }
                 }
 

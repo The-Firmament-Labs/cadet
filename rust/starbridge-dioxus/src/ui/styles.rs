@@ -424,6 +424,12 @@ pub const APP_STYLES: &str = r#"
         padding: 12px 12px 10px;
     }
 
+    .metric-tile-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
     .panel {
         min-width: 0;
         min-height: 0;
