@@ -46,6 +46,26 @@ export default function SignUpPage() {
         throw new Error(err.error || "Registration failed")
       }
 
+      // Step 4: Generate SSH key pair for cloud access
+      try {
+        const sshRes = await fetch("/api/auth/ssh-key", { method: "POST" })
+        if (sshRes.ok) {
+          const sshData = await sshRes.json()
+          // Download the private key as a file
+          const blob = new Blob([sshData.privateKey], { type: "text/plain" })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement("a")
+          a.href = url
+          a.download = "cadet_ed25519"
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+        }
+      } catch {
+        // SSH key generation is optional — don't block sign-up
+      }
+
       // Success — redirect to dashboard
       window.location.href = "/dashboard"
     } catch (err) {
