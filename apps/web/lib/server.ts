@@ -1,4 +1,5 @@
 import {
+  parseControlPlaneTarget,
   createStepId,
   executeEdgeAgent,
   nextWorkflowStage,
@@ -6,12 +7,16 @@ import {
   ownerExecutionForStage,
   parseApprovalStatus,
   parseAgentManifest,
+  parseMessageChannel,
   parseRunnerPresenceStatus,
   parseScheduleDispatchStatus,
   parseWorkflowStepStatus,
   seedWorkflowFromGoal,
   type AgentManifest,
+  type BrowserMode,
+  type ControlPlaneTarget,
   type JobRequest,
+  type MessageChannel,
   type RegisteredScheduleRecord,
   type ScheduleDispatchStatus
 } from "@starbridge/core";
@@ -26,10 +31,24 @@ const staleRunnerPresenceStatus = parseRunnerPresenceStatus("stale");
 const approvedApprovalStatus = parseApprovalStatus("approved");
 const rejectedApprovalStatus = parseApprovalStatus("rejected");
 const expiredApprovalStatus = parseApprovalStatus("expired");
+const cloudControlPlaneTarget = parseControlPlaneTarget("cloud");
+const webMessageChannel = parseMessageChannel("web");
+const systemMessageChannel = parseMessageChannel("system");
+const slackMessageChannel = parseMessageChannel("slack");
+const githubMessageChannel = parseMessageChannel("github");
 const retryableWorkflowStepStatuses = new Set([
   parseWorkflowStepStatus("failed"),
   parseWorkflowStepStatus("blocked")
 ]);
+type CloudWorkflowChannel = MessageChannel;
+interface SeededWorkflowRoute<TChannel extends MessageChannel = MessageChannel> {
+  runId: string;
+  threadId: string;
+  routeStepId: string;
+  channel: TChannel;
+  browserRequired: boolean;
+  browserMode: BrowserMode;
+}
 
 interface CloudScheduledRunResult {
   scheduleId: string;
@@ -72,7 +91,7 @@ async function syncCloudCatalog(): Promise<{ agents: number; schedules: number }
   };
 }
 
-async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Promise<string[]> {
+async function reconcilePresenceStaleness(controlPlane: ControlPlaneTarget): Promise<string[]> {
   const client = createControlClient();
   const nowMicros = Date.now() * 1_000;
   const staleRunners: string[] = [];
@@ -105,7 +124,7 @@ async function heartbeatCloudPresence(): Promise<void> {
     await client.upsertPresence(
       manifest.id,
       runnerIdFor(manifest.id, "scheduler"),
-      "cloud",
+      cloudControlPlaneTarget,
       parseRunnerPresenceStatus("alive")
     );
   }
@@ -140,16 +159,9 @@ async function seedWorkflowFromJob(
   manifest: AgentManifest,
   job: ReturnType<typeof normalizeJobRequest>,
   triggerSource: string,
-  channel: "web" | "github" | "slack" | "system",
+  channel: CloudWorkflowChannel,
   actor: string
-): Promise<{
-  runId: string;
-  threadId: string;
-  routeStepId: string;
-  channel: "web" | "github" | "slack" | "system";
-  browserRequired: boolean;
-  browserMode: string;
-}> {
+): Promise<SeededWorkflowRoute<CloudWorkflowChannel>> {
   const client = createControlClient();
   const seed = seedWorkflowFromGoal(manifest, {
     channel,
@@ -194,23 +206,18 @@ async function seedWorkflowFromJob(
 async function completeRouteTriage(
   manifest: AgentManifest,
   job: ReturnType<typeof normalizeJobRequest>,
-  workflow: {
-    runId: string;
-    threadId: string;
-    routeStepId: string;
-    channel: "web" | "github" | "slack" | "system";
-    browserRequired: boolean;
-    browserMode: string;
-  }
+  workflow: SeededWorkflowRoute<CloudWorkflowChannel>
 ): Promise<void> {
   const client = createControlClient();
   const runnerId = runnerIdFor(manifest.id, "route");
-  const routeOwner = manifest.deployment.execution === "vercel-edge"
-    ? "vercel-edge"
-    : manifest.deployment.execution;
 
-  await client.upsertPresence(manifest.id, runnerId, "cloud", parseRunnerPresenceStatus("running"));
-  await client.claimWorkflowStep(workflow.routeStepId, routeOwner, runnerId);
+  await client.upsertPresence(
+    manifest.id,
+    runnerId,
+    cloudControlPlaneTarget,
+    parseRunnerPresenceStatus("running")
+  );
+  await client.claimWorkflowStep(workflow.routeStepId, manifest.deployment.execution, runnerId);
 
   const routeResult = executeEdgeAgent(manifest, job);
   await client.completeWorkflowStep(workflow.routeStepId, {
@@ -249,7 +256,12 @@ async function completeRouteTriage(
 
   await client.remember(manifest.id, manifest.memory.namespace, routeResult.memoryNote);
   await client.markJobCompleted(job.jobId, `Workflow ${workflow.runId} seeded`);
-  await client.upsertPresence(manifest.id, runnerId, "cloud", parseRunnerPresenceStatus("idle"));
+  await client.upsertPresence(
+    manifest.id,
+    runnerId,
+    cloudControlPlaneTarget,
+    parseRunnerPresenceStatus("idle")
+  );
 }
 
 function normalizeScheduledCloudJob(
@@ -273,7 +285,7 @@ function normalizeScheduledCloudJob(
 
 export async function registerAgentFromPayload(payload: unknown): Promise<unknown> {
   const manifest: AgentManifest = parseAgentManifest(payload);
-  if (manifest.deployment.controlPlane !== "cloud") {
+  if (manifest.deployment.controlPlane !== cloudControlPlaneTarget) {
     throw new Error("Cloud control plane can only register cloud-plane agents");
   }
 
@@ -312,7 +324,7 @@ export async function dispatchJobFromPayload(payload: unknown): Promise<unknown>
     manifest,
     normalized,
     "api:jobs.dispatch",
-    "web",
+    webMessageChannel,
     normalized.requestedBy
   );
   await completeRouteTriage(manifest, normalized, workflow);
@@ -344,13 +356,13 @@ export async function dispatchEdgeJobFromPayload(payload: unknown): Promise<unkn
     manifest,
     job,
     "api:agents.edge.dispatch",
-    "web",
+    webMessageChannel,
     job.requestedBy
   );
   await completeRouteTriage(manifest, job, workflow);
 
   return {
-    plane: "cloud",
+    plane: cloudControlPlaneTarget,
     runtime: "edge",
     manifest,
     job,
@@ -392,7 +404,7 @@ export async function ingestSlackEvent(payload: unknown): Promise<unknown> {
     manifest,
     job,
     "slack:webhook",
-    "slack",
+    slackMessageChannel,
     body.user ?? "slack-user"
   );
   await completeRouteTriage(manifest, job, workflow);
@@ -445,7 +457,7 @@ export async function ingestGitHubEvent(payload: unknown): Promise<unknown> {
     manifest,
     job,
     "github:webhook",
-    "github",
+    githubMessageChannel,
     actor
   );
   await completeRouteTriage(manifest, job, workflow);
@@ -642,11 +654,11 @@ export async function reconcileCloudControlPlane(): Promise<{
 }> {
   const catalog = await syncCloudCatalog();
   const client = createControlClient();
-  const staleRunners = await reconcilePresenceStaleness("cloud");
+  const staleRunners = await reconcilePresenceStaleness(cloudControlPlaneTarget);
   await heartbeatCloudPresence();
 
   const schedules = (await client.listSchedules()).filter(
-    (schedule) => schedule.controlPlane === "cloud" && isScheduleDue(schedule)
+    (schedule) => schedule.controlPlane === cloudControlPlaneTarget && isScheduleDue(schedule)
   );
 
   const runs: CloudScheduledRunResult[] = [];
@@ -667,7 +679,12 @@ export async function reconcileCloudControlPlane(): Promise<{
     const job = normalizeScheduledCloudJob(manifest, schedule);
 
     try {
-      await client.claimScheduledRun(schedule.scheduleId, "cloud", schedule.nextRunAtMicros, job);
+      await client.claimScheduledRun(
+        schedule.scheduleId,
+        cloudControlPlaneTarget,
+        schedule.nextRunAtMicros,
+        job
+      );
     } catch (error) {
       runs.push({
         scheduleId: schedule.scheduleId,
@@ -684,7 +701,7 @@ export async function reconcileCloudControlPlane(): Promise<{
         manifest,
         job,
         "cron:reconcile",
-        "system",
+        systemMessageChannel,
         schedule.requestedBy
       );
       await completeRouteTriage(manifest, job, workflow);

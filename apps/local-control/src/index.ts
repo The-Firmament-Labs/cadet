@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import {
+  parseControlPlaneTarget,
   createStepId,
   executeEdgeAgent,
   filterAgentsByControlPlane,
@@ -13,7 +14,10 @@ import {
   schedulesForManifest,
   seedWorkflowFromGoal,
   type AgentManifest,
+  type BrowserMode,
+  type ControlPlaneTarget,
   type JobRequest,
+  type MessageChannel,
   type RegisteredScheduleRecord,
   type ScheduleDispatchStatus
 } from "@starbridge/core";
@@ -24,7 +28,19 @@ const port = Number(process.env.PORT ?? "3010");
 const heartbeatIntervalMs = Number(process.env.STARBRIDGE_HEARTBEAT_INTERVAL_MS ?? "30000");
 const scheduleIntervalMs = Number(process.env.STARBRIDGE_SCHEDULE_INTERVAL_MS ?? "30000");
 const presenceTtlMs = Number(process.env.STARBRIDGE_PRESENCE_TTL_MS ?? "90000");
+const localControlPlaneTarget = parseControlPlaneTarget("local");
 const staleRunnerPresenceStatus = parseRunnerPresenceStatus("stale");
+type LocalWorkflowChannel = Extract<MessageChannel, "web" | "system">;
+const webMessageChannel: LocalWorkflowChannel = "web";
+const systemMessageChannel: LocalWorkflowChannel = "system";
+interface SeededWorkflowRoute<TChannel extends MessageChannel = MessageChannel> {
+  runId: string;
+  threadId: string;
+  routeStepId: string;
+  channel: TChannel;
+  browserRequired: boolean;
+  browserMode: BrowserMode;
+}
 
 interface ScheduledRunResult {
   scheduleId: string;
@@ -55,7 +71,7 @@ async function loadLocalCatalog(): Promise<AgentManifest[]> {
   const manifests = await loadAgentManifestDirectory(
     process.env.STARBRIDGE_MANIFEST_DIR ?? defaultManifestDirectory()
   );
-  return filterAgentsByControlPlane(manifests, "local");
+  return filterAgentsByControlPlane(manifests, localControlPlaneTarget);
 }
 
 async function syncLocalCatalog(
@@ -78,7 +94,7 @@ async function syncLocalCatalog(
   };
 }
 
-async function reconcilePresenceStaleness(controlPlane: "local" | "cloud"): Promise<string[]> {
+async function reconcilePresenceStaleness(controlPlane: ControlPlaneTarget): Promise<string[]> {
   const client = createControlClient();
   const staleRunners: string[] = [];
   const nowMicros = Date.now() * 1_000;
@@ -111,13 +127,13 @@ async function heartbeatLocalPresence(catalog: AgentManifest[]): Promise<void> {
     await client.upsertPresence(
       manifest.id,
       runnerIdFor(manifest.id, "control"),
-      "local",
+      localControlPlaneTarget,
       parseRunnerPresenceStatus("alive")
     );
     await client.upsertPresence(
       manifest.id,
       runnerIdFor(manifest.id, "scheduler"),
-      "local",
+      localControlPlaneTarget,
       parseRunnerPresenceStatus("alive")
     );
   }
@@ -127,16 +143,9 @@ async function seedWorkflowFromJob(
   manifest: AgentManifest,
   job: ReturnType<typeof normalizeJobRequest>,
   triggerSource: string,
-  channel: "web" | "system",
+  channel: LocalWorkflowChannel,
   actor: string
-): Promise<{
-  runId: string;
-  threadId: string;
-  routeStepId: string;
-  channel: "web" | "system";
-  browserRequired: boolean;
-  browserMode: string;
-}> {
+): Promise<SeededWorkflowRoute<LocalWorkflowChannel>> {
   const client = createControlClient();
   const seed = seedWorkflowFromGoal(manifest, {
     channel,
@@ -181,19 +190,17 @@ async function seedWorkflowFromJob(
 async function completeRouteTriage(
   manifest: AgentManifest,
   job: ReturnType<typeof normalizeJobRequest>,
-  workflow: {
-    runId: string;
-    threadId: string;
-    routeStepId: string;
-    channel: "web" | "system";
-    browserRequired: boolean;
-    browserMode: string;
-  }
+  workflow: SeededWorkflowRoute<LocalWorkflowChannel>
 ): Promise<void> {
   const client = createControlClient();
   const runnerId = runnerIdFor(manifest.id, "route");
 
-  await client.upsertPresence(manifest.id, runnerId, "local", parseRunnerPresenceStatus("running"));
+  await client.upsertPresence(
+    manifest.id,
+    runnerId,
+    localControlPlaneTarget,
+    parseRunnerPresenceStatus("running")
+  );
   await client.claimWorkflowStep(workflow.routeStepId, manifest.deployment.execution, runnerId);
 
   const routeResult = executeEdgeAgent(manifest, job);
@@ -233,7 +240,12 @@ async function completeRouteTriage(
 
   await client.remember(manifest.id, manifest.memory.namespace, routeResult.memoryNote);
   await client.markJobCompleted(job.jobId, `Workflow ${workflow.runId} seeded`);
-  await client.upsertPresence(manifest.id, runnerId, "local", parseRunnerPresenceStatus("idle"));
+  await client.upsertPresence(
+    manifest.id,
+    runnerId,
+    localControlPlaneTarget,
+    parseRunnerPresenceStatus("idle")
+  );
 }
 
 async function registerLocalAgents(payload: unknown): Promise<unknown> {
@@ -289,13 +301,13 @@ async function dispatchLocalJob(payload: unknown): Promise<unknown> {
     manifest,
     normalized,
     "local:dispatch",
-    "web",
+    webMessageChannel,
     normalized.requestedBy
   );
   await completeRouteTriage(manifest, normalized, workflow);
 
   return {
-    plane: "local",
+    plane: localControlPlaneTarget,
     manifest,
     job: normalized,
     workflow
@@ -330,9 +342,9 @@ async function reconcileLocalSchedules(): Promise<{
   await heartbeatLocalPresence(catalog);
 
   const client = createControlClient();
-  const staleRunners = await reconcilePresenceStaleness("local");
+  const staleRunners = await reconcilePresenceStaleness(localControlPlaneTarget);
   const schedules = (await client.listSchedules()).filter(
-    (schedule) => schedule.controlPlane === "local" && isScheduleDue(schedule)
+    (schedule) => schedule.controlPlane === localControlPlaneTarget && isScheduleDue(schedule)
   );
 
   const runs: ScheduledRunResult[] = [];
@@ -353,7 +365,12 @@ async function reconcileLocalSchedules(): Promise<{
     const job = normalizeScheduledLocalJob(manifest, schedule);
 
     try {
-      await client.claimScheduledRun(schedule.scheduleId, "local", schedule.nextRunAtMicros, job);
+      await client.claimScheduledRun(
+        schedule.scheduleId,
+        localControlPlaneTarget,
+        schedule.nextRunAtMicros,
+        job
+      );
     } catch (error) {
       runs.push({
         scheduleId: schedule.scheduleId,
@@ -370,7 +387,7 @@ async function reconcileLocalSchedules(): Promise<{
         manifest,
         job,
         "local:schedule",
-        "system",
+        systemMessageChannel,
         schedule.requestedBy
       );
       await completeRouteTriage(manifest, job, workflow);
@@ -420,7 +437,7 @@ async function runHeartbeatLoop(): Promise<void> {
     const catalog = await loadLocalCatalog();
     await syncLocalCatalog(catalog);
     await heartbeatLocalPresence(catalog);
-    await reconcilePresenceStaleness("local");
+    await reconcilePresenceStaleness(localControlPlaneTarget);
   } catch (error) {
     console.error("Local heartbeat loop failed", error);
   } finally {
@@ -457,7 +474,7 @@ const server = Bun.serve({
       if (request.method === "GET" && url.pathname === "/health") {
         return json(200, {
           ok: true,
-          plane: "local",
+          plane: localControlPlaneTarget,
           manifestDir: process.env.STARBRIDGE_MANIFEST_DIR ?? defaultManifestDirectory(),
           spacetimeUrl: process.env.SPACETIMEDB_URL ?? "http://127.0.0.1:3000",
           database: process.env.SPACETIMEDB_DATABASE ?? "starbridge-control",
@@ -469,7 +486,7 @@ const server = Bun.serve({
       if (request.method === "GET" && url.pathname === "/catalog") {
         return json(200, {
           ok: true,
-          plane: "local",
+          plane: localControlPlaneTarget,
           agents: await loadLocalCatalog()
         });
       }
@@ -482,7 +499,7 @@ const server = Bun.serve({
         const payload = await request.json().catch(() => ({}));
         return json(200, {
           ok: true,
-          plane: "local",
+          plane: localControlPlaneTarget,
           result: await registerLocalAgents(payload)
         });
       }
@@ -506,7 +523,7 @@ const server = Bun.serve({
 
         return json(200, {
           ok: true,
-          plane: "local",
+          plane: localControlPlaneTarget,
           result: await reconcileLocalSchedules()
         });
       }
