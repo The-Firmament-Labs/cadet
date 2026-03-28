@@ -52,7 +52,7 @@ pub fn WorkflowStudioView(snapshot: MissionControlSnapshot) -> Element {
                         }
                     }
 
-                    div { class: "workflow-board", style: "margin-top: 16px;",
+                    div { class: "workflow-board", style: "margin-top: 10px;",
                         for stage in canonical_stages() {
                             div {
                                 class: workflow_lane_class(dragged_step_id().is_some()),
@@ -83,7 +83,7 @@ pub fn WorkflowStudioView(snapshot: MissionControlSnapshot) -> Element {
                                         p { class: "section-eyebrow", "{step.agent_id}" }
                                         h3 { class: "card-title", "{step.step_id}" }
                                         p { class: "row-copy", "{step.owner_execution}" }
-                                        div { class: "chip-row", style: "margin-top: 12px;",
+                                        div { class: "chip-row", style: "margin-top: 8px;",
                                             span { class: crate::ui::shared::status_badge_class(step.status.as_str()), "{step.status}" }
                                             span { class: "pill pill-subtle", "retry {step.retry_count}" }
                                         }

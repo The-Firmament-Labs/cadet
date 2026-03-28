@@ -109,7 +109,7 @@ pub fn ChatView(snapshot: MissionControlSnapshot) -> Element {
                     div { class: "thread-header",
                         p { class: "section-eyebrow", "{thread.channel}" }
                         h3 { class: "card-title", "{thread.title}" }
-                        div { class: "thread-meta", style: "margin-top: 14px;",
+                        div { class: "thread-meta", style: "margin-top: 8px;",
                             div { class: "chip-row",
                                 span { class: "pill pill-subtle", "{thread.channel_thread_id}" }
                                 span { class: "pill pill-subtle", "{thread_messages_count} messages" }

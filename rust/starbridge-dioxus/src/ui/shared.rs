@@ -177,7 +177,7 @@ pub fn RetrievalTraceRow(trace: RetrievalTraceRecord) -> Element {
             p { class: "section-eyebrow", "Retrieval trace" }
             h3 { class: "card-title", "{trace.query_text}" }
             p { class: "row-copy", "Run {trace.run_id} · Step {trace.step_id}" }
-            div { class: "chip-row", style: "margin-top: 0.8rem;",
+            div { class: "chip-row", style: "margin-top: 8px;",
                 for chunk_id in trace.chunk_ids {
                     span { class: "pill pill-subtle", "{chunk_id}" }
                 }

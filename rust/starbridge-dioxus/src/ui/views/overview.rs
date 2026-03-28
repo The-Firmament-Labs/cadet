@@ -121,7 +121,7 @@ pub fn OverviewView(snapshot: MissionControlSnapshot) -> Element {
                         p { class: "detail-summary",
                             "{run.summary.clone().unwrap_or_else(|| \"Waiting for the next stage summary.\".to_string())}"
                         }
-                        div { class: "detail-meta", style: "margin-top: 16px;",
+                        div { class: "detail-meta", style: "margin-top: 10px;",
                             div { class: "chip-row",
                                 span { class: status_badge_class(run.status.as_str()), "{run.status}" }
                                 span { class: "pill pill-subtle", "{run.current_stage}" }
@@ -259,12 +259,12 @@ fn ApprovalRow(
                     span { class: crate::ui::shared::risk_badge_class(approval.risk.as_str()), "{approval.risk}" }
                 }
             }
-            ul { class: "key-value-list", style: "margin-top: 14px;",
+            ul { class: "key-value-list", style: "margin-top: 8px;",
                 li { span { "Step" } strong { "{approval.step_id}" } }
                 li { span { "Requested by" } strong { "{approval.requested_by}" } }
             }
             if approval.status == "pending" {
-                div { class: "composer-actions", style: "margin-top: 16px;",
+                div { class: "composer-actions", style: "margin-top: 10px;",
                     button {
                         class: "primary-button",
                         onclick: {

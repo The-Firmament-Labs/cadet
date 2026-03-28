@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { loadInbox } from "@/lib/server"
-import { MetricHUD } from "@/components/metric-hud"
+import { LiveMetrics } from "./live-metrics"
 import { StatusBadge } from "@/components/status-badge"
 import {
   Table,
@@ -35,32 +35,13 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-[1400px]">
-      {/* Stats strip — matches v0 template layout */}
-      <div className="border border-border">
-        <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border">
-          <MetricHUD
-            label="MISSIONS"
-            value={String(runs.length)}
-            code="LOG.ALL"
-          />
-          <MetricHUD
-            label="ACTIVE ORBITS"
-            value={String(activeRuns)}
-            code="TRK.GEO"
-          />
-          <MetricHUD
-            label="SIGNALS"
-            value={String(connectedAgents)}
-            code="RCV.24H"
-          />
-          <MetricHUD
-            label="PENDING"
-            value={String(pendingApprovals)}
-            code="LIVE.REC"
-            variant={pendingApprovals > 0 ? "highlight" : "default"}
-          />
-        </div>
-      </div>
+      {/* Stats strip — live-updating client component with SSR initial values */}
+      <LiveMetrics
+        initialMissions={runs.length}
+        initialActiveOrbits={activeRuns}
+        initialSignals={connectedAgents}
+        initialPending={pendingApprovals}
+      />
 
       {/* Content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

@@ -64,10 +64,10 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
   const satelliteSrc = "/visuals/satellite.png";
   const techRingSrc = "/visuals/tech-ring.png";
   const missionStats = [
-    { label: "Control planes", value: "2" },
-    { label: "Cloud agents", value: String(cloudAgents.length) },
+    { label: "CTRL.PLANES", value: "2" },
+    { label: "CLOUD.AGENTS", value: String(cloudAgents.length) },
     {
-      label: "Active schedules",
+      label: "ACTIVE.SCHED",
       value: String(cloudAgents.reduce((total, agent) => total + agent.scheduleCount, 0))
     }
   ];
@@ -256,24 +256,24 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
       <section className="poster" data-orbit-section>
         <div className="posterCopy">
   
-          <p className="eyebrow">Cadet // orbital agent control</p>
-          <h1 className="headline">Put local and edge agents into the same event horizon.</h1>
+          <p className="eyebrow">CADET // ORBITAL OPERATIONS</p>
+          <h1 className="headline">Deploy local and edge agents into unified orbit.</h1>
 
           <p className="lede">
-            Cadet is the command layer for event-driven operators: a local Bun control plane, an
-            edge-hosted cloud lane on Vercel, Rust runners for heavy execution, and SpacetimeDB v2
-            as the live mission fabric between them.
+            Cadet is the unified command layer for event-driven operators: local Bun control plane,
+            edge cloud lane on Vercel, Rust runners for heavy execution, and SpacetimeDB v2 as the
+            live mission fabric.
           </p>
 
           <div className="posterActions">
             <a className="primaryAction" href="#flight-stack">
-              Explore the flight stack
+              Access Archive →
             </a>
             <a className="secondaryAction" href="/docs">
-              Read the operator guide
+              View Telemetry
             </a>
             <a className="secondaryAction" href="#mission-log">
-              Open the mission log
+              Mission Log
             </a>
           </div>
 
@@ -317,7 +317,7 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
         </div>
 
         <div className="sectionHeader">
-          <p className="sectionTag">Flight stack</p>
+          <p className="sectionTag">FLIGHT.STACK</p>
           <h2>One launch surface, four orbital layers.</h2>
           <p className="sectionCopy">
             The page leads with atmosphere, but the stack stays literal: where commands start,
@@ -349,7 +349,7 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
         </div>
 
         <article className="telemetryPanel" data-reveal-panel>
-          <p className="sectionTag">Cloud telemetry</p>
+          <p className="sectionTag">CLOUD.TELEMETRY</p>
           <h2>Current runtime coordinates.</h2>
           <ul className="telemetryList">
             <li>`http://localhost:3010` hosts the local Bun control plane for local-runner agents.</li>
@@ -361,7 +361,7 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
         </article>
 
         <article className="telemetryPanel" data-reveal-panel>
-          <p className="sectionTag">Mission state</p>
+          <p className="sectionTag">MISSION.STATE</p>
           <h2>Live control-plane settings.</h2>
           <ul className="telemetryList">
             <li>Control plane URL: {env.controlPlaneUrl}</li>
@@ -373,7 +373,7 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
         </article>
 
         <article className="telemetryPanel" data-reveal-panel>
-          <p className="sectionTag">Cloud roster</p>
+          <p className="sectionTag">CLOUD.ROSTER</p>
           <h2>Agents already in orbit.</h2>
           <ul className="telemetryList">
             {cloudAgents.map((agent) => (
@@ -400,7 +400,7 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
         </div>
 
         <div className="missionCopy">
-          <p className="sectionTag">Mission log</p>
+          <p className="sectionTag">MISSION.LOG</p>
           <h2>From local ignition to edge-side reconcile.</h2>
           <p className="sectionCopy">
             The CLI remains the first switchboard. Local commands can wake the Bun plane, cloud
@@ -426,7 +426,7 @@ export function CadetLanding({ cloudAgents, env }: CadetLandingProps) {
           <img alt="" height="500" loading="lazy" src={satelliteSrc} width="500" />
         </div>
 
-        <p className="sectionTag">Launch condition</p>
+        <p className="sectionTag">LAUNCH.COND</p>
         <h2>Built for operators who want the poster and the proof.</h2>
         <p className="sectionCopy">
           Cadet keeps the visual language cinematic, but the contract is still operational:

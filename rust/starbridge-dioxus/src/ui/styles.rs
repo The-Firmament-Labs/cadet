@@ -346,6 +346,13 @@ pub const APP_STYLES: &str = r#"
         letter-spacing: -0.01em;
     }
 
+    .topbar-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+    }
+
     .topbar-meta,
     .chip-row,
     .sidebar-badges {
