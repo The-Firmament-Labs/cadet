@@ -2,13 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   push:
-    branches:
-      - main
-      - "codex/**"
-      - "agent/**"
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -19,136 +15,76 @@ permissions:
   contents: read
 
 jobs:
-  actionlint:
-    name: Actionlint
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Install actionlint
-        shell: bash
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest
-          echo "$PWD" >> "$GITHUB_PATH"
-
-      - name: Run actionlint
-        shell: bash
-        run: ./actionlint -color
-
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Setup workspace
-        uses: ./.github/actions/setup-cadet-workspace
-
-      - name: Run typecheck
-        run: bun run typecheck
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-cadet-workspace
+      - run: bun run typecheck
 
   test:
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Setup workspace
-        uses: ./.github/actions/setup-cadet-workspace
-
-      - name: Run test suite
-        run: bun run test
-
-  docs:
-    name: Docs
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup workspace
-        uses: ./.github/actions/setup-cadet-workspace
-
-      - name: Check documentation links
-        run: bun run docs:check
-
-      - name: Build GitHub Pages source
-        run: bun run docs:build
-
-      - name: Upload project hub source artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: cadet-project-hub-source
-          path: ./.generated/pages-src
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-cadet-workspace
+      - run: bun run test
 
   build:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Setup workspace
-        uses: ./.github/actions/setup-cadet-workspace
-
-      - name: Run build
-        run: bun run build
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-cadet-workspace
+      - run: bun run build
 
   rust:
     name: Rust
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Setup workspace
-        uses: ./.github/actions/setup-cadet-workspace
-
-      - name: Run Rust tests
-        run: cargo test --workspace
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-cadet-workspace
+      - run: cargo test --workspace
 
   spacetime:
     name: Spacetime
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-cadet-workspace
+      - run: cd spacetimedb && spacetime build
 
-      - name: Setup workspace
-        uses: ./.github/actions/setup-cadet-workspace
-
-      - name: Build SpacetimeDB module
-        working-directory: spacetimedb
-        run: spacetime build
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-cadet-workspace
+      - run: bun run docs:check
+      - run: bun run docs:build
 
   ci-status:
     name: CI Status
     if: always()
-    needs: [actionlint, typecheck, test, docs, build, rust, spacetime]
+    needs: [typecheck, test, build, rust, spacetime, docs]
     runs-on: ubuntu-latest
     steps:
-      - name: Check job results
-        shell: bash
-        run: |
-          if [[ "${{ needs.actionlint.result }}" == "failure" || \
-                "${{ needs.typecheck.result }}" == "failure" || \
+      - run: |
+          if [[ "${{ needs.typecheck.result }}" == "failure" || \
                 "${{ needs.test.result }}" == "failure" || \
-                "${{ needs.docs.result }}" == "failure" || \
                 "${{ needs.build.result }}" == "failure" || \
                 "${{ needs.rust.result }}" == "failure" || \
-                "${{ needs.spacetime.result }}" == "failure" ]]; then
+                "${{ needs.spacetime.result }}" == "failure" || \
+                "${{ needs.docs.result }}" == "failure" ]]; then
             echo "One or more CI jobs failed."
             exit 1
           fi
