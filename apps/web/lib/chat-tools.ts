@@ -126,4 +126,212 @@ export const chatTools = {
       }
     },
   }),
+
+  // ── Knowledge & Research tools (T11) ──────────────────────────────
+
+  ingest_url: tool({
+    description:
+      "Fetch a URL and store its content in the knowledge base for future reference. Use when the user shares a link and wants to save the information.",
+    inputSchema: z.object({
+      url: z.string().url().describe("The URL to fetch and store"),
+      title: z.string().describe("A short title for this knowledge entry"),
+    }),
+    execute: async ({ url, title }) => {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+        if (!res.ok) return { stored: false, message: `Failed to fetch: ${res.status}` };
+
+        const html = await res.text();
+        // Simple extraction: strip HTML tags, trim to 4000 chars
+        const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+
+        const client = createControlClient();
+        await client.callReducer("upsert_memory_document", [
+          `url_${Date.now().toString(36)}`,
+          "cadet",
+          "knowledge",
+          title,
+          text,
+          "url_ingest",
+          JSON.stringify({ url }),
+        ]);
+        return { stored: true, message: `Stored "${title}" (${text.length} chars from ${url})` };
+      } catch (error) {
+        return { stored: false, message: error instanceof Error ? error.message : "Fetch failed" };
+      }
+    },
+  }),
+
+  // ── Reminder tools (T12) ──────────────────────────────────────────
+
+  set_reminder: tool({
+    description:
+      "Set a reminder for the user. The reminder will be checked periodically and delivered. Use when the user says 'remind me to...' or 'in 30 minutes...'",
+    inputSchema: z.object({
+      title: z.string().describe("What to remind about"),
+      minutesFromNow: z.number().describe("How many minutes from now to trigger the reminder"),
+    }),
+    execute: async ({ title, minutesFromNow }) => {
+      try {
+        const triggerAt = Date.now() + minutesFromNow * 60_000;
+        const client = createControlClient();
+        await client.callReducer("upsert_memory_document", [
+          `reminder_${Date.now().toString(36)}`,
+          "cadet",
+          "reminders",
+          title,
+          JSON.stringify({ triggerAt, title, delivered: false }),
+          "reminder",
+          "{}",
+        ]);
+        const when = minutesFromNow < 60
+          ? `${minutesFromNow} minutes`
+          : `${(minutesFromNow / 60).toFixed(1)} hours`;
+        return { set: true, message: `Reminder set: "${title}" in ${when}` };
+      } catch {
+        return { set: false, message: "Could not set reminder." };
+      }
+    },
+  }),
+
+  list_reminders: tool({
+    description: "List the user's upcoming reminders.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      try {
+        const client = createControlClient();
+        const rows = (await client.sql(
+          `SELECT title, content FROM memory_document WHERE namespace = 'reminders' AND source_kind = 'reminder' LIMIT 10`,
+        )) as Array<Record<string, unknown>>;
+
+        const reminders = rows.map((r) => {
+          try {
+            const data = JSON.parse(String(r.content)) as { title: string; triggerAt: number; delivered: boolean };
+            return { title: data.title, triggerAt: new Date(data.triggerAt).toISOString(), delivered: data.delivered };
+          } catch {
+            return { title: String(r.title), triggerAt: "unknown", delivered: false };
+          }
+        });
+
+        return { count: reminders.length, reminders };
+      } catch {
+        return { count: 0, reminders: [] };
+      }
+    },
+  }),
+
+  // ── DevOps tools (T13) ────────────────────────────────────────────
+
+  check_deployment: tool({
+    description:
+      "Check the status of the latest Vercel deployment. Use when the user asks about deploy status, recent deploys, or production state.",
+    inputSchema: z.object({
+      limit: z.number().optional().describe("Number of deployments to check (default 3)"),
+    }),
+    execute: async ({ limit }) => {
+      try {
+        const { getVercelAccessToken } = await import("./token-store");
+        // Try to get a token for any operator — in practice this would be scoped
+        const token = process.env.VERCEL_TOKEN;
+        if (!token) return { found: false, message: "No Vercel access token available. Connect your Vercel account in Settings." };
+
+        const teamId = process.env.VERCEL_TEAM_ID;
+        const projectId = process.env.VERCEL_PROJECT_ID;
+        const params = new URLSearchParams({ limit: String(limit ?? 3) });
+        if (teamId) params.set("teamId", teamId);
+        if (projectId) params.set("projectId", projectId);
+
+        const res = await fetch(`https://api.vercel.com/v6/deployments?${params}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(10_000),
+        });
+
+        if (!res.ok) return { found: false, message: `Vercel API error: ${res.status}` };
+
+        const data = await res.json() as { deployments: Array<{ uid: string; url: string; state: string; created: number; meta?: { githubCommitMessage?: string } }> };
+        return {
+          found: true,
+          deployments: data.deployments.map((d) => ({
+            id: d.uid,
+            url: d.url,
+            state: d.state,
+            created: new Date(d.created).toISOString(),
+            commit: d.meta?.githubCommitMessage ?? "",
+          })),
+        };
+      } catch (error) {
+        return { found: false, message: error instanceof Error ? error.message : "Deployment check failed" };
+      }
+    },
+  }),
+
+  // ── Team tools (T14) ──────────────────────────────────────────────
+
+  list_recent_runs: tool({
+    description:
+      "List recent agent runs for a standup summary or status check. Shows the most recent missions with their status.",
+    inputSchema: z.object({
+      limit: z.number().optional().describe("Number of runs to show (default 10)"),
+    }),
+    execute: async ({ limit }) => {
+      try {
+        const client = createControlClient();
+        const rows = (await client.sql(
+          `SELECT run_id, agent_id, goal, status, current_stage FROM workflow_run ORDER BY updated_at_micros DESC LIMIT ${limit ?? 10}`,
+        )) as Array<Record<string, unknown>>;
+
+        return {
+          count: rows.length,
+          runs: rows.map((r) => ({
+            runId: String(r.run_id),
+            agent: String(r.agent_id),
+            goal: String(r.goal).slice(0, 100),
+            status: String(r.status),
+            stage: String(r.current_stage),
+          })),
+        };
+      } catch {
+        return { count: 0, runs: [] };
+      }
+    },
+  }),
+
+  compose_standup: tool({
+    description:
+      "Compose a standup summary from recent runs, approvals, and agent activity. Use when the user asks for a status report or daily standup.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      try {
+        const client = createControlClient();
+        const [runs, approvals, agents] = await Promise.all([
+          client.sql("SELECT agent_id, goal, status FROM workflow_run ORDER BY updated_at_micros DESC LIMIT 10") as Promise<Array<Record<string, unknown>>>,
+          client.sql("SELECT title, status, risk FROM approval_request ORDER BY updated_at_micros DESC LIMIT 5") as Promise<Array<Record<string, unknown>>>,
+          client.sql("SELECT agent_id, display_name FROM agent_record") as Promise<Array<Record<string, unknown>>>,
+        ]);
+
+        const completed = runs.filter((r) => r.status === "completed").length;
+        const running = runs.filter((r) => r.status === "running").length;
+        const failed = runs.filter((r) => r.status === "failed").length;
+        const pending = approvals.filter((a) => a.status === "pending").length;
+
+        return {
+          summary: {
+            totalRuns: runs.length,
+            completed,
+            running,
+            failed,
+            pendingApprovals: pending,
+            activeAgents: agents.length,
+          },
+          recentGoals: runs.slice(0, 5).map((r) => ({
+            agent: String(r.agent_id),
+            goal: String(r.goal).slice(0, 80),
+            status: String(r.status),
+          })),
+        };
+      } catch {
+        return { summary: null, recentGoals: [] };
+      }
+    },
+  }),
 };

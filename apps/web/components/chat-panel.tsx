@@ -7,7 +7,7 @@ import type { UIMessage } from "ai"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Loader2, Bot, User, RotateCcw } from "lucide-react"
+import { Send, Loader2, Bot, User, Bell } from "lucide-react"
 
 const transport = new DefaultChatTransport({ api: "/api/chat" })
 
@@ -33,9 +33,34 @@ export function ChatPanel() {
     }
   }
 
+  // Request notification permission on first interaction
+  function requestNotifications() {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission()
+    }
+  }
+
+  // Notify when assistant responds and tab is hidden
+  useEffect(() => {
+    if (
+      typeof Notification !== "undefined" &&
+      Notification.permission === "granted" &&
+      document.hidden &&
+      messages.length > 0 &&
+      messages[messages.length - 1]?.role === "assistant" &&
+      status === "ready"
+    ) {
+      new Notification("Cadet", {
+        body: "Agent responded to your message",
+        icon: "/visuals/retro-astro.png",
+      })
+    }
+  }, [messages, status])
+
   function handleSend() {
     const text = input.trim()
     if (!text) return
+    requestNotifications()
     sendMessage({ text })
     setInput("")
   }
