@@ -550,14 +550,14 @@ describe("createCadetBot", () => {
     delete process.env.GITHUB_BOT_TOKEN;
     delete process.env.TELEGRAM_BOT_TOKEN;
     const { createCadetBot } = await import("../bot");
-    expect(() => createCadetBot()).toThrow(/No chat adapters configured/);
+    await expect(createCadetBot()).rejects.toThrow(/No chat adapters configured/);
   });
 
   it("creates a bot when SLACK_BOT_TOKEN is set", async () => {
     process.env.SLACK_BOT_TOKEN = "xoxb-test-token";
     const { createCadetBot } = await import("../bot");
     const { createSlackAdapter } = await import("@chat-adapter/slack");
-    expect(() => createCadetBot()).not.toThrow();
+    await expect(createCadetBot()).resolves.toBeDefined();
     expect(createSlackAdapter).toHaveBeenCalledWith(
       expect.objectContaining({ botToken: "xoxb-test-token" })
     );
@@ -567,7 +567,7 @@ describe("createCadetBot", () => {
     process.env.GITHUB_BOT_TOKEN = "ghp-test-token";
     const { createCadetBot } = await import("../bot");
     const { createGitHubAdapter } = await import("@chat-adapter/github");
-    expect(() => createCadetBot()).not.toThrow();
+    await expect(createCadetBot()).resolves.toBeDefined();
     expect(createGitHubAdapter).toHaveBeenCalledWith(
       expect.objectContaining({ token: "ghp-test-token" })
     );
@@ -577,7 +577,7 @@ describe("createCadetBot", () => {
     process.env.TELEGRAM_BOT_TOKEN = "tg-test-token";
     const { createCadetBot } = await import("../bot");
     const { createTelegramAdapter } = await import("@chat-adapter/telegram");
-    expect(() => createCadetBot()).not.toThrow();
+    await expect(createCadetBot()).resolves.toBeDefined();
     expect(createTelegramAdapter).toHaveBeenCalledWith(
       expect.objectContaining({ botToken: "tg-test-token" })
     );
@@ -588,7 +588,7 @@ describe("createCadetBot", () => {
     process.env.GITHUB_BOT_TOKEN = "ghp-multi";
     const { createCadetBot } = await import("../bot");
     const { Chat } = await import("chat");
-    createCadetBot();
+    await createCadetBot();
     const ctorCall = (Chat as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1);
     const opts = ctorCall?.[0] as { adapters: Record<string, unknown> };
     expect(opts.adapters).toHaveProperty("slack");
@@ -614,8 +614,8 @@ describe("getBot singleton", () => {
 
   it("returns the same instance on repeated calls", async () => {
     const { getBot } = await import("../bot");
-    const first = getBot();
-    const second = getBot();
+    const first = await getBot();
+    const second = await getBot();
     expect(first).toBe(second);
   });
 });

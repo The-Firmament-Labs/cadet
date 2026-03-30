@@ -4,6 +4,13 @@ export interface ServerEnv {
   database: string;
   authToken?: string | undefined;
   cronSecret?: string | undefined;
+  vercelClientId?: string | undefined;
+  vercelClientSecret?: string | undefined;
+  queuesEnabled: boolean;
+  workflowEnabled: boolean;
+  sandboxDefaultTemplate?: string | undefined;
+  sandboxIdleTimeoutMs: number;
+  sandboxMaxPerOperator: number;
 }
 
 export interface OperatorAuthProviderConfig {
@@ -30,6 +37,9 @@ export interface SafeServerEnv {
   hasCronSecret: boolean;
   hasSpacetimeConfig: boolean;
   hasOperatorAuth: boolean;
+  hasVercelOAuth: boolean;
+  queuesEnabled: boolean;
+  workflowEnabled: boolean;
 }
 
 function trimEnvValue(value: string | undefined): string | undefined {
@@ -96,7 +106,14 @@ export function getServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv
     spacetimeUrl: trimEnvValue(source.SPACETIMEDB_URL) ?? "http://127.0.0.1:3000",
     database: trimEnvValue(source.SPACETIMEDB_DATABASE) ?? "starbridge-control",
     authToken: trimEnvValue(source.SPACETIMEDB_AUTH_TOKEN),
-    cronSecret: trimEnvValue(source.CRON_SECRET)
+    cronSecret: trimEnvValue(source.CRON_SECRET),
+    vercelClientId: trimEnvValue(source.VERCEL_INTEGRATION_CLIENT_ID),
+    vercelClientSecret: trimEnvValue(source.VERCEL_INTEGRATION_CLIENT_SECRET),
+    queuesEnabled: trimEnvValue(source.VERCEL_QUEUES_ENABLED) === "true",
+    workflowEnabled: trimEnvValue(source.WORKFLOW_ENABLED) === "true",
+    sandboxDefaultTemplate: trimEnvValue(source.SANDBOX_DEFAULT_TEMPLATE),
+    sandboxIdleTimeoutMs: parseInt(trimEnvValue(source.SANDBOX_IDLE_TIMEOUT_MS) ?? "300000", 10),
+    sandboxMaxPerOperator: parseInt(trimEnvValue(source.SANDBOX_MAX_PER_OPERATOR) ?? "5", 10),
   };
 }
 
@@ -110,7 +127,10 @@ export function getSafeServerEnv(source: NodeJS.ProcessEnv = process.env): SafeS
     hasAuthToken: Boolean(env.authToken),
     hasCronSecret: Boolean(env.cronSecret),
     hasSpacetimeConfig: hasSpacetimeConfig(source),
-    hasOperatorAuth: hasOperatorAuth(source)
+    hasOperatorAuth: hasOperatorAuth(source),
+    hasVercelOAuth: Boolean(env.vercelClientId && env.vercelClientSecret),
+    queuesEnabled: env.queuesEnabled,
+    workflowEnabled: env.workflowEnabled,
   };
 }
 

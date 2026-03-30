@@ -25,6 +25,8 @@ import { StarbridgeControlClient } from "@starbridge/sdk";
 
 import { cloudAgentCatalog } from "./cloud-agents";
 import { requireSpacetimeServerEnv } from "./env";
+import { sendToAgentLaunch } from "./queue";
+import { createSandbox } from "./sandbox";
 
 const presenceTtlMs = Number(process.env.STARBRIDGE_PRESENCE_TTL_MS ?? "90000");
 const staleRunnerPresenceStatus = parseRunnerPresenceStatus("stale");
@@ -286,7 +288,7 @@ function normalizeScheduledCloudJob(
 export async function registerAgentFromPayload(
   payload: unknown,
   authToken?: string
-): Promise<unknown> {
+): Promise<{ agentId: string; schedules: number }> {
   const manifest: AgentManifest = parseAgentManifest(payload);
   if (manifest.deployment.controlPlane !== cloudControlPlaneTarget) {
     throw new Error("Cloud control plane can only register cloud-plane agents");
@@ -304,7 +306,13 @@ export async function registerAgentFromPayload(
   };
 }
 
-export async function dispatchJobFromPayload(payload: unknown, authToken?: string): Promise<unknown> {
+export async function dispatchJobFromPayload(payload: unknown, authToken?: string): Promise<{
+  job: ReturnType<typeof normalizeJobRequest>;
+  queued?: boolean;
+  messageId?: string | null;
+  workflowRunId?: string;
+  workflow?: SeededWorkflowRoute;
+}> {
   if (typeof payload !== "object" || payload === null) {
     throw new Error("dispatch payload must be an object");
   }
@@ -323,6 +331,42 @@ export async function dispatchJobFromPayload(payload: unknown, authToken?: strin
   );
   const client = createControlClient(authToken);
   await client.enqueueJob(normalized);
+
+  // Feature flag: async queue-based dispatch
+  const env = requireSpacetimeServerEnv();
+  if (env.queuesEnabled) {
+    const { messageId } = await sendToAgentLaunch({
+      jobId: normalized.jobId,
+      agentId: manifest.id,
+      runId: `run_${normalized.jobId}`,
+      operatorId: normalized.requestedBy,
+      attempt: 0,
+      maxRetries: 8,
+    });
+    return { job: normalized, queued: true, messageId };
+  }
+
+  // Feature flag: durable workflow dispatch
+  if (env.workflowEnabled) {
+    let start: Awaited<typeof import("workflow/api")>["start"];
+    let agentWorkflow: Awaited<typeof import("./durable-agent")>["agentWorkflow"];
+    try {
+      ({ start } = await import("workflow/api"));
+      ({ agentWorkflow } = await import("./durable-agent"));
+    } catch {
+      throw new Error("Workflow DevKit is enabled but could not be loaded. Check that 'workflow' is installed.");
+    }
+    const run = await start(agentWorkflow, [{
+      jobId: normalized.jobId,
+      agentId: manifest.id,
+      runId: `run_${normalized.jobId}`,
+      operatorId: normalized.requestedBy,
+      goal: normalized.goal,
+    }]);
+    return { job: normalized, workflowRunId: run.runId };
+  }
+
+  // Default: synchronous dispatch
   const workflow = await seedWorkflowFromJob(
     manifest,
     normalized,
@@ -341,7 +385,13 @@ export async function dispatchJobFromPayload(payload: unknown, authToken?: strin
 export async function dispatchEdgeJobFromPayload(
   payload: unknown,
   authToken?: string
-): Promise<unknown> {
+): Promise<{
+  plane: ControlPlaneTarget;
+  runtime: string;
+  manifest: AgentManifest;
+  job: ReturnType<typeof normalizeJobRequest>;
+  workflow: SeededWorkflowRoute;
+}> {
   if (typeof payload !== "object" || payload === null) {
     throw new Error("dispatch payload must be an object");
   }
@@ -376,7 +426,7 @@ export async function dispatchEdgeJobFromPayload(
   };
 }
 
-export async function ingestSlackEvent(payload: unknown): Promise<unknown> {
+export async function ingestSlackEvent(payload: unknown): Promise<{ ok: true; workflow: SeededWorkflowRoute }> {
   if (typeof payload !== "object" || payload === null) {
     throw new Error("slack payload must be an object");
   }
@@ -421,7 +471,7 @@ export async function ingestSlackEvent(payload: unknown): Promise<unknown> {
   };
 }
 
-export async function ingestGitHubEvent(payload: unknown): Promise<unknown> {
+export async function ingestGitHubEvent(payload: unknown): Promise<{ ok: true; workflow: SeededWorkflowRoute }> {
   if (typeof payload !== "object" || payload === null) {
     throw new Error("github payload must be an object");
   }
@@ -568,7 +618,7 @@ export async function resolveApprovalFromPayload(
   approvalId: string,
   payload: unknown,
   authToken?: string
-): Promise<unknown> {
+): Promise<{ approvalId: string; status: string }> {
   if (typeof payload !== "object" || payload === null) {
     throw new Error("approval payload must be an object");
   }
@@ -584,10 +634,11 @@ export async function resolveApprovalFromPayload(
   }
 
   const client = createControlClient(authToken);
-  return client.resolveApproval(approvalId, body.status, {
+  await client.resolveApproval(approvalId, body.status, {
     resolvedBy: body.resolvedBy ?? "operator",
     note: body.note ?? ""
   });
+  return { approvalId, status: String(body.status) };
 }
 
 export async function loadBrowserTask(taskId: string, authToken?: string): Promise<{
@@ -611,7 +662,11 @@ export async function loadBrowserTask(taskId: string, authToken?: string): Promi
   };
 }
 
-export async function retryWorkflowRun(runId: string, authToken?: string): Promise<unknown> {
+export async function retryWorkflowRun(runId: string, authToken?: string): Promise<{
+  ok: true;
+  retryStepId: string;
+  stage: string;
+}> {
   const client = createControlClient(authToken);
   const [runs, steps] = await Promise.all([
     client.listWorkflowRuns(),
@@ -704,6 +759,26 @@ export async function reconcileCloudControlPlane(): Promise<{
     }
 
     try {
+      // Feature flag: route scheduled runs through queue when enabled
+      if (requireSpacetimeServerEnv().queuesEnabled) {
+        await sendToAgentLaunch({
+          jobId: job.jobId,
+          agentId: manifest.id,
+          runId: `run_${job.jobId}`,
+          operatorId: schedule.requestedBy,
+          attempt: 0,
+          maxRetries: 8,
+        });
+        runs.push({
+          scheduleId: schedule.scheduleId,
+          agentId: schedule.agentId,
+          jobId: job.jobId,
+          status: parseScheduleDispatchStatus("dispatched"),
+          reason: "Queued for async execution"
+        });
+        continue;
+      }
+
       const workflow = await seedWorkflowFromJob(
         manifest,
         job,

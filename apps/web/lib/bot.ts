@@ -144,7 +144,7 @@ class MemoryStateAdapter implements StateAdapter {
 
 // ── Adapter factory ───────────────────────────────────────────────────────────
 
-function buildAdapters() {
+async function buildAdapters() {
   const adapters: Record<string, Adapter> = {};
 
   if (process.env.SLACK_BOT_TOKEN) {
@@ -154,11 +154,19 @@ function buildAdapters() {
     });
   }
 
-  // Discord loaded dynamically to avoid bundling discord.js native deps
-  // if (process.env.DISCORD_BOT_TOKEN) {
-  //   const { createDiscordAdapter } = await import("@chat-adapter/discord");
-  //   adapters.discord = createDiscordAdapter({ ... });
-  // }
+  // Discord loaded dynamically to avoid bundling discord.js native deps in all routes
+  if (process.env.DISCORD_BOT_TOKEN && process.env.DISCORD_PUBLIC_KEY) {
+    try {
+      const { createDiscordAdapter } = await import("@chat-adapter/discord");
+      adapters.discord = createDiscordAdapter({
+        botToken: process.env.DISCORD_BOT_TOKEN,
+        publicKey: process.env.DISCORD_PUBLIC_KEY,
+        applicationId: process.env.DISCORD_APPLICATION_ID,
+      });
+    } catch {
+      console.warn("[bot] Discord adapter failed to load — @chat-adapter/discord may not be installed");
+    }
+  }
 
   if (process.env.GITHUB_BOT_TOKEN) {
     adapters.github = createGitHubAdapter({
@@ -179,8 +187,8 @@ function buildAdapters() {
 
 // ── Bot factory ───────────────────────────────────────────────────────────────
 
-export function createCadetBot() {
-  const adapters = buildAdapters();
+export async function createCadetBot() {
+  const adapters = await buildAdapters();
 
   if (Object.keys(adapters).length === 0) {
     throw new Error(
@@ -231,13 +239,13 @@ export function createCadetBot() {
 // Lazily initialized so the module can be imported without env vars present
 // (e.g. during type-checking or static analysis).
 
-let _bot: ReturnType<typeof createCadetBot> | undefined;
+let _botPromise: ReturnType<typeof createCadetBot> | undefined;
 
-export function getBot(): ReturnType<typeof createCadetBot> {
-  if (!_bot) {
-    _bot = createCadetBot();
+export async function getBot(): Promise<Awaited<ReturnType<typeof createCadetBot>>> {
+  if (!_botPromise) {
+    _botPromise = createCadetBot();
   }
-  return _bot;
+  return _botPromise;
 }
 
 export { type Chat };

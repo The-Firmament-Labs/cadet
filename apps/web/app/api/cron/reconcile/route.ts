@@ -1,28 +1,24 @@
-import { getServerEnv } from "../../../../lib/env";
-import { reconcileCloudControlPlane } from "../../../../lib/server";
+import { verifyCronAuth, cronUnauthorized } from "@/lib/cron-auth";
+import { getServerEnv } from "@/lib/env";
+import { reconcileCloudControlPlane } from "@/lib/server";
+import { apiError } from "@/lib/api-response";
 
-export async function GET(request: Request) {
-  const env = getServerEnv();
-  const authorization = request.headers.get("authorization");
-
-  if (!env.cronSecret || authorization !== `Bearer ${env.cronSecret}`) {
-    return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
+async function handle(request: Request): Promise<Response> {
+  const { authorized } = verifyCronAuth(request);
+  if (!authorized) return cronUnauthorized();
 
   try {
+    const env = getServerEnv();
     return Response.json({
       ok: true,
       action: "reconcile",
       database: env.database,
-      ...(await reconcileCloudControlPlane())
+      ...(await reconcileCloudControlPlane()),
     });
   } catch (error) {
-    return Response.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Unknown reconcile error"
-      },
-      { status: 500 }
-    );
+    return apiError(error, 500);
   }
 }
+
+export async function GET(req: Request) { return handle(req); }
+export async function POST(req: Request) { return handle(req); }

@@ -10,10 +10,33 @@ import {
 export type ControlPlaneTarget = "local" | "cloud";
 export type ExecutionTarget =
   | "local-runner"
+  | "local-docker"
   | "vercel-edge"
+  | "vercel-sandbox"
   | "container-runner"
   | "maincloud-runner";
-export type AgentRuntime = "rust-core" | "bun-sidecar" | "edge-function";
+export type AgentRuntime = "rust-core" | "bun-sidecar" | "edge-function" | "sandbox" | "docker" | "claude-code";
+
+export type SandboxRuntime = "node24" | "node22" | "bun" | "python3" | "custom";
+
+export interface SandboxEnvironment {
+  /** Runtime to boot if no snapshot is available */
+  runtime: SandboxRuntime;
+  /** Pre-built snapshot ID for fast cold starts */
+  snapshotId?: string;
+  /** System packages to install (dnf/apt) when no snapshot */
+  systemPackages?: string[];
+  /** npm/pip/cargo packages to install when no snapshot */
+  packages?: string[];
+  /** Shell commands to run after package install (setup scripts) */
+  setupCommands?: string[];
+  /** Default environment variables for the sandbox */
+  env?: Record<string, string>;
+  /** vCPU count: 1, 2, 4, or 8 */
+  vcpus?: 1 | 2 | 4 | 8;
+  /** Idle timeout before auto-sleep (ms) */
+  idleTimeoutMs?: number;
+}
 
 export type BrowserMode = "read" | "extract" | "navigate" | "form" | "download" | "monitor";
 export type BrowserRisk = "low" | "medium" | "high";
@@ -21,7 +44,9 @@ export type BrowserRisk = "low" | "medium" | "high";
 export const controlPlaneTargets: readonly ControlPlaneTarget[] = ["local", "cloud"] as const;
 export const executionTargets: readonly ExecutionTarget[] = [
   "local-runner",
+  "local-docker",
   "vercel-edge",
+  "vercel-sandbox",
   "container-runner",
   "maincloud-runner"
 ] as const;
@@ -118,6 +143,7 @@ export interface AgentManifest {
     controlPlane: ControlPlaneTarget;
     execution: ExecutionTarget;
     workflow: string;
+    sandbox?: SandboxEnvironment;
   };
   tags: string[];
   tools: ToolPolicy;
@@ -143,6 +169,20 @@ function withDefault<T>(
   fallback: T
 ): T {
   return value === undefined ? fallback : parse(value, path);
+}
+
+function parseSandboxEnvironment(raw: Record<string, unknown>): SandboxEnvironment {
+  const result: SandboxEnvironment = {
+    runtime: (typeof raw.runtime === "string" ? raw.runtime : "node24") as SandboxRuntime,
+  };
+  if (typeof raw.snapshotId === "string") result.snapshotId = raw.snapshotId;
+  if (Array.isArray(raw.systemPackages)) result.systemPackages = raw.systemPackages as string[];
+  if (Array.isArray(raw.packages)) result.packages = raw.packages as string[];
+  if (Array.isArray(raw.setupCommands)) result.setupCommands = raw.setupCommands as string[];
+  if (isRecord(raw.env)) result.env = raw.env as Record<string, string>;
+  if (typeof raw.vcpus === "number") result.vcpus = raw.vcpus as 1 | 2 | 4 | 8;
+  if (typeof raw.idleTimeoutMs === "number") result.idleTimeoutMs = raw.idleTimeoutMs;
+  return result;
 }
 
 function expectString(value: unknown, path: string): string {
@@ -353,7 +393,7 @@ export function parseAgentManifest(value: unknown): AgentManifest {
   const execution = expectString(deployment.execution, "deployment.execution");
   if (!isExecutionTarget(execution)) {
     throw new Error(
-      "deployment.execution must be local-runner, vercel-edge, container-runner, or maincloud-runner"
+      `deployment.execution must be one of: ${executionTargets.join(", ")}`
     );
   }
 
@@ -463,7 +503,10 @@ export function parseAgentManifest(value: unknown): AgentManifest {
     deployment: {
       controlPlane: parseControlPlaneTarget(controlPlane, "deployment.controlPlane"),
       execution: parseExecutionTarget(execution, "deployment.execution"),
-      workflow: expectString(deployment.workflow, "deployment.workflow")
+      workflow: expectString(deployment.workflow, "deployment.workflow"),
+      ...(isRecord(deployment.sandbox) ? {
+        sandbox: parseSandboxEnvironment(deployment.sandbox),
+      } : {}),
     },
     tags,
     tools: {

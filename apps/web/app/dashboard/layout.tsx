@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -10,6 +11,7 @@ import {
   ShieldCheck,
   Brain,
   Settings,
+  Container,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { HexagonLogo } from "@/components/hexagon-logo"
@@ -19,14 +21,33 @@ const navItems = [
   { href: "/dashboard",             icon: LayoutDashboard, label: "Overview"   },
   { href: "/dashboard/agents",      icon: Bot,             label: "Agents"     },
   { href: "/dashboard/runs",        icon: Play,            label: "Runs"       },
+  { href: "/dashboard/sandboxes",   icon: Container,       label: "Sandboxes"  },
   { href: "/dashboard/threads",     icon: MessageSquare,   label: "Threads"    },
   { href: "/dashboard/approvals",   icon: ShieldCheck,     label: "Approvals"  },
   { href: "/dashboard/memory",      icon: Brain,           label: "Memory"     },
   { href: "/dashboard/settings",    icon: Settings,        label: "Settings"   },
 ]
 
+function useOperatorIdentity(): { initials: string; name: string } {
+  return useMemo(() => {
+    try {
+      const match = document.cookie.match(/cadet_session=([^;]+)/);
+      if (!match?.[1]) return { initials: "OP", name: "Operator" };
+      // Session may be HMAC-signed (payload.signature) or plain base64url
+      const payload = match[1].includes(".") ? match[1].split(".")[0]! : match[1];
+      const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+      const name = json.displayName || json.email?.split("@")[0] || "Operator";
+      const initials = name.slice(0, 2).toUpperCase();
+      return { initials, name };
+    } catch {
+      return { initials: "OP", name: "Operator" };
+    }
+  }, []);
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { initials, name } = useOperatorIdentity()
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -88,10 +109,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="px-[10px] py-3 border-t border-sidebar-border shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 shrink-0 rounded-sm bg-sidebar-accent/30 border border-sidebar-border flex items-center justify-center text-[10px] font-mono text-sidebar-foreground/50">
-              OP
+              {initials}
             </div>
             <span className="text-xs text-sidebar-foreground/40 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 truncate">
-              Operator
+              {name}
             </span>
           </div>
         </div>

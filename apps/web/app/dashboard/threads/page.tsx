@@ -43,7 +43,8 @@ export default async function ThreadsPage() {
               </div>
             ) : (
               threads.map((thread) => (
-                <Card key={thread.threadId} className="bg-secondary text-secondary-foreground border-secondary cursor-default hover:ring-primary/30 transition-shadow">
+                <a key={thread.threadId} href={`/dashboard/runs/run_${thread.threadId.replace("thread_", "")}`}>
+                <Card className="bg-secondary text-secondary-foreground border-secondary cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow">
                   <CardContent className="p-3 space-y-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -67,26 +68,10 @@ export default async function ThreadsPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </a>
               ))
             )}
           </div>
-
-          {/* Message panel placeholder */}
-          <Card className="bg-secondary text-secondary-foreground border-secondary flex flex-col">
-            <CardHeader className="border-b border-secondary-foreground/10 pb-3 shrink-0">
-              <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
-                Messages
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 flex items-center justify-center">
-              <div className="text-center space-y-2">
-                <MessageSquare size={28} className="mx-auto text-secondary-foreground/50 opacity-20" />
-                <p className="text-sm text-secondary-foreground/50">
-                  Select a thread to view messages
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
     </div>

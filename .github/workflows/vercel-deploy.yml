@@ -97,18 +97,26 @@ jobs:
             "repos/${GITHUB_REPOSITORY}/deployments/${{ steps.github_deployment.outputs.deployment_id }}/statuses" \
             --input - <<<"${payload}" >/dev/null
 
+      - name: Install dependencies
+        if: steps.config.outputs.enabled == 'true'
+        run: bun install --frozen-lockfile
+
       - name: Pull Vercel environment
         if: steps.config.outputs.enabled == 'true'
         run: vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
 
-      - name: Deploy to Vercel
+      - name: Build for Vercel
+        if: steps.config.outputs.enabled == 'true'
+        run: vercel build --prod --token="${VERCEL_TOKEN}"
+
+      - name: Deploy prebuilt to Vercel
         id: vercel_deploy
         if: steps.config.outputs.enabled == 'true'
         continue-on-error: true
         run: |
           set -eo pipefail
           deploy_log="$(mktemp)"
-          vercel deploy --prod --yes --token="${VERCEL_TOKEN}" 2>&1 | tee "${deploy_log}"
+          vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}" 2>&1 | tee "${deploy_log}"
 
           deployment_url="$(grep -Eo 'https://[^ ]+' "${deploy_log}" | tail -n 1 | tr -d '\r')"
           if [ -z "${deployment_url}" ]; then

@@ -1,9 +1,43 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["iad1"],
+  "functions": {
+    "app/api/stream/route.ts": { "maxDuration": 300 },
+    "app/api/bot/slack/route.ts": { "maxDuration": 60 },
+    "app/api/bot/discord/route.ts": { "maxDuration": 60 },
+    "app/api/bot/telegram/route.ts": { "maxDuration": 60 },
+    "app/api/github/events/route.ts": { "maxDuration": 60 },
+    "app/api/cron/reconcile/route.ts": { "maxDuration": 60 },
+    "app/api/cron/sandbox-watchdog/route.ts": { "maxDuration": 60 },
+    "app/api/sandboxes/[sandboxId]/exec/route.ts": { "maxDuration": 300 },
+    "app/api/queues/agent-launch/route.ts": {
+      "maxDuration": 300,
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "agent-launch"
+        }
+      ]
+    },
+    "app/api/queues/agent-lifecycle/route.ts": {
+      "maxDuration": 60,
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "agent-lifecycle"
+        }
+      ]
+    },
+    "app/api/workflows/agent/route.ts": { "maxDuration": 300 }
+  },
   "crons": [
     {
       "path": "/api/cron/reconcile",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/sandbox-watchdog",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

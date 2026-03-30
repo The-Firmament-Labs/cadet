@@ -100,6 +100,27 @@ export default function SignInPage() {
               {loading ? "Authenticating…" : "Sign in with passkey"}
             </Button>
 
+            {process.env.NEXT_PUBLIC_VERCEL_OAUTH_ENABLED === "true" && (
+              <>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-secondary-foreground/10" />
+                  <span className="text-[10px] text-secondary-foreground/30 uppercase">or</span>
+                  <div className="flex-1 h-px bg-secondary-foreground/10" />
+                </div>
+                <a
+                  href={`/api/auth/vercel/authorize${typeof window !== "undefined" && (() => { const n = new URLSearchParams(window.location.search).get("next"); return n && n.startsWith("/") && !n.startsWith("//") ? `?returnTo=${encodeURIComponent(n)}` : ""; })()}`}
+                  className={cn(
+                    "flex items-center justify-center gap-2 w-full px-3 py-2 text-xs font-medium rounded-md border",
+                    "bg-secondary-foreground/5 border-secondary-foreground/10 text-secondary-foreground",
+                    "hover:bg-secondary-foreground/10 transition-colors"
+                  )}
+                >
+                  <svg width="14" height="14" viewBox="0 0 76 65" fill="currentColor"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/></svg>
+                  Sign in with Vercel
+                </a>
+              </>
+            )}
+
             <p className="text-center text-[11px] text-secondary-foreground/50">
               No account?{" "}
               <Link href="/sign-up" className="text-primary hover:underline">

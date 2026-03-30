@@ -8,6 +8,7 @@ import {
   type OperatorSession,
 } from "@/lib/auth";
 import { createControlClient } from "@/lib/server";
+import { sqlEscape } from "@/lib/sql";
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/types";
 
 // In-memory challenge store
@@ -113,7 +114,7 @@ async function handleVerify(request: Request) {
 
     // Look up operator
     const operatorRows = (await client.sql(
-      `SELECT operator_id, display_name, email, role FROM operator_account WHERE operator_id = '${storedCredential.operatorId.replace(/'/g, "''")}'`,
+      `SELECT operator_id, display_name, email, role FROM operator_account WHERE operator_id = '${sqlEscape(storedCredential.operatorId)}'`,
     )) as Record<string, unknown>[];
 
     if (operatorRows.length === 0) {

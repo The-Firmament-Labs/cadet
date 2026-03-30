@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -45,11 +46,34 @@ interface ToolCall {
   outputJson?: string | null
 }
 
+interface MessageEvent {
+  eventId: string
+  direction: string
+  actor: string
+  content: string
+  channel: string
+  runId: string
+  updatedAtMicros?: number
+  [key: string]: unknown
+}
+
+interface RetrievalTrace {
+  traceId: string
+  query?: string
+  sourceKind?: string
+  chunkCount?: number
+  updatedAtMicros?: number
+  [key: string]: unknown
+}
+
 interface RunDetailTabsProps {
   steps: WorkflowStep[]
   browserArtifacts: BrowserArtifact[]
   approvals: ApprovalRequest[]
   toolCalls: ToolCall[]
+  messages?: Array<Record<string, unknown>>
+  retrievalTraces?: Array<Record<string, unknown>>
+  runId?: string
 }
 
 function formatTs(micros: number): string {
@@ -65,19 +89,68 @@ function tryParseJson(raw: string): string {
 }
 
 export function RunDetailTabs({
-  steps,
+  steps: initialSteps,
   browserArtifacts,
   approvals,
   toolCalls,
+  messages = [],
+  retrievalTraces = [],
+  runId,
 }: RunDetailTabsProps) {
+  const [steps, setSteps] = useState(initialSteps)
+  const [liveConnected, setLiveConnected] = useState(false)
+
+  // SSE live updates for step progress
+  useEffect(() => {
+    if (!runId) return
+
+    const es = new EventSource("/api/stream")
+    setLiveConnected(true)
+
+    es.addEventListener("snapshot", (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data?.steps) {
+          const runSteps = data.steps.filter(
+            (s: WorkflowStep) => s.stepId?.startsWith(`route_`) || s.stepId?.includes(runId.replace("run_", ""))
+          )
+          if (runSteps.length > 0) {
+            setSteps(runSteps)
+          }
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    })
+
+    es.onerror = () => {
+      setLiveConnected(false)
+    }
+
+    return () => {
+      es.close()
+      setLiveConnected(false)
+    }
+  }, [runId])
+
   return (
     <Tabs defaultValue="timeline">
-      <TabsList className="mb-4">
-        <TabsTrigger value="timeline">Timeline</TabsTrigger>
-        <TabsTrigger value="browser">Browser</TabsTrigger>
-        <TabsTrigger value="approvals">Approvals</TabsTrigger>
-        <TabsTrigger value="toolcalls">Tool Calls</TabsTrigger>
-      </TabsList>
+      <div className="flex items-center gap-2 mb-4">
+        <TabsList>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="messages">Messages{messages.length > 0 ? ` (${messages.length})` : ""}</TabsTrigger>
+          <TabsTrigger value="browser">Browser</TabsTrigger>
+          <TabsTrigger value="approvals">Approvals</TabsTrigger>
+          <TabsTrigger value="toolcalls">Tool Calls</TabsTrigger>
+          <TabsTrigger value="retrieval">Retrieval{retrievalTraces.length > 0 ? ` (${retrievalTraces.length})` : ""}</TabsTrigger>
+        </TabsList>
+        {liveConnected && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-semibold tracking-widest text-green-400 border border-green-500/30 bg-green-500/10">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            LIVE
+          </span>
+        )}
+      </div>
 
       {/* Timeline */}
       <TabsContent value="timeline">
@@ -129,6 +202,46 @@ export function RunDetailTabs({
                   </li>
                 ))}
               </ol>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      {/* Messages */}
+      <TabsContent value="messages">
+        <Card className="bg-secondary text-secondary-foreground border-secondary">
+          <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+            <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
+              Conversation Thread
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {messages.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-secondary-foreground/50">
+                No messages for this run.
+              </div>
+            ) : (
+              <div className="divide-y divide-secondary-foreground/10">
+                {messages.map((msg, i) => (
+                  <div key={String(msg.eventId ?? i)} className="px-4 py-3 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={String(msg.direction ?? "unknown")} />
+                      <span className="text-xs font-mono font-medium">{String(msg.actor ?? "")}</span>
+                      {msg.updatedAtMicros ? (
+                        <span className="text-[10px] text-secondary-foreground/50 font-mono ml-auto">
+                          {formatTs(Number(msg.updatedAtMicros))}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-secondary-foreground/80 whitespace-pre-wrap">
+                      {String(msg.content ?? "")}
+                    </p>
+                    <p className="text-[10px] font-mono text-secondary-foreground/50 opacity-50">
+                      {String(msg.channel ?? "")} · {String(msg.eventId ?? "")}
+                    </p>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -246,6 +359,49 @@ export function RunDetailTabs({
                         <pre className="text-[9px] font-mono text-secondary-foreground/50 overflow-hidden truncate">
                           {tc.outputJson ? tryParseJson(tc.outputJson) : "—"}
                         </pre>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      {/* Retrieval Traces */}
+      <TabsContent value="retrieval">
+        <Card className="bg-secondary text-secondary-foreground border-secondary">
+          <CardHeader className="border-b border-secondary-foreground/10 pb-3">
+            <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
+              Memory Retrieval
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {retrievalTraces.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-secondary-foreground/50">
+                No retrieval traces for this run.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-secondary-foreground/10">
+                    <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Query</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Source</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Chunks</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Time</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {retrievalTraces.map((trace, i) => (
+                    <TableRow key={String(trace.traceId ?? i)} className="border-secondary-foreground/10">
+                      <TableCell className="text-xs max-w-[250px] truncate">{String(trace.query ?? "—")}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={String(trace.sourceKind ?? "unknown")} />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{String(trace.chunkCount ?? 0)}</TableCell>
+                      <TableCell className="text-[10px] font-mono text-secondary-foreground/50">
+                        {trace.updatedAtMicros ? formatTs(Number(trace.updatedAtMicros)) : "—"}
                       </TableCell>
                     </TableRow>
                   ))}

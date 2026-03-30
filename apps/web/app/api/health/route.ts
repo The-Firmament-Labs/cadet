@@ -9,17 +9,24 @@ export async function GET() {
     const schema = await createControlClient().schema();
     return Response.json({
       ok: true,
+      status: "healthy",
       plane: "cloud",
-      environment: env,
-      edgeAgents: cloudAgentCatalog,
-      schema
+      authMode: env.hasSpacetimeConfig ? "spacetimeauth" : env.hasOperatorAuth ? "auth0" : "none",
+      storeBackend: "spacetimedb",
+      hasAuthToken: env.hasAuthToken,
+      hasCronSecret: env.hasCronSecret,
+      hasVercelOAuth: env.hasVercelOAuth,
+      queuesEnabled: env.queuesEnabled,
+      workflowEnabled: env.workflowEnabled,
+      agentCount: cloudAgentCatalog.length,
+      schemaOk: Boolean(schema),
     });
   } catch (error) {
     return Response.json(
       {
         ok: false,
-        environment: env,
-        error: error instanceof Error ? error.message : "Unknown error"
+        status: "error",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

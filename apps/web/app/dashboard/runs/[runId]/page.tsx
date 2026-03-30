@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
+import { RetryRunButton } from "./retry-run-button"
 import { getOperatorSpacetimeToken, getOperatorSession } from "@/lib/auth"
 import { loadRunDetails } from "@/lib/server"
 import { StatusBadge } from "@/components/status-badge"
@@ -63,6 +64,9 @@ export default async function DashboardRunDetailPage({
           <span>{detail.run.agentId}</span>
           <span className="opacity-40">·</span>
           <span className="opacity-60 truncate">{detail.run.runId}</span>
+          {(detail.run.status === "failed" || detail.run.status === "blocked") && (
+            <RetryRunButton runId={runId} />
+          )}
         </div>
       </div>
 
@@ -72,6 +76,9 @@ export default async function DashboardRunDetailPage({
         browserArtifacts={detail.browserArtifacts}
         approvals={detail.approvals}
         toolCalls={detail.toolCalls}
+        messages={detail.messages as unknown as Array<Record<string, unknown>>}
+        retrievalTraces={detail.retrievalTraces as unknown as Array<Record<string, unknown>>}
+        runId={runId}
       />
     </div>
   )

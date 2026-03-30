@@ -7,7 +7,7 @@ interface KVRow {
   label: string
   value: string
   mono?: boolean
-  redact?: boolean
+  link?: string
 }
 
 interface ApiEndpoint {
@@ -16,9 +16,19 @@ interface ApiEndpoint {
   description: string
 }
 
+interface OperatorInfo {
+  displayName: string
+  email: string
+  role: string
+  operatorId: string
+  hasVercelConnection: boolean
+  vercelUserId?: string
+}
+
 interface SettingsTabsProps {
   controlPlane: KVRow[]
   apiEndpoints: ApiEndpoint[]
+  operator?: OperatorInfo | null
 }
 
 function KVTable({ rows }: { rows: KVRow[] }) {
@@ -36,7 +46,11 @@ function KVTable({ rows }: { rows: KVRow[] }) {
                 : "text-xs text-secondary-foreground break-all"
             }
           >
-            {row.value}
+            {row.link ? (
+              <a href={row.link} className="text-primary hover:underline">{row.value}</a>
+            ) : (
+              row.value
+            )}
           </span>
         </div>
       ))}
@@ -44,12 +58,12 @@ function KVTable({ rows }: { rows: KVRow[] }) {
   )
 }
 
-export function SettingsTabs({ controlPlane, apiEndpoints }: SettingsTabsProps) {
+export function SettingsTabs({ controlPlane, apiEndpoints, operator }: SettingsTabsProps) {
   return (
     <Tabs defaultValue="control-plane">
       <TabsList className="mb-4">
         <TabsTrigger value="control-plane">Control Plane</TabsTrigger>
-        <TabsTrigger value="operators">Operators</TabsTrigger>
+        <TabsTrigger value="operators">Operator</TabsTrigger>
         <TabsTrigger value="api">API</TabsTrigger>
       </TabsList>
 
@@ -67,18 +81,38 @@ export function SettingsTabs({ controlPlane, apiEndpoints }: SettingsTabsProps) 
         </Card>
       </TabsContent>
 
-      {/* Operators */}
+      {/* Operator Profile */}
       <TabsContent value="operators">
         <Card className="bg-secondary text-secondary-foreground border-secondary">
           <CardHeader className="border-b border-secondary-foreground/10 pb-3">
             <CardTitle className="text-sm font-medium text-secondary-foreground/50 uppercase tracking-widest">
-              Operator Accounts
+              Your Profile
             </CardTitle>
           </CardHeader>
-          <CardContent className="py-8 text-center">
-            <p className="text-sm text-secondary-foreground/50">
-              Operator management coming soon.
-            </p>
+          <CardContent className="p-0">
+            {operator ? (
+              <KVTable rows={[
+                { label: "Display Name", value: operator.displayName },
+                { label: "Email", value: operator.email, mono: true },
+                { label: "Role", value: operator.role },
+                { label: "Operator ID", value: operator.operatorId, mono: true },
+                {
+                  label: "Vercel Account",
+                  value: operator.hasVercelConnection
+                    ? `Connected${operator.vercelUserId ? ` (${operator.vercelUserId})` : ""}`
+                    : "Not connected",
+                  ...(operator.hasVercelConnection
+                    ? {}
+                    : { link: "/api/auth/vercel/authorize" }),
+                },
+              ]} />
+            ) : (
+              <div className="py-8 text-center">
+                <p className="text-sm text-secondary-foreground/50">
+                  Session not available. Try signing in again.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </TabsContent>

@@ -1,6 +1,10 @@
 import Link from "next/link"
 import { loadInbox } from "@/lib/server"
+import { getAvailableAgents } from "@/lib/agent-catalog"
+import { getSetupStatus, getSetupSteps } from "@/lib/setup-status"
+import { getOperatorSession } from "@/lib/auth"
 import { LiveMetrics } from "./live-metrics"
+import { DashboardHeader } from "./dashboard-header"
 import { StatusBadge } from "@/components/status-badge"
 import {
   Table,
@@ -30,17 +34,47 @@ export default async function DashboardPage() {
   const connectedAgents = threads.length // placeholder until presence data is available
   const browserTaskCount = browserTasks.length
 
+  // Fetch sandbox count (best-effort)
+  let activeSandboxes = 0
+  try {
+    const { createControlClient } = await import("@/lib/server")
+    const client = createControlClient()
+    const sandboxRows = (await client.sql(
+      "SELECT sandbox_id FROM sandbox_instance WHERE status IN ('creating', 'running')"
+    )) as unknown[]
+    activeSandboxes = sandboxRows.length
+  } catch {
+    // SpacetimeDB may not have sandbox tables yet
+  }
+
   const recentRuns = runs.slice(0, 20)
   const pendingApprovalList = approvals.filter((a) => a.status === "pending").slice(0, 10)
 
+  // Get operator session for personalized data
+  const session = await getOperatorSession()
+  const operatorId = session?.operatorId ?? ""
+
+  // Merged agent catalog (built-in + user configs)
+  const agentOptions = await getAvailableAgents(operatorId)
+
+  // Setup status for onboarding banner
+  const setupStatus = await getSetupStatus(operatorId)
+  const setupSteps = getSetupSteps(setupStatus)
+
   return (
     <div className="flex flex-col gap-6 w-full">
+      {/* Header with onboarding + launch */}
+      <DashboardHeader
+        agents={agentOptions}
+        setupSteps={setupSteps}
+      />
       {/* Stats strip — live-updating client component with SSR initial values */}
       <LiveMetrics
         initialMissions={runs.length}
         initialActiveOrbits={activeRuns}
         initialSignals={connectedAgents}
         initialPending={pendingApprovals}
+        initialSandboxes={activeSandboxes}
       />
 
       {/* Content grid */}

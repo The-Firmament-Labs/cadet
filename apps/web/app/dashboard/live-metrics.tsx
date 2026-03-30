@@ -8,6 +8,7 @@ interface LiveMetricsProps {
   initialActiveOrbits: number
   initialSignals: number
   initialPending: number
+  initialSandboxes: number
 }
 
 export function LiveMetrics({
@@ -15,6 +16,7 @@ export function LiveMetrics({
   initialActiveOrbits,
   initialSignals,
   initialPending,
+  initialSandboxes,
 }: LiveMetricsProps) {
   const { connected, snapshot } = useLiveStream()
 
@@ -22,6 +24,7 @@ export function LiveMetrics({
   const activeOrbits = snapshot?.metrics != null ? snapshot.metrics.activeRuns : initialActiveOrbits
   const signals = snapshot?.metrics != null ? snapshot.metrics.connectedAgents : initialSignals
   const pending = snapshot?.metrics != null ? snapshot.metrics.pendingApprovals : initialPending
+  const sandboxes = initialSandboxes
 
   return (
     <div className="border border-border">
@@ -41,7 +44,7 @@ export function LiveMetrics({
           )}
         </div>
 
-        <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border">
+        <div className="grid md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-border">
           <MetricHUD
             label="MISSIONS"
             value={String(missions)}
@@ -62,6 +65,11 @@ export function LiveMetrics({
             value={String(pending)}
             code="LIVE.REC"
             variant={pending > 0 ? "highlight" : "default"}
+          />
+          <MetricHUD
+            label="SANDBOXES"
+            value={String(sandboxes)}
+            code="VM.LIVE"
           />
         </div>
       </div>

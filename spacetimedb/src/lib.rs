@@ -59,6 +59,7 @@ pub struct AgentRecord {
 pub struct JobRecord {
     #[primary_key]
     job_id: String,
+    #[index(btree)]
     agent_id: String,
     goal: String,
     priority: String,
@@ -126,7 +127,9 @@ pub struct ThreadRecord {
 pub struct MessageEvent {
     #[primary_key]
     event_id: String,
+    #[index(btree)]
     thread_id: String,
+    #[index(btree)]
     run_id: Option<String>,
     channel: String,
     direction: String,
@@ -141,6 +144,7 @@ pub struct WorkflowRun {
     #[primary_key]
     run_id: String,
     thread_id: String,
+    #[index(btree)]
     agent_id: String,
     goal: String,
     priority: String,
@@ -159,6 +163,7 @@ pub struct WorkflowRun {
 pub struct WorkflowStep {
     #[primary_key]
     step_id: String,
+    #[index(btree)]
     run_id: String,
     agent_id: String,
     stage: String,
@@ -462,6 +467,67 @@ pub struct TrajectoryLog {
     success: bool,
     duration_ms: u64,
     created_at_micros: i64,
+}
+
+// ── Vercel Sandbox tables ────────────────────────────────────────────
+
+#[table(accessor = sandbox_instance, public)]
+pub struct SandboxInstance {
+    #[primary_key]
+    sandbox_id: String,
+    #[index(btree)]
+    operator_id: String,
+    #[index(btree)]
+    agent_id: String,
+    run_id: String,
+    snapshot_id: String,
+    #[index(btree)]
+    status: String, // creating | running | sleeping | stopped | error
+    metadata_json: String,
+    created_at_micros: i64,
+    updated_at_micros: i64,
+}
+
+#[table(accessor = sandbox_snapshot, public)]
+pub struct SandboxSnapshot {
+    #[primary_key]
+    snapshot_id: String,
+    sandbox_id: String,
+    operator_id: String,
+    created_at_micros: i64,
+}
+
+// ── User Agent Configuration ─────────────────────────────────────────
+
+#[table(accessor = user_agent_config, public)]
+pub struct UserAgentConfig {
+    #[primary_key]
+    config_id: String,
+    #[index(btree)]
+    operator_id: String,
+    agent_id: String,
+    display_name: String,
+    model_override: String,
+    api_key_encrypted: String,
+    repo_url: String,
+    repo_branch: String,
+    sandbox_snapshot_id: String,
+    extra_env_json: String,
+    created_at_micros: i64,
+    updated_at_micros: i64,
+}
+
+// ── Operator Token Store ─────────────────────────────────────────────
+
+#[table(accessor = operator_token, public)]
+pub struct OperatorToken {
+    #[primary_key]
+    operator_id: String,
+    provider: String,
+    access_token_encrypted: String,
+    refresh_token_encrypted: String,
+    expires_at_micros: i64,
+    updated_at_micros: i64,
 }
 
 fn validate_identifier(value: String, field: &str) -> Result<String, String> {
@@ -2278,6 +2344,215 @@ pub fn log_trajectory(
         duration_ms,
         created_at_micros: now,
     });
+    Ok(())
+}
+
+// ── Vercel Sandbox reducers ──────────────────────────────────────────
+
+fn validate_sandbox_status(value: String) -> Result<String, String> {
+    let trimmed = value.trim().to_string();
+    match trimmed.as_str() {
+        "creating" | "running" | "sleeping" | "stopped" | "error" => Ok(trimmed),
+        _ => Err(format!("Invalid sandbox status: {trimmed}")),
+    }
+}
+
+#[reducer]
+pub fn create_sandbox(
+    ctx: &ReducerContext,
+    sandbox_id: String,
+    operator_id: String,
+    agent_id: String,
+    run_id: String,
+    status: String,
+    _timestamp_ms: i64,
+    metadata_json: String,
+) -> Result<(), String> {
+    let sandbox_id = validate_identifier(sandbox_id, "sandbox_id")?;
+    let operator_id = validate_identifier(operator_id, "operator_id")?;
+    let agent_id = validate_identifier(agent_id, "agent_id")?;
+    let status = validate_sandbox_status(status)?;
+    let metadata_json = normalize_json_blob(metadata_json, "metadata_json")?;
+    let now = now_micros(ctx);
+    ctx.db.sandbox_instance().insert(SandboxInstance {
+        sandbox_id,
+        operator_id,
+        agent_id,
+        run_id,
+        snapshot_id: String::new(),
+        status,
+        metadata_json,
+        created_at_micros: now,
+        updated_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn update_sandbox_status(
+    ctx: &ReducerContext,
+    sandbox_id: String,
+    status: String,
+    _timestamp_ms: i64,
+    metadata_json: String,
+) -> Result<(), String> {
+    let sandbox_id = validate_identifier(sandbox_id, "sandbox_id")?;
+    let status = validate_sandbox_status(status)?;
+    let now = now_micros(ctx);
+    let existing = ctx
+        .db
+        .sandbox_instance()
+        .sandbox_id()
+        .find(sandbox_id.clone())
+        .ok_or_else(|| format!("Sandbox {sandbox_id} not found"))?;
+    ctx.db.sandbox_instance().sandbox_id().update(SandboxInstance {
+        status,
+        metadata_json: normalize_json_blob(metadata_json, "metadata_json")?,
+        updated_at_micros: now,
+        ..existing
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn delete_sandbox(
+    ctx: &ReducerContext,
+    sandbox_id: String,
+) -> Result<(), String> {
+    let sandbox_id = validate_identifier(sandbox_id, "sandbox_id")?;
+    if let Some(existing) = ctx.db.sandbox_instance().sandbox_id().find(sandbox_id.clone()) {
+        ctx.db.sandbox_instance().sandbox_id().delete(existing);
+    }
+    Ok(())
+}
+
+#[reducer]
+pub fn create_sandbox_snapshot(
+    ctx: &ReducerContext,
+    snapshot_id: String,
+    sandbox_id: String,
+    operator_id: String,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let snapshot_id = validate_identifier(snapshot_id, "snapshot_id")?;
+    let sandbox_id = validate_identifier(sandbox_id, "sandbox_id")?;
+    let operator_id = validate_identifier(operator_id, "operator_id")?;
+    let now = now_micros(ctx);
+    ctx.db.sandbox_snapshot().insert(SandboxSnapshot {
+        snapshot_id: snapshot_id.clone(),
+        sandbox_id: sandbox_id.clone(),
+        operator_id,
+        created_at_micros: now,
+    });
+    // Also update the sandbox instance with the latest snapshot
+    if let Some(existing) = ctx.db.sandbox_instance().sandbox_id().find(sandbox_id) {
+        ctx.db.sandbox_instance().sandbox_id().update(SandboxInstance {
+            snapshot_id,
+            updated_at_micros: now,
+            ..existing
+        });
+    }
+    Ok(())
+}
+
+// ── User Agent Configuration reducers ────────────────────────────────
+
+#[reducer]
+pub fn upsert_user_agent_config(
+    ctx: &ReducerContext,
+    config_id: String,
+    operator_id: String,
+    agent_id: String,
+    display_name: String,
+    model_override: String,
+    api_key_encrypted: String,
+    repo_url: String,
+    repo_branch: String,
+    sandbox_snapshot_id: String,
+    extra_env_json: String,
+) -> Result<(), String> {
+    let config_id = validate_identifier(config_id, "config_id")?;
+    let operator_id = validate_identifier(operator_id, "operator_id")?;
+    let now = now_micros(ctx);
+
+    let row = UserAgentConfig {
+        config_id: config_id.clone(),
+        operator_id,
+        agent_id,
+        display_name,
+        model_override,
+        api_key_encrypted,
+        repo_url,
+        repo_branch,
+        sandbox_snapshot_id,
+        extra_env_json,
+        created_at_micros: now,
+        updated_at_micros: now,
+    };
+
+    if let Some(existing) = ctx.db.user_agent_config().config_id().find(config_id) {
+        ctx.db.user_agent_config().config_id().update(UserAgentConfig {
+            created_at_micros: existing.created_at_micros,
+            ..row
+        });
+    } else {
+        ctx.db.user_agent_config().insert(row);
+    }
+    Ok(())
+}
+
+#[reducer]
+pub fn delete_user_agent_config(
+    ctx: &ReducerContext,
+    config_id: String,
+) -> Result<(), String> {
+    let config_id = validate_identifier(config_id, "config_id")?;
+    if let Some(existing) = ctx.db.user_agent_config().config_id().find(config_id) {
+        ctx.db.user_agent_config().config_id().delete(existing);
+    }
+    Ok(())
+}
+
+// ── Operator Token Store reducers ────────────────────────────────────
+
+#[reducer]
+pub fn upsert_operator_token(
+    ctx: &ReducerContext,
+    operator_id: String,
+    provider: String,
+    access_token_encrypted: String,
+    refresh_token_encrypted: String,
+    expires_at_micros: i64,
+) -> Result<(), String> {
+    let operator_id = validate_identifier(operator_id, "operator_id")?;
+    let now = now_micros(ctx);
+
+    let row = OperatorToken {
+        operator_id: operator_id.clone(),
+        provider,
+        access_token_encrypted,
+        refresh_token_encrypted,
+        expires_at_micros,
+        updated_at_micros: now,
+    };
+
+    if ctx.db.operator_token().operator_id().find(operator_id).is_some() {
+        ctx.db.operator_token().operator_id().update(row);
+    } else {
+        ctx.db.operator_token().insert(row);
+    }
+    Ok(())
+}
+
+#[reducer]
+pub fn delete_operator_token(
+    ctx: &ReducerContext,
+    operator_id: String,
+) -> Result<(), String> {
+    let operator_id = validate_identifier(operator_id, "operator_id")?;
+    if let Some(existing) = ctx.db.operator_token().operator_id().find(operator_id) {
+        ctx.db.operator_token().operator_id().delete(existing);
+    }
     Ok(())
 }
 

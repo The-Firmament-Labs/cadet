@@ -33,12 +33,12 @@ describe("getServerEnv", () => {
       CRON_SECRET: " cron-value "
     }));
 
-    expect(env).toEqual({
+    expect(env).toMatchObject({
       controlPlaneUrl: "https://cadet.example.com",
       spacetimeUrl: "https://maincloud.spacetimedb.com",
       database: "cadet-control",
       authToken: "token-value",
-      cronSecret: "cron-value"
+      cronSecret: "cron-value",
     });
   });
 });
@@ -60,7 +60,10 @@ describe("getSafeServerEnv", () => {
       hasAuthToken: true,
       hasCronSecret: true,
       hasSpacetimeConfig: true,
-      hasOperatorAuth: false
+      hasOperatorAuth: false,
+      hasVercelOAuth: false,
+      queuesEnabled: false,
+      workflowEnabled: false,
     });
   });
 });

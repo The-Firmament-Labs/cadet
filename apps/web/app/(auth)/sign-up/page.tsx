@@ -24,7 +24,7 @@ export default function SignUpPage() {
       const optionsRes = await fetch("/api/auth/register?step=options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: email.split("@")[0] || "operator", email }),
+        body: JSON.stringify({ displayName: displayName.trim() || email.split("@")[0] || "operator", email }),
       })
       if (!optionsRes.ok) {
         const err = await optionsRes.json().catch(() => ({}))

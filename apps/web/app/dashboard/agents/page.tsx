@@ -1,7 +1,10 @@
 import { Bot } from "lucide-react"
 
 import { createControlClient } from "@/lib/server"
+import { cloudAgentCatalog } from "@/lib/cloud-agents"
 import { detectLocalControlPlane } from "@/lib/local-control"
+import { LaunchMissionDialog } from "@/components/launch-mission-dialog"
+import { AgentConfigDialog } from "@/components/agent-config-dialog"
 import { StatusBadge } from "@/components/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -42,6 +45,20 @@ export default async function AgentsPage() {
     detectLocalControlPlane(),
   ])
 
+  // Fetch sandbox counts per agent (best-effort)
+  let sandboxCounts: Record<string, number> = {}
+  try {
+    const client = createControlClient()
+    const sandboxRows = (await client.sql(
+      "SELECT agent_id, status FROM sandbox_instance WHERE status IN ('creating', 'running', 'sleeping')"
+    )) as Array<{ agent_id: string; status: string }>
+    for (const row of sandboxRows) {
+      sandboxCounts[row.agent_id] = (sandboxCounts[row.agent_id] ?? 0) + 1
+    }
+  } catch {
+    // sandbox table may not exist yet
+  }
+
   if (cloudResult.status === "fulfilled") {
     agents = cloudResult.value as AgentRecord[]
   } else {
@@ -55,11 +72,23 @@ export default async function AgentsPage() {
     localPlane = localResult.value
   }
 
+  const agentOptions = cloudAgentCatalog.map((a) => ({
+    id: a.id,
+    name: a.name,
+    runtime: a.runtime,
+    execution: a.deployment.execution,
+    description: a.description,
+    hasSandbox: a.deployment.execution === "vercel-sandbox",
+  }))
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Bot size={18} className="text-primary" />
-        <h1 className="text-sm font-semibold tracking-wide">Agent Roster</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Bot size={18} className="text-primary" />
+          <h1 className="text-sm font-semibold tracking-wide">Agent Roster</h1>
+        </div>
+        <LaunchMissionDialog agents={agentOptions} />
       </div>
 
       {/* Local control plane section */}
@@ -151,6 +180,8 @@ export default async function AgentsPage() {
                   <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Control Plane</TableHead>
                   <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Tags</TableHead>
                   <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Status</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Sandboxes</TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-widest text-secondary-foreground/50 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -176,6 +207,27 @@ export default async function AgentsPage() {
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={agent.status ?? "unknown"} />
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-secondary-foreground/50">
+                      {sandboxCounts[agent.agent_id] ?? 0}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center gap-1 justify-end">
+                        <AgentConfigDialog
+                          agentId={agent.agent_id}
+                          agentName={agent.display_name ?? agent.agent_id}
+                        />
+                        <LaunchMissionDialog
+                          agents={agentOptions.filter((a) => a.id === agent.agent_id).length > 0
+                            ? agentOptions.filter((a) => a.id === agent.agent_id)
+                            : agentOptions}
+                          trigger={
+                            <button className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-primary border border-primary/20 rounded hover:bg-primary/10 transition-colors">
+                              Deploy
+                            </button>
+                          }
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

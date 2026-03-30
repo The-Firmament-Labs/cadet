@@ -4,7 +4,7 @@ import { getBot } from "@/lib/bot";
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const bot = getBot();
+    const bot = await getBot();
     const handler = bot.webhooks["telegram"];
     if (!handler) {
       return new Response("Telegram adapter not configured", { status: 501 });

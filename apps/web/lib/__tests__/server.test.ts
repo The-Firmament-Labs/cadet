@@ -898,14 +898,14 @@ describe("resolveApprovalFromPayload", () => {
     );
   });
 
-  it("returns whatever client.resolveApproval returns", async () => {
+  it("returns approvalId and status after resolving", async () => {
     const { resolveApprovalFromPayload } = await importServerFns();
 
-    mockClient.resolveApproval.mockResolvedValue({ resolved: true, approvalId: "approval_1" });
+    mockClient.resolveApproval.mockResolvedValue(undefined);
 
     const result = await resolveApprovalFromPayload("approval_1", { status: "approved" });
 
-    expect(result).toEqual({ resolved: true, approvalId: "approval_1" });
+    expect(result).toEqual({ approvalId: "approval_1", status: "approved" });
   });
 });
 

@@ -1,10 +1,10 @@
 import { createControlClient } from "@/lib/server";
+import { parseSessionFromRequest } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  if (!cookieHeader.includes("cadet_session=")) {
+  if (!parseSessionFromRequest(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -29,11 +29,12 @@ export async function GET(request: Request) {
           try {
             const client = createControlClient();
 
-            const [runs, approvals, browserTasks, agents] = await Promise.all([
+            const [runs, approvals, browserTasks, agents, steps] = await Promise.all([
               client.sql("SELECT run_id, agent_id, goal, status, current_stage, priority FROM workflow_run ORDER BY updated_at_micros DESC LIMIT 20").catch(() => []),
               client.sql("SELECT approval_id, agent_id, title, status, risk FROM approval_request WHERE status = 'pending' ORDER BY created_at_micros DESC LIMIT 20").catch(() => []),
               client.sql("SELECT task_id, agent_id, status, url FROM browser_task ORDER BY updated_at_micros DESC LIMIT 10").catch(() => []),
               client.sql("SELECT agent_id, display_name, runtime, control_plane FROM agent_record").catch(() => []),
+              client.sql("SELECT step_id, run_id, stage, status, owner_execution, updated_at_micros FROM workflow_step ORDER BY updated_at_micros DESC LIMIT 50").catch(() => []),
             ]);
 
             send("snapshot", {
@@ -42,6 +43,7 @@ export async function GET(request: Request) {
               approvals,
               browserTasks,
               agents,
+              steps,
               metrics: {
                 activeRuns: (runs as Array<Record<string, unknown>>).filter((r) => r.status === "running").length,
                 pendingApprovals: (approvals as unknown[]).length,

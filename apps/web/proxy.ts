@@ -22,6 +22,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/jobs/")) return true;
   if (pathname.startsWith("/api/github/")) return true;
   if (pathname.startsWith("/api/slack/")) return true;
+  if (pathname.startsWith("/api/auth/vercel/")) return true;
+  if (pathname.startsWith("/api/queues/")) return true;
+  if (pathname.startsWith("/api/workflows/")) return true;
   return false;
 }
 

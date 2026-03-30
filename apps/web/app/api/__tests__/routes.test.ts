@@ -6,6 +6,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth", () => ({
   requireOperatorApiSession: vi.fn(),
+  parseSessionFromRequest: vi.fn(),
 }));
 
 vi.mock("@/lib/server", () => ({
@@ -39,7 +40,7 @@ vi.mock("@/lib/cloud-agents", () => ({
 // Deferred imports (after vi.mock calls)
 // ---------------------------------------------------------------------------
 
-import { requireOperatorApiSession } from "@/lib/auth";
+import { requireOperatorApiSession, parseSessionFromRequest } from "@/lib/auth";
 import {
   createControlClient,
   loadInbox,
@@ -71,12 +72,18 @@ function mockUnauth() {
       { status: 401 }
     ),
     authToken: undefined as string | undefined,
+    operatorId: undefined as string | undefined,
   };
 }
 
 function mockSession(authToken = "test-token") {
-  return { unauthorized: null as Response | null, authToken };
+  return { unauthorized: null as Response | null, authToken, operatorId: "test-operator" };
 }
+
+// Valid encoded session cookie for stream tests (unsigned base64url JSON)
+const VALID_SESSION_COOKIE = Buffer.from(
+  JSON.stringify({ operatorId: "test-operator", displayName: "Test", email: "test@example.com", role: "operator" })
+).toString("base64url");
 
 const DEFAULT_SAFE_ENV = {
   controlPlaneUrl: "http://localhost:3001",
@@ -86,6 +93,9 @@ const DEFAULT_SAFE_ENV = {
   hasCronSecret: false,
   hasSpacetimeConfig: false,
   hasOperatorAuth: false,
+  hasVercelOAuth: false,
+  queuesEnabled: false,
+  workflowEnabled: false,
 };
 
 const DEFAULT_SERVER_ENV = {
@@ -94,6 +104,13 @@ const DEFAULT_SERVER_ENV = {
   database: "test-db",
   authToken: undefined as string | undefined,
   cronSecret: "super-secret-cron",
+  vercelClientId: undefined as string | undefined,
+  vercelClientSecret: undefined as string | undefined,
+  queuesEnabled: false,
+  workflowEnabled: false,
+  sandboxDefaultTemplate: undefined as string | undefined,
+  sandboxIdleTimeoutMs: 300000,
+  sandboxMaxPerOperator: 5,
 };
 
 // Reset all mock state between every test
@@ -101,6 +118,10 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(getSafeServerEnv).mockReturnValue(DEFAULT_SAFE_ENV);
   vi.mocked(getServerEnv).mockReturnValue(DEFAULT_SERVER_ENV);
+  // Default: parseSessionFromRequest returns a valid session (overridden in 401 tests)
+  vi.mocked(parseSessionFromRequest).mockReturnValue({
+    operatorId: "test-operator", displayName: "Test", email: "test@example.com", role: "operator",
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -108,7 +129,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/health", () => {
-  it("returns ok:true with plane and environment on success", async () => {
+  it("returns ok:true with structured diagnostics on success", async () => {
     const mockSchema = { tables: [] };
     const mockClient = { schema: vi.fn().mockResolvedValue(mockSchema) };
     vi.mocked(createControlClient).mockReturnValue(mockClient as never);
@@ -118,18 +139,19 @@ describe("GET /api/health", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.plane).toBe("cloud");
-    expect(body.environment).toBeDefined();
-    expect(body.schema).toEqual(mockSchema);
+    expect(body.status).toBe("healthy");
+    expect(body.storeBackend).toBe("spacetimedb");
+    expect(body.schemaOk).toBe(true);
+    expect(typeof body.agentCount).toBe("number");
   });
 
-  it("includes edgeAgents array in the response", async () => {
+  it("includes agentCount from cloudAgentCatalog", async () => {
     const mockClient = { schema: vi.fn().mockResolvedValue({}) };
     vi.mocked(createControlClient).mockReturnValue(mockClient as never);
 
     const res = await healthGET();
     const body = await res.json();
-    expect(Array.isArray(body.edgeAgents)).toBe(true);
-    expect(body.edgeAgents[0].id).toBe("saturn");
+    expect(body.agentCount).toBeGreaterThanOrEqual(0);
   });
 
   it("returns 500 with ok:false when schema() throws an Error", async () => {
@@ -142,6 +164,7 @@ describe("GET /api/health", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.ok).toBe(false);
+    expect(body.status).toBe("error");
     expect(body.error).toBe("SpacetimeDB unreachable");
   });
 
@@ -156,7 +179,7 @@ describe("GET /api/health", () => {
     expect(body.error).toBe("Unknown error");
   });
 
-  it("includes environment in the 500 error response", async () => {
+  it("does not leak environment details in error response", async () => {
     const mockClient = {
       schema: vi.fn().mockRejectedValue(new Error("fail")),
     };
@@ -164,7 +187,7 @@ describe("GET /api/health", () => {
 
     const res = await healthGET();
     const body = await res.json();
-    expect(body.environment).toBeDefined();
+    expect(body.environment).toBeUndefined();
   });
 });
 
@@ -271,7 +294,7 @@ describe("POST /api/jobs/dispatch", () => {
 
   it("returns 200 with ok:true on successful dispatch", async () => {
     vi.mocked(requireOperatorApiSession).mockResolvedValue(mockSession());
-    vi.mocked(dispatchJobFromPayload).mockResolvedValue({ jobId: "job-1" });
+    vi.mocked(dispatchJobFromPayload).mockResolvedValue({ jobId: "job-1" } as never);
 
     const res = await jobsDispatchPOST(
       new Request("http://test/api/jobs/dispatch", {
@@ -288,7 +311,7 @@ describe("POST /api/jobs/dispatch", () => {
 
   it("passes payload and authToken to dispatchJobFromPayload", async () => {
     vi.mocked(requireOperatorApiSession).mockResolvedValue(mockSession());
-    vi.mocked(dispatchJobFromPayload).mockResolvedValue({});
+    vi.mocked(dispatchJobFromPayload).mockResolvedValue({} as never);
 
     const payload = { agentId: "saturn", goal: "test goal" };
     await jobsDispatchPOST(
@@ -353,7 +376,7 @@ describe("POST /api/agents/edge/dispatch", () => {
 
   it("returns 200 with ok:true on success", async () => {
     vi.mocked(requireOperatorApiSession).mockResolvedValue(mockSession());
-    vi.mocked(dispatchEdgeJobFromPayload).mockResolvedValue({ plane: "cloud", runtime: "edge" });
+    vi.mocked(dispatchEdgeJobFromPayload).mockResolvedValue({ plane: "cloud", runtime: "edge" } as never);
 
     const res = await edgeDispatchPOST(
       new Request("http://test/api/agents/edge/dispatch", {
@@ -370,7 +393,7 @@ describe("POST /api/agents/edge/dispatch", () => {
 
   it("passes payload and authToken to dispatchEdgeJobFromPayload", async () => {
     vi.mocked(requireOperatorApiSession).mockResolvedValue(mockSession());
-    vi.mocked(dispatchEdgeJobFromPayload).mockResolvedValue({});
+    vi.mocked(dispatchEdgeJobFromPayload).mockResolvedValue({} as never);
 
     const payload = { agentId: "saturn", goal: "edge goal" };
     await edgeDispatchPOST(
@@ -453,7 +476,7 @@ describe("POST /api/agents/register", () => {
 
   it("passes payload and authToken to registerAgentFromPayload", async () => {
     vi.mocked(requireOperatorApiSession).mockResolvedValue(mockSession());
-    vi.mocked(registerAgentFromPayload).mockResolvedValue({});
+    vi.mocked(registerAgentFromPayload).mockResolvedValue({} as never);
 
     const manifest = { id: "saturn" };
     await registerPOST(
@@ -605,7 +628,7 @@ describe("GET /api/cron/reconcile", () => {
     );
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("Unknown reconcile error");
+    expect(body.error).toBe("unexpected failure");
   });
 });
 
@@ -615,6 +638,7 @@ describe("GET /api/cron/reconcile", () => {
 
 describe("GET /api/stream", () => {
   it("returns 401 when no cadet_session cookie is present", async () => {
+    vi.mocked(parseSessionFromRequest).mockReturnValue(null);
     const res = await streamGET(new Request("http://test/api/stream"));
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -622,6 +646,7 @@ describe("GET /api/stream", () => {
   });
 
   it("returns 401 when cookie header exists but lacks cadet_session", async () => {
+    vi.mocked(parseSessionFromRequest).mockReturnValue(null);
     const res = await streamGET(
       new Request("http://test/api/stream", {
         headers: { cookie: "other_cookie=abc" },
@@ -631,12 +656,13 @@ describe("GET /api/stream", () => {
   });
 
   it("returns 200 SSE response when cadet_session cookie is present", async () => {
+    vi.mocked(parseSessionFromRequest).mockReturnValue({ operatorId: "op", displayName: "Test", email: "t@t.com", role: "operator" });
     const mockClient = { sql: vi.fn().mockRejectedValue(new Error("not connected")) };
     vi.mocked(createControlClient).mockReturnValue(mockClient as never);
 
     const res = await streamGET(
       new Request("http://test/api/stream", {
-        headers: { cookie: "cadet_session=dGVzdA" },
+        headers: { cookie: `cadet_session=${VALID_SESSION_COOKIE}` },
       })
     );
     expect(res.status).toBe(200);
@@ -649,7 +675,7 @@ describe("GET /api/stream", () => {
 
     const res = await streamGET(
       new Request("http://test/api/stream", {
-        headers: { cookie: "cadet_session=dGVzdA" },
+        headers: { cookie: `cadet_session=${VALID_SESSION_COOKIE}` },
       })
     );
     expect(res.headers.get("Cache-Control")).toBe("no-cache, no-transform");
@@ -661,7 +687,7 @@ describe("GET /api/stream", () => {
 
     const res = await streamGET(
       new Request("http://test/api/stream", {
-        headers: { cookie: "cadet_session=dGVzdA" },
+        headers: { cookie: `cadet_session=${VALID_SESSION_COOKIE}` },
       })
     );
     expect(res.headers.get("Connection")).toBe("keep-alive");
@@ -673,7 +699,7 @@ describe("GET /api/stream", () => {
 
     const res = await streamGET(
       new Request("http://test/api/stream", {
-        headers: { cookie: "cadet_session=dGVzdA" },
+        headers: { cookie: `cadet_session=${VALID_SESSION_COOKIE}` },
       })
     );
     expect(res.body).toBeInstanceOf(ReadableStream);
@@ -685,7 +711,7 @@ describe("GET /api/stream", () => {
 
     const res = await streamGET(
       new Request("http://test/api/stream", {
-        headers: { cookie: "foo=bar; cadet_session=dGVzdA; baz=qux" },
+        headers: { cookie: `foo=bar; cadet_session=${VALID_SESSION_COOKIE}; baz=qux` },
       })
     );
     expect(res.status).toBe(200);
@@ -722,7 +748,7 @@ describe("Golden path — full auth-guarded request lifecycle", () => {
   it("jobs/dispatch: session → payload → job dispatched → result returned", async () => {
     const jobResult = { job: { jobId: "job-abc" }, workflow: { runId: "run-1" } };
     vi.mocked(requireOperatorApiSession).mockResolvedValue(mockSession("stdb-tok"));
-    vi.mocked(dispatchJobFromPayload).mockResolvedValue(jobResult);
+    vi.mocked(dispatchJobFromPayload).mockResolvedValue(jobResult as never);
 
     const res = await jobsDispatchPOST(
       new Request("http://test/api/jobs/dispatch", {
