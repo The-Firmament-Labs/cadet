@@ -7,7 +7,10 @@ import {
   DialogDescription, DialogFooter, DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Settings2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Settings2, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface AgentConfigDialogProps {
   agentId: string
@@ -55,6 +58,7 @@ export function AgentConfigDialog({
         return
       }
 
+      toast.success("Configuration saved")
       setSaved(true)
       setTimeout(() => {
         setOpen(false)
@@ -68,20 +72,19 @@ export function AgentConfigDialog({
     }
   }
 
-  const inputClass = "w-full px-3 py-1.5 text-xs bg-secondary-foreground/5 border border-secondary-foreground/10 rounded-md text-secondary-foreground placeholder:text-secondary-foreground/20 outline-none focus:border-primary/50"
-  const labelClass = "text-[10px] uppercase tracking-widest text-secondary-foreground/50 font-medium"
+  const labelClass = "text-[10px] uppercase tracking-widest text-secondary-foreground/50"
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <button className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-secondary-foreground/50 border border-secondary-foreground/10 rounded hover:bg-secondary-foreground/5 transition-colors">
+          <Button variant="outline" size="sm" className="h-6 px-2 gap-1 text-[10px] text-muted-foreground">
             <Settings2 size={10} />
             Configure
-          </button>
+          </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="bg-secondary text-secondary-foreground border-secondary sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold">Configure {agentName}</DialogTitle>
           <DialogDescription className="text-xs text-secondary-foreground/50">
@@ -94,37 +97,37 @@ export function AgentConfigDialog({
             <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">{error}</p>
           )}
           {saved && (
-            <p className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-md px-3 py-2">Saved</p>
+            <p className="text-xs text-primary bg-primary/10 border border-primary/20 rounded-md px-3 py-2">Saved</p>
           )}
 
           <div className="flex flex-col gap-1">
-            <label className={labelClass}>Display Name</label>
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={agentName} className={inputClass} />
+            <Label className={labelClass}>Display Name</Label>
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={agentName} className="text-xs" />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className={labelClass}>Model Override <span className="opacity-50">(blank = agent default)</span></label>
-            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="anthropic/claude-sonnet-4.5" className={inputClass} />
-            <p className="text-[9px] text-secondary-foreground/30">Uses AI Gateway format: provider/model</p>
+            <Label className={labelClass}>Model Override <span className="opacity-50">(blank = agent default)</span></Label>
+            <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="anthropic/claude-sonnet-4.5" className="text-xs" />
+            <p className="text-[9px] text-muted-foreground">Uses AI Gateway format: provider/model</p>
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className={labelClass}>Default Repository <span className="opacity-50">(optional)</span></label>
-            <input value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/org/repo" className={inputClass} />
+            <Label className={labelClass}>Default Repository <span className="opacity-50">(optional)</span></Label>
+            <Input value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/org/repo" className="text-xs" />
           </div>
 
           {repoUrl && (
             <div className="flex flex-col gap-1">
-              <label className={labelClass}>Branch</label>
-              <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" className={inputClass} />
+              <Label className={labelClass}>Branch</Label>
+              <Input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" className="text-xs" />
             </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} className="text-xs border-secondary-foreground/10">Cancel</Button>
-          <Button onClick={handleSave} disabled={loading} className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium">
-            {loading ? "Saving..." : "Save Configuration"}
+          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={loading} className="gap-1.5">
+            {loading ? <><Loader2 size={12} className="animate-spin" /> Saving...</> : "Save Configuration"}
           </Button>
         </DialogFooter>
       </DialogContent>

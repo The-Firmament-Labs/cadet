@@ -2,6 +2,83 @@ import type { AgentManifest } from "@starbridge/core/agent-manifest";
 
 export const cloudAgentCatalog: AgentManifest[] = [
   {
+    id: "cadet",
+    name: "Cadet",
+    description: "Your personal AI assistant. Handles conversations, delegates complex tasks to specialist agents.",
+    prompts: {
+      system: "system/core.md",
+      personality: "agents/cadet.md",
+      stages: {
+        route: "system/autonomy.md",
+        summarize: "system/user-experience.md",
+      },
+    },
+    system:
+      "You are Cadet, a personal AI assistant and router agent. You handle conversations directly for general questions, research, reminders, and simple tasks. For coding tasks (write code, fix bugs, debug, create files), delegate to the Voyager agent. For operations tasks (deploy, rollback, incident response, infrastructure), delegate to the Saturn agent. Always be concise and helpful. When you delegate, explain what you're doing and why.",
+    model: "anthropic/claude-sonnet-4.5",
+    runtime: "edge-function",
+    deployment: {
+      controlPlane: "cloud",
+      execution: "vercel-edge",
+      workflow: "chat"
+    },
+    tags: ["assistant", "router", "chat"],
+    tools: {
+      allowExec: false,
+      allowBrowser: true,
+      allowNetwork: true,
+      allowMcp: true,
+      browser: {
+        enabled: true,
+        allowedDomains: ["*"],
+        blockedDomains: [],
+        maxConcurrentSessions: 1,
+        allowDownloads: false,
+        defaultMode: "extract",
+        requiresApprovalFor: []
+      }
+    },
+    memory: {
+      namespace: "assistant",
+      maxNotes: 1000,
+      summarizeAfter: 8
+    },
+    workflowTemplates: [
+      {
+        id: "chat-default",
+        description: "Conversational router with specialist handoff.",
+        stages: ["route", "act", "summarize", "learn"]
+      }
+    ],
+    toolProfiles: [
+      {
+        id: "chat-tools",
+        description: "Conversational tools: memory search, agent handoff, run status, reminders."
+      }
+    ],
+    handoffRules: [
+      {
+        id: "code-to-sandbox",
+        whenGoalIncludes: ["code", "write", "fix", "debug", "refactor", "test", "implement", "function", "component", "api endpoint"],
+        to: "vercel-sandbox",
+        reason: "Coding tasks require isolated sandbox execution with Claude Code."
+      },
+      {
+        id: "ops-to-edge",
+        whenGoalIncludes: ["deploy", "rollback", "incident", "infrastructure", "monitoring", "ci/cd", "pipeline", "release"],
+        to: "vercel-edge",
+        reason: "Operations tasks require edge execution with deployment access."
+      }
+    ],
+    learningPolicy: {
+      enabled: true,
+      summarizeEveryRuns: 2,
+      embedMemory: true,
+      maxRetrievedChunks: 16
+    },
+    schedules: []
+  },
+  {
     id: "saturn",
     name: "Saturn",
     description: "Control-plane agent for deployments, incident response, and job routing.",

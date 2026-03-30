@@ -1,11 +1,16 @@
 import { requireVercelAccessToken } from "@/lib/auth";
+import { getServerEnv } from "@/lib/env";
 import { runInSandbox, verifySandboxOwnership } from "@/lib/sandbox";
-import { apiError } from "@/lib/api-response";
+import { apiError, apiUnavailable } from "@/lib/api-response";
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ sandboxId: string }> },
 ) {
+  if (!getServerEnv().sandboxExecutionEnabled) {
+    return apiUnavailable("Sandbox execution is disabled in APP_STORE_SAFE_MODE");
+  }
+
   const { unauthorized, vercelAccessToken, operatorId } = await requireVercelAccessToken(request);
   if (unauthorized) return unauthorized;
 

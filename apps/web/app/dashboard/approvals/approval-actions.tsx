@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Check, X } from "lucide-react"
+import { Check, X, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ApprovalActionsProps {
@@ -31,15 +31,11 @@ export function ApprovalActions({ approvalId, runId }: ApprovalActionsProps) {
   }
 
   if (status === "approved") {
-    return (
-      <span className="text-xs font-mono text-[#4dff88]">Approved</span>
-    )
+    return <span className="text-xs font-mono text-primary">Approved</span>
   }
 
   if (status === "rejected") {
-    return (
-      <span className="text-xs font-mono text-[#ff4d4d]">Rejected</span>
-    )
+    return <span className="text-xs font-mono text-destructive">Rejected</span>
   }
 
   return (
@@ -47,17 +43,17 @@ export function ApprovalActions({ approvalId, runId }: ApprovalActionsProps) {
       <Button
         size="sm"
         variant="outline"
-        className="h-7 px-2.5 text-[11px] border-[rgba(77,255,136,0.3)] text-[#4dff88] hover:bg-[rgba(77,255,136,0.08)] hover:text-[#4dff88]"
+        className="h-7 px-2.5 text-[11px] text-primary border-primary/30 hover:bg-primary/10"
         disabled={status === "loading"}
         onClick={() => resolve("approved")}
       >
-        <Check size={12} className="mr-1" />
+        {status === "loading" ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Check size={12} className="mr-1" />}
         Approve
       </Button>
       <Button
         size="sm"
         variant="outline"
-        className="h-7 px-2.5 text-[11px] border-[rgba(255,77,77,0.3)] text-[#ff4d4d] hover:bg-[rgba(255,77,77,0.08)] hover:text-[#ff4d4d]"
+        className="h-7 px-2.5 text-[11px] text-destructive border-destructive/30 hover:bg-destructive/10"
         disabled={status === "loading"}
         onClick={() => resolve("rejected")}
       >

@@ -39,7 +39,7 @@ export default async function ApprovalsPage() {
         <ShieldCheck size={18} className="text-primary" />
         <h1 className="text-sm font-semibold tracking-wide">Approval Queue</h1>
         {pending.length > 0 && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono bg-[rgba(255,214,107,0.12)] text-[#ffd66b] border border-[rgba(255,214,107,0.28)]">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono bg-primary/10 text-primary border border-primary/20">
             {pending.length} pending
           </span>
         )}

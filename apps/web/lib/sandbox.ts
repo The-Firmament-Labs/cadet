@@ -1,9 +1,22 @@
 import { Sandbox } from "@vercel/sandbox";
 import type { SandboxEnvironment } from "@starbridge/core";
-import { createControlClient } from "./server";
-import { getServerEnv } from "./env";
-import { sqlEscape } from "./sql";
-import type { SandboxRecord, SandboxStatus } from "./sandbox-types";
+import { createControlClient } from "@/lib/server";
+import { getServerEnv } from "@/lib/env";
+import { sqlEscape } from "@/lib/sql";
+import type { SandboxRecord, SandboxStatus } from "@/lib/sandbox-types";
+
+export const APP_STORE_SANDBOX_DISABLED_MESSAGE =
+  "Sandbox execution is disabled in APP_STORE_SAFE_MODE";
+
+export function isSandboxIdle(updatedAtMicros: number, nowMs: number, idleTimeoutMs: number): boolean {
+  return nowMs * 1_000 - updatedAtMicros > idleTimeoutMs * 1_000;
+}
+
+function assertSandboxExecutionEnabled(): void {
+  if (!getServerEnv().sandboxExecutionEnabled) {
+    throw new Error(APP_STORE_SANDBOX_DISABLED_MESSAGE);
+  }
+}
 
 function getSandboxCredentials(vercelAccessToken: string) {
   return {
@@ -64,6 +77,8 @@ export async function createSandbox(opts: {
   runId?: string;
   environment?: SandboxEnvironment;
 }): Promise<SandboxRecord> {
+  assertSandboxExecutionEnabled();
+
   // Check operator sandbox limit
   const client = createControlClient();
   const existing = (await client.sql(
@@ -171,6 +186,8 @@ export async function runInSandbox(opts: {
   command: string;
   args?: string[];
 }): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  assertSandboxExecutionEnabled();
+
   const credentials = getSandboxCredentials(opts.vercelAccessToken);
   const sandbox = await Sandbox.get({ sandboxId: opts.sandboxId, ...credentials });
 
@@ -189,6 +206,8 @@ export async function snapshotSandbox(opts: {
   vercelAccessToken: string;
   operatorId: string;
 }): Promise<string> {
+  assertSandboxExecutionEnabled();
+
   const credentials = getSandboxCredentials(opts.vercelAccessToken);
   const sandbox = await Sandbox.get({ sandboxId: opts.sandboxId, ...credentials });
 
@@ -214,6 +233,8 @@ export async function sleepSandbox(opts: {
   vercelAccessToken: string;
   operatorId: string;
 }): Promise<string> {
+  assertSandboxExecutionEnabled();
+
   // Snapshot then stop
   const snapshotId = await snapshotSandbox(opts);
 
@@ -233,6 +254,8 @@ export async function wakeSandbox(opts: {
   agentId: string;
   runId?: string;
 }): Promise<SandboxRecord> {
+  assertSandboxExecutionEnabled();
+
   const credentials = getSandboxCredentials(opts.vercelAccessToken);
 
   const sandbox = await Sandbox.create({
@@ -271,6 +294,8 @@ export async function stopSandbox(opts: {
   sandboxId: string;
   vercelAccessToken: string;
 }): Promise<void> {
+  assertSandboxExecutionEnabled();
+
   try {
     const credentials = getSandboxCredentials(opts.vercelAccessToken);
     const sandbox = await Sandbox.get({ sandboxId: opts.sandboxId, ...credentials });
@@ -298,6 +323,8 @@ export async function runCodingAgent(opts: {
   branch?: string;
   apiKey?: string;
 }): Promise<{ output: string; exitCode: number }> {
+  assertSandboxExecutionEnabled();
+
   const credentials = getSandboxCredentials(opts.vercelAccessToken);
   const sandbox = await Sandbox.get({ sandboxId: opts.sandboxId, ...credentials });
 
@@ -352,6 +379,10 @@ export async function runSandboxWatchdog(): Promise<{
   queued: number;
   errored: number;
 }> {
+  if (!getServerEnv().sandboxExecutionEnabled) {
+    return { checked: 0, queued: 0, errored: 0 };
+  }
+
   const client = createControlClient();
   const rows = (await client.sql(
     `SELECT sandbox_id, operator_id, agent_id, updated_at_micros, metadata_json FROM sandbox_instance WHERE status = 'running'`,
@@ -366,15 +397,15 @@ export async function runSandboxWatchdog(): Promise<{
     const sandboxId = String(row.sandbox_id);
     const operatorId = String(row.operator_id);
     const agentId = String(row.agent_id);
-    const updatedAt = Number(row.updated_at_micros ?? 0);
-    const isIdle = now - updatedAt > idleTimeout;
+    const updatedAtMicros = Number(row.updated_at_micros ?? 0);
+    const isIdle = isSandboxIdle(updatedAtMicros, now, idleTimeout);
 
     if (isIdle) {
       try {
         // Queue a lifecycle message to sleep the sandbox
         // The queue consumer has access to the operator's token context
-        const { sendToAgentLifecycle } = await import("./queue");
-        const { getVercelAccessToken } = await import("./token-store");
+        const { sendToAgentLifecycle } = await import("@/lib/queue");
+        const { getVercelAccessToken } = await import("@/lib/token-store");
         const token = await getVercelAccessToken(operatorId) ?? "";
         await sendToAgentLifecycle({
           sandboxId,

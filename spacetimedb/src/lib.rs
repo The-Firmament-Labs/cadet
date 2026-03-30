@@ -358,19 +358,19 @@ pub struct AuthChallenge {
 #[table(accessor = raw_message, public)]
 pub struct RawMessage {
     #[primary_key]
-    message_id: String,           // UUID
-    channel: String,              // slack, discord, github, telegram, web, email, system
-    direction: String,            // inbound, outbound
-    sender_entity_id: String,     // UUID → MessageEntity
+    message_id: String, // UUID
+    channel: String,          // slack, discord, github, telegram, web, email, system
+    direction: String,        // inbound, outbound
+    sender_entity_id: String, // UUID → MessageEntity
     receiver_entity_id: Option<String>, // UUID → MessageEntity (None for broadcasts)
-    thread_id: Option<String>,    // FK → ThreadRecord (if threaded)
-    run_id: Option<String>,       // FK → WorkflowRun (if agent-initiated)
-    raw_payload: String,          // Original payload (JSON string)
-    content_text: String,         // Extracted plain text
-    content_type: String,         // text, markdown, html, card, attachment
+    thread_id: Option<String>, // FK → ThreadRecord (if threaded)
+    run_id: Option<String>,   // FK → WorkflowRun (if agent-initiated)
+    raw_payload: String,      // Original payload (JSON string)
+    content_text: String,     // Extracted plain text
+    content_type: String,     // text, markdown, html, card, attachment
     platform_message_id: Option<String>, // Platform-native ID (slack ts, github comment id)
-    platform_thread_id: Option<String>,  // Platform-native thread ID
-    status: String,               // received, processing, processed, delivered, failed
+    platform_thread_id: Option<String>, // Platform-native thread ID
+    status: String,           // received, processing, processed, delivered, failed
     created_at_micros: i64,
     processed_at_micros: Option<i64>,
 }
@@ -379,13 +379,13 @@ pub struct RawMessage {
 #[table(accessor = message_extraction, public)]
 pub struct MessageExtraction {
     #[primary_key]
-    extraction_id: String,        // UUID
-    message_id: String,           // FK → RawMessage
-    extraction_type: String,      // intent, entity, sentiment, summary, action_item, reference
-    label: String,                // The extracted label (e.g., "deploy_request", "person:dex", "positive")
-    value: String,                // Extracted value/text span
-    confidence: f64,              // 0.0–1.0 confidence score
-    metadata_json: String,        // Additional structured data
+    extraction_id: String, // UUID
+    message_id: String,      // FK → RawMessage
+    extraction_type: String, // intent, entity, sentiment, summary, action_item, reference
+    label: String, // The extracted label (e.g., "deploy_request", "person:dex", "positive")
+    value: String, // Extracted value/text span
+    confidence: f64, // 0.0–1.0 confidence score
+    metadata_json: String, // Additional structured data
     created_at_micros: i64,
 }
 
@@ -393,8 +393,8 @@ pub struct MessageExtraction {
 #[table(accessor = message_entity, public)]
 pub struct MessageEntity {
     #[primary_key]
-    entity_id: String,            // UUID
-    entity_type: String,          // user, bot, agent, channel, org, system
+    entity_id: String, // UUID
+    entity_type: String, // user, bot, agent, channel, org, system
     display_name: String,
     // Platform-specific identifiers
     slack_user_id: Option<String>,
@@ -402,8 +402,8 @@ pub struct MessageEntity {
     github_username: Option<String>,
     telegram_user_id: Option<String>,
     email_address: Option<String>,
-    operator_id: Option<String>,  // FK → OperatorAccount (if linked)
-    agent_id: Option<String>,     // FK → AgentRecord (if an agent)
+    operator_id: Option<String>, // FK → OperatorAccount (if linked)
+    agent_id: Option<String>,    // FK → AgentRecord (if an agent)
     metadata_json: String,
     created_at_micros: i64,
     updated_at_micros: i64,
@@ -413,14 +413,14 @@ pub struct MessageEntity {
 #[table(accessor = message_embedding, public)]
 pub struct MessageEmbeddingRecord {
     #[primary_key]
-    embedding_id: String,         // UUID
-    message_id: String,           // FK → RawMessage
+    embedding_id: String, // UUID
+    message_id: String,            // FK → RawMessage
     extraction_id: Option<String>, // FK → MessageExtraction (if embedding an extraction)
-    entity_id: Option<String>,    // FK → MessageEntity (if embedding entity context)
-    model: String,                // Embedding model used
+    entity_id: Option<String>,     // FK → MessageEntity (if embedding entity context)
+    model: String,                 // Embedding model used
     dimensions: u32,
-    vector_json: String,          // Serialized float array
-    content_hash: String,         // For dedup
+    vector_json: String,  // Serialized float array
+    content_hash: String, // For dedup
     created_at_micros: i64,
 }
 
@@ -428,10 +428,10 @@ pub struct MessageEmbeddingRecord {
 #[table(accessor = conversation_link, public)]
 pub struct ConversationLink {
     #[primary_key]
-    link_id: String,              // UUID
-    conversation_id: String,      // Shared conversation UUID across channels
-    message_id: String,           // FK → RawMessage
-    thread_id: Option<String>,    // FK → ThreadRecord
+    link_id: String, // UUID
+    conversation_id: String,   // Shared conversation UUID across channels
+    message_id: String,        // FK → RawMessage
+    thread_id: Option<String>, // FK → ThreadRecord
     channel: String,
     platform_thread_id: Option<String>,
     created_at_micros: i64,
@@ -441,11 +441,11 @@ pub struct ConversationLink {
 #[table(accessor = message_route, public)]
 pub struct MessageRoute {
     #[primary_key]
-    route_id: String,             // UUID
-    channel: String,              // * for all, or specific channel
-    entity_type: String,          // * for all, or specific entity type
-    keyword_pattern: String,      // Regex or keyword list (JSON array)
-    target_agent_id: String,      // FK → AgentRecord
+    route_id: String, // UUID
+    channel: String,         // * for all, or specific channel
+    entity_type: String,     // * for all, or specific entity type
+    keyword_pattern: String, // Regex or keyword list (JSON array)
+    target_agent_id: String, // FK → AgentRecord
     priority: u32,
     enabled: bool,
     created_at_micros: i64,
@@ -455,15 +455,15 @@ pub struct MessageRoute {
 #[table(accessor = trajectory_log, public)]
 pub struct TrajectoryLog {
     #[primary_key]
-    trajectory_id: String,        // UUID
-    run_id: String,               // FK → WorkflowRun
-    step_id: String,              // FK → WorkflowStep
+    trajectory_id: String, // UUID
+    run_id: String,  // FK → WorkflowRun
+    step_id: String, // FK → WorkflowStep
     agent_id: String,
     stage: String,
     instruction: String,
-    context_toon: String,         // TOON-encoded context that was assembled
-    output: String,               // Agent's response
-    tool_calls_json: String,      // JSON array of tool calls
+    context_toon: String,    // TOON-encoded context that was assembled
+    output: String,          // Agent's response
+    tool_calls_json: String, // JSON array of tool calls
     success: bool,
     duration_ms: u64,
     created_at_micros: i64,
@@ -494,6 +494,22 @@ pub struct SandboxSnapshot {
     snapshot_id: String,
     sandbox_id: String,
     operator_id: String,
+    created_at_micros: i64,
+}
+
+// ── Chat Messages ────────────────────────────────────────────────────
+
+#[table(accessor = chat_message, public)]
+pub struct ChatMessage {
+    #[primary_key]
+    message_id: String,
+    #[index(btree)]
+    operator_id: String,
+    #[index(btree)]
+    conversation_id: String,
+    role: String,      // user | assistant
+    content: String,
+    metadata_json: String,
     created_at_micros: i64,
 }
 
@@ -540,7 +556,9 @@ fn validate_identifier(value: String, field: &str) -> Result<String, String> {
         .chars()
         .all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_')
     {
-        return Err(format!("{field} must contain only letters, numbers, '-' or '_'"));
+        return Err(format!(
+            "{field} must contain only letters, numbers, '-' or '_'"
+        ));
     }
 
     Ok(trimmed)
@@ -762,7 +780,13 @@ pub fn register_agent(
         updated_at: ctx.timestamp,
     };
 
-    if ctx.db.agent_record().agent_id().find(agent_id.clone()).is_some() {
+    if ctx
+        .db
+        .agent_record()
+        .agent_id()
+        .find(agent_id.clone())
+        .is_some()
+    {
         ctx.db.agent_record().agent_id().update(row);
     } else {
         ctx.db.agent_record().insert(row);
@@ -810,7 +834,13 @@ pub fn enqueue_job(
     let requested_by = validate_text(requested_by, "requested_by")?;
     let context_json = normalize_json_blob(context_json, "context_json")?;
 
-    if ctx.db.agent_record().agent_id().find(agent_id.clone()).is_none() {
+    if ctx
+        .db
+        .agent_record()
+        .agent_id()
+        .find(agent_id.clone())
+        .is_none()
+    {
         return Err(format!("agent '{agent_id}' is not registered"));
     }
 
@@ -851,11 +881,7 @@ pub fn start_job(ctx: &ReducerContext, job_id: String, runner_id: String) -> Res
 }
 
 #[reducer]
-pub fn complete_job(
-    ctx: &ReducerContext,
-    job_id: String,
-    summary: String,
-) -> Result<(), String> {
+pub fn complete_job(ctx: &ReducerContext, job_id: String, summary: String) -> Result<(), String> {
     transition_job(ctx, job_id, JOB_STATUS_COMPLETED.to_string(), Some(summary))
 }
 
@@ -922,26 +948,40 @@ pub fn register_schedule(
     let priority = validate_priority(priority)?;
     let requested_by = validate_text(requested_by, "requested_by")?;
 
-    if ctx.db.agent_record().agent_id().find(agent_id.clone()).is_none() {
+    if ctx
+        .db
+        .agent_record()
+        .agent_id()
+        .find(agent_id.clone())
+        .is_none()
+    {
         return Err(format!("agent '{agent_id}' is not registered"));
     }
 
-    if let Some(existing) = ctx.db.schedule_record().schedule_id().find(schedule_id.clone()) {
-        ctx.db.schedule_record().schedule_id().update(ScheduleRecord {
-            schedule_id,
-            agent_id,
-            control_plane,
-            goal,
-            interval_minutes,
-            priority,
-            requested_by,
-            enabled,
-            next_run_at_micros: existing.next_run_at_micros,
-            last_run_at_micros: existing.last_run_at_micros,
-            last_job_id: existing.last_job_id,
-            status: existing.status,
-            updated_at: ctx.timestamp,
-        });
+    if let Some(existing) = ctx
+        .db
+        .schedule_record()
+        .schedule_id()
+        .find(schedule_id.clone())
+    {
+        ctx.db
+            .schedule_record()
+            .schedule_id()
+            .update(ScheduleRecord {
+                schedule_id,
+                agent_id,
+                control_plane,
+                goal,
+                interval_minutes,
+                priority,
+                requested_by,
+                enabled,
+                next_run_at_micros: existing.next_run_at_micros,
+                last_run_at_micros: existing.last_run_at_micros,
+                last_job_id: existing.last_job_id,
+                status: existing.status,
+                updated_at: ctx.timestamp,
+            });
     } else {
         ctx.db.schedule_record().insert(ScheduleRecord {
             schedule_id,
@@ -978,7 +1018,12 @@ pub fn claim_schedule_run(
     let context_json = normalize_json_blob(context_json, "context_json")?;
     let now = now_micros(ctx);
 
-    let Some(schedule) = ctx.db.schedule_record().schedule_id().find(schedule_id.clone()) else {
+    let Some(schedule) = ctx
+        .db
+        .schedule_record()
+        .schedule_id()
+        .find(schedule_id.clone())
+    else {
         return Err("schedule not found".to_string());
     };
 
@@ -1017,14 +1062,17 @@ pub fn claim_schedule_run(
         updated_at: ctx.timestamp,
     });
 
-    ctx.db.schedule_record().schedule_id().update(ScheduleRecord {
-        next_run_at_micros: now + interval_to_micros(schedule.interval_minutes),
-        last_run_at_micros: Some(now),
-        last_job_id: Some(job_id),
-        status: validate_schedule_status(SCHEDULE_STATUS_CLAIMED.to_string())?,
-        updated_at: ctx.timestamp,
-        ..schedule
-    });
+    ctx.db
+        .schedule_record()
+        .schedule_id()
+        .update(ScheduleRecord {
+            next_run_at_micros: now + interval_to_micros(schedule.interval_minutes),
+            last_run_at_micros: Some(now),
+            last_job_id: Some(job_id),
+            status: validate_schedule_status(SCHEDULE_STATUS_CLAIMED.to_string())?,
+            updated_at: ctx.timestamp,
+            ..schedule
+        });
 
     Ok(())
 }
@@ -1114,15 +1162,33 @@ pub fn start_workflow_run(
     let context_json = normalize_json_blob(context_json, "context_json")?;
     let now = now_micros(ctx);
 
-    if ctx.db.thread_record().thread_id().find(thread_id.clone()).is_none() {
+    if ctx
+        .db
+        .thread_record()
+        .thread_id()
+        .find(thread_id.clone())
+        .is_none()
+    {
         return Err("thread is not registered".to_string());
     }
 
-    if ctx.db.agent_record().agent_id().find(agent_id.clone()).is_none() {
+    if ctx
+        .db
+        .agent_record()
+        .agent_id()
+        .find(agent_id.clone())
+        .is_none()
+    {
         return Err(format!("agent '{agent_id}' is not registered"));
     }
 
-    if ctx.db.workflow_run().run_id().find(run_id.clone()).is_some() {
+    if ctx
+        .db
+        .workflow_run()
+        .run_id()
+        .find(run_id.clone())
+        .is_some()
+    {
         return Err("workflow run already exists".to_string());
     }
 
@@ -1169,11 +1235,23 @@ pub fn enqueue_workflow_step(
     };
     let now = now_micros(ctx);
 
-    if ctx.db.workflow_run().run_id().find(run_id.clone()).is_none() {
+    if ctx
+        .db
+        .workflow_run()
+        .run_id()
+        .find(run_id.clone())
+        .is_none()
+    {
         return Err("workflow run is not registered".to_string());
     }
 
-    if ctx.db.workflow_step().step_id().find(step_id.clone()).is_some() {
+    if ctx
+        .db
+        .workflow_step()
+        .step_id()
+        .find(step_id.clone())
+        .is_some()
+    {
         return Err("workflow step already exists".to_string());
     }
 
@@ -1267,20 +1345,9 @@ pub fn complete_workflow_step(
 
     let (status_str, is_final) = run_status_after_step_completion(&stage);
     let status = status_str.to_string();
-    let completed_at_micros = if is_final.is_some() {
-        Some(now)
-    } else {
-        None
-    };
+    let completed_at_micros = if is_final.is_some() { Some(now) } else { None };
 
-    update_workflow_run_status(
-        ctx,
-        &run_id,
-        status,
-        stage,
-        None,
-        completed_at_micros,
-    )
+    update_workflow_run_status(ctx, &run_id, status, stage, None, completed_at_micros)
 }
 
 #[reducer]
@@ -1393,12 +1460,15 @@ pub fn resolve_approval(
     let approval_step_id = approval.step_id.clone();
     let approval_run_id = approval.run_id.clone();
 
-    ctx.db.approval_request().approval_id().update(ApprovalRequest {
-        status: status.clone(),
-        resolution_json: Some(resolution_json),
-        updated_at_micros: now,
-        ..approval
-    });
+    ctx.db
+        .approval_request()
+        .approval_id()
+        .update(ApprovalRequest {
+            status: status.clone(),
+            resolution_json: Some(resolution_json),
+            updated_at_micros: now,
+            ..approval
+        });
 
     let Some(step) = ctx.db.workflow_step().step_id().find(approval_step_id) else {
         return Err("workflow step not found".to_string());
@@ -2033,11 +2103,14 @@ pub fn store_operator_ssh_key(
     let ssh_public_key = validate_text(ssh_public_key, "ssh_public_key")?;
 
     if let Some(op) = ctx.db.operator_account().operator_id().find(operator_id) {
-        ctx.db.operator_account().operator_id().update(OperatorAccount {
-            ssh_public_key: Some(ssh_public_key),
-            updated_at: ctx.timestamp,
-            ..op
-        });
+        ctx.db
+            .operator_account()
+            .operator_id()
+            .update(OperatorAccount {
+                ssh_public_key: Some(ssh_public_key),
+                updated_at: ctx.timestamp,
+                ..op
+            });
         Ok(())
     } else {
         Err("Operator not found".to_string())
@@ -2051,11 +2124,19 @@ pub fn update_webauthn_counter(
     new_counter: u64,
 ) -> Result<(), String> {
     let credential_id = validate_identifier(credential_id, "credential_id")?;
-    if let Some(existing) = ctx.db.webauthn_credential().credential_id().find(&credential_id) {
-        ctx.db.webauthn_credential().credential_id().update(WebAuthnCredential {
-            counter: new_counter,
-            ..existing
-        });
+    if let Some(existing) = ctx
+        .db
+        .webauthn_credential()
+        .credential_id()
+        .find(&credential_id)
+    {
+        ctx.db
+            .webauthn_credential()
+            .credential_id()
+            .update(WebAuthnCredential {
+                counter: new_counter,
+                ..existing
+            });
         Ok(())
     } else {
         Err(format!("Credential {credential_id} not found"))
@@ -2063,21 +2144,18 @@ pub fn update_webauthn_counter(
 }
 
 #[reducer]
-pub fn delete_auth_challenge(
-    ctx: &ReducerContext,
-    challenge_id: String,
-) -> Result<(), String> {
+pub fn delete_auth_challenge(ctx: &ReducerContext, challenge_id: String) -> Result<(), String> {
     let challenge_id = validate_identifier(challenge_id, "challenge_id")?;
     ctx.db.auth_challenge().challenge_id().delete(&challenge_id);
     Ok(())
 }
 
 #[reducer]
-pub fn delete_expired_challenges(
-    ctx: &ReducerContext,
-) -> Result<(), String> {
+pub fn delete_expired_challenges(ctx: &ReducerContext) -> Result<(), String> {
     let now_micros = ctx.timestamp.to_micros_since_unix_epoch();
-    let expired: Vec<String> = ctx.db.auth_challenge()
+    let expired: Vec<String> = ctx
+        .db
+        .auth_challenge()
         .iter()
         .filter(|c| c.expires_at_micros < now_micros)
         .map(|c| c.challenge_id.clone())
@@ -2192,7 +2270,13 @@ pub fn upsert_message_entity(
         updated_at_micros: now,
     };
 
-    if ctx.db.message_entity().entity_id().find(&entity_id).is_some() {
+    if ctx
+        .db
+        .message_entity()
+        .entity_id()
+        .find(&entity_id)
+        .is_some()
+    {
         ctx.db.message_entity().entity_id().update(MessageEntity {
             updated_at_micros: now,
             ..row
@@ -2405,23 +2489,31 @@ pub fn update_sandbox_status(
         .sandbox_id()
         .find(sandbox_id.clone())
         .ok_or_else(|| format!("Sandbox {sandbox_id} not found"))?;
-    ctx.db.sandbox_instance().sandbox_id().update(SandboxInstance {
-        status,
-        metadata_json: normalize_json_blob(metadata_json, "metadata_json")?,
-        updated_at_micros: now,
-        ..existing
-    });
+    ctx.db
+        .sandbox_instance()
+        .sandbox_id()
+        .update(SandboxInstance {
+            status,
+            metadata_json: normalize_json_blob(metadata_json, "metadata_json")?,
+            updated_at_micros: now,
+            ..existing
+        });
     Ok(())
 }
 
 #[reducer]
-pub fn delete_sandbox(
-    ctx: &ReducerContext,
-    sandbox_id: String,
-) -> Result<(), String> {
+pub fn delete_sandbox(ctx: &ReducerContext, sandbox_id: String) -> Result<(), String> {
     let sandbox_id = validate_identifier(sandbox_id, "sandbox_id")?;
-    if let Some(existing) = ctx.db.sandbox_instance().sandbox_id().find(sandbox_id.clone()) {
-        ctx.db.sandbox_instance().sandbox_id().delete(existing);
+    if let Some(existing) = ctx
+        .db
+        .sandbox_instance()
+        .sandbox_id()
+        .find(sandbox_id.clone())
+    {
+        ctx.db
+            .sandbox_instance()
+            .sandbox_id()
+            .delete(existing.sandbox_id);
     }
     Ok(())
 }
@@ -2446,12 +2538,40 @@ pub fn create_sandbox_snapshot(
     });
     // Also update the sandbox instance with the latest snapshot
     if let Some(existing) = ctx.db.sandbox_instance().sandbox_id().find(sandbox_id) {
-        ctx.db.sandbox_instance().sandbox_id().update(SandboxInstance {
-            snapshot_id,
-            updated_at_micros: now,
-            ..existing
-        });
+        ctx.db
+            .sandbox_instance()
+            .sandbox_id()
+            .update(SandboxInstance {
+                snapshot_id,
+                updated_at_micros: now,
+                ..existing
+            });
     }
+    Ok(())
+}
+
+// ── Chat Message reducers ────────────────────────────────────────────
+
+#[reducer]
+pub fn save_chat_message(
+    ctx: &ReducerContext,
+    message_id: String,
+    operator_id: String,
+    conversation_id: String,
+    role: String,
+    content: String,
+    metadata_json: String,
+) -> Result<(), String> {
+    let now = now_micros(ctx);
+    ctx.db.chat_message().insert(ChatMessage {
+        message_id,
+        operator_id,
+        conversation_id,
+        role,
+        content,
+        metadata_json,
+        created_at_micros: now,
+    });
     Ok(())
 }
 
@@ -2491,10 +2611,13 @@ pub fn upsert_user_agent_config(
     };
 
     if let Some(existing) = ctx.db.user_agent_config().config_id().find(config_id) {
-        ctx.db.user_agent_config().config_id().update(UserAgentConfig {
-            created_at_micros: existing.created_at_micros,
-            ..row
-        });
+        ctx.db
+            .user_agent_config()
+            .config_id()
+            .update(UserAgentConfig {
+                created_at_micros: existing.created_at_micros,
+                ..row
+            });
     } else {
         ctx.db.user_agent_config().insert(row);
     }
@@ -2502,13 +2625,13 @@ pub fn upsert_user_agent_config(
 }
 
 #[reducer]
-pub fn delete_user_agent_config(
-    ctx: &ReducerContext,
-    config_id: String,
-) -> Result<(), String> {
+pub fn delete_user_agent_config(ctx: &ReducerContext, config_id: String) -> Result<(), String> {
     let config_id = validate_identifier(config_id, "config_id")?;
     if let Some(existing) = ctx.db.user_agent_config().config_id().find(config_id) {
-        ctx.db.user_agent_config().config_id().delete(existing);
+        ctx.db
+            .user_agent_config()
+            .config_id()
+            .delete(existing.config_id);
     }
     Ok(())
 }
@@ -2536,7 +2659,13 @@ pub fn upsert_operator_token(
         updated_at_micros: now,
     };
 
-    if ctx.db.operator_token().operator_id().find(operator_id).is_some() {
+    if ctx
+        .db
+        .operator_token()
+        .operator_id()
+        .find(operator_id)
+        .is_some()
+    {
         ctx.db.operator_token().operator_id().update(row);
     } else {
         ctx.db.operator_token().insert(row);
@@ -2545,13 +2674,13 @@ pub fn upsert_operator_token(
 }
 
 #[reducer]
-pub fn delete_operator_token(
-    ctx: &ReducerContext,
-    operator_id: String,
-) -> Result<(), String> {
+pub fn delete_operator_token(ctx: &ReducerContext, operator_id: String) -> Result<(), String> {
     let operator_id = validate_identifier(operator_id, "operator_id")?;
     if let Some(existing) = ctx.db.operator_token().operator_id().find(operator_id) {
-        ctx.db.operator_token().operator_id().delete(existing);
+        ctx.db
+            .operator_token()
+            .operator_id()
+            .delete(existing.operator_id);
     }
     Ok(())
 }
@@ -2835,10 +2964,7 @@ mod tests {
 
     #[test]
     fn step_status_ready_is_ok() {
-        assert_eq!(
-            validate_step_status("ready".to_string()).unwrap(),
-            "ready"
-        );
+        assert_eq!(validate_step_status("ready".to_string()).unwrap(), "ready");
     }
 
     #[test]
@@ -3147,10 +3273,7 @@ mod tests {
 
     #[test]
     fn constant_workflow_run_status_completed_matches_enum() {
-        assert_eq!(
-            WORKFLOW_RUN_STATUS_COMPLETED,
-            RunState::Completed.as_str()
-        );
+        assert_eq!(WORKFLOW_RUN_STATUS_COMPLETED, RunState::Completed.as_str());
     }
 
     #[test]
@@ -3299,36 +3422,57 @@ mod tests {
 
     #[test]
     fn approval_approved_sets_step_ready() {
-        assert_eq!(step_status_for_approval("approved"), WORKFLOW_STEP_STATUS_READY);
+        assert_eq!(
+            step_status_for_approval("approved"),
+            WORKFLOW_STEP_STATUS_READY
+        );
     }
 
     #[test]
     fn approval_rejected_sets_step_failed() {
-        assert_eq!(step_status_for_approval("rejected"), WORKFLOW_STEP_STATUS_FAILED);
+        assert_eq!(
+            step_status_for_approval("rejected"),
+            WORKFLOW_STEP_STATUS_FAILED
+        );
     }
 
     #[test]
     fn approval_expired_sets_step_failed() {
-        assert_eq!(step_status_for_approval("expired"), WORKFLOW_STEP_STATUS_FAILED);
+        assert_eq!(
+            step_status_for_approval("expired"),
+            WORKFLOW_STEP_STATUS_FAILED
+        );
     }
 
     #[test]
     fn approval_unknown_sets_step_failed() {
-        assert_eq!(step_status_for_approval("garbage"), WORKFLOW_STEP_STATUS_FAILED);
+        assert_eq!(
+            step_status_for_approval("garbage"),
+            WORKFLOW_STEP_STATUS_FAILED
+        );
     }
 
     #[test]
     fn run_status_for_ready_step_is_running() {
-        assert_eq!(run_status_for_step_status(WORKFLOW_STEP_STATUS_READY), WORKFLOW_RUN_STATUS_RUNNING);
+        assert_eq!(
+            run_status_for_step_status(WORKFLOW_STEP_STATUS_READY),
+            WORKFLOW_RUN_STATUS_RUNNING
+        );
     }
 
     #[test]
     fn run_status_for_failed_step_is_failed() {
-        assert_eq!(run_status_for_step_status(WORKFLOW_STEP_STATUS_FAILED), WORKFLOW_RUN_STATUS_FAILED);
+        assert_eq!(
+            run_status_for_step_status(WORKFLOW_STEP_STATUS_FAILED),
+            WORKFLOW_RUN_STATUS_FAILED
+        );
     }
 
     #[test]
     fn run_status_for_unknown_step_status_is_failed() {
-        assert_eq!(run_status_for_step_status("nonsense"), WORKFLOW_RUN_STATUS_FAILED);
+        assert_eq!(
+            run_status_for_step_status("nonsense"),
+            WORKFLOW_RUN_STATUS_FAILED
+        );
     }
 }

@@ -12,7 +12,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Rocket } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Rocket, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface AgentOption {
   id: string
@@ -60,7 +65,9 @@ export function LaunchMissionDialog({ agents, trigger }: LaunchMissionDialogProp
       const body = await res.json()
 
       if (!res.ok || !body.ok) {
-        setError(body.error || "Launch failed")
+        const msg = body.error || "Launch failed"
+        setError(msg)
+        toast.error(msg)
         return
       }
 
@@ -70,6 +77,7 @@ export function LaunchMissionDialog({ agents, trigger }: LaunchMissionDialogProp
         body.result?.workflowRunId ??
         body.result?.job?.jobId
 
+      toast.success("Mission launched", { description: `Agent ${agentId} dispatched` })
       setOpen(false)
       setGoal("")
 
@@ -89,13 +97,13 @@ export function LaunchMissionDialog({ agents, trigger }: LaunchMissionDialogProp
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium">
+          <Button size="sm" className="gap-1.5">
             <Rocket size={14} />
             Launch Mission
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="bg-secondary text-secondary-foreground border-secondary sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold">Launch Mission</DialogTitle>
           <DialogDescription className="text-xs text-secondary-foreground/50">
@@ -112,30 +120,29 @@ export function LaunchMissionDialog({ agents, trigger }: LaunchMissionDialogProp
 
           {/* Agent picker */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] uppercase tracking-widest text-secondary-foreground/50 font-medium">
-              Agent
-            </label>
-            <select
-              value={agentId}
-              onChange={(e) => setAgentId(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-secondary-foreground/5 border border-secondary-foreground/10 rounded-md text-secondary-foreground outline-none focus:border-primary/50"
-            >
-              {agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>
-                  {agent.name} — {agent.description}
-                </option>
-              ))}
-            </select>
+            <Label className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Agent</Label>
+            <Select value={agentId} onValueChange={setAgentId}>
+              <SelectTrigger className="text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {agents.map((agent) => (
+                  <SelectItem key={agent.id} value={agent.id} className="text-xs">
+                    {agent.name} — {agent.description}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {selectedAgent && (
               <div className="flex gap-2 mt-1">
-                <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono bg-secondary-foreground/5 border border-secondary-foreground/10 rounded">
+                <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono bg-muted border border-border rounded">
                   {selectedAgent.runtime}
                 </span>
-                <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono bg-secondary-foreground/5 border border-secondary-foreground/10 rounded">
+                <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono bg-muted border border-border rounded">
                   {selectedAgent.execution}
                 </span>
                 {selectedAgent.hasSandbox && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-green-400 bg-green-500/10 border border-green-500/20 rounded">
+                  <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-primary bg-primary/10 border border-primary/20 rounded">
                     sandbox
                   </span>
                 )}
@@ -145,50 +152,49 @@ export function LaunchMissionDialog({ agents, trigger }: LaunchMissionDialogProp
 
           {/* Goal input */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] uppercase tracking-widest text-secondary-foreground/50 font-medium">
-              Mission Goal
-            </label>
-            <textarea
+            <Label className="text-[10px] uppercase tracking-widest text-secondary-foreground/50">Mission Goal</Label>
+            <Textarea
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
               placeholder="Describe what you want the agent to accomplish..."
               rows={4}
-              className="w-full px-3 py-2 text-xs bg-secondary-foreground/5 border border-secondary-foreground/10 rounded-md text-secondary-foreground placeholder:text-secondary-foreground/30 outline-none focus:border-primary/50 resize-none"
+              className="text-xs resize-none"
             />
           </div>
 
           {/* Coding agent options (sandbox agents only) */}
           {selectedAgent?.hasSandbox && (
-            <div className="flex flex-col gap-3 border border-secondary-foreground/10 rounded-md p-3">
-              <button
-                type="button"
+            <div className="flex flex-col gap-3 border border-border rounded-md p-3">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-[10px] uppercase tracking-widest text-secondary-foreground/50 font-medium text-left flex items-center gap-1"
+                className="h-auto p-0 text-[10px] uppercase tracking-widest text-secondary-foreground/50 font-medium justify-start gap-1"
               >
+                {showAdvanced ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
                 Coding Agent Options
-                <span className="text-[8px]">{showAdvanced ? "▼" : "▶"}</span>
-              </button>
+              </Button>
               {showAdvanced && (
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-secondary-foreground/40">
-                      Repository URL <span className="opacity-50">(optional — leave empty for blank workspace)</span>
-                    </label>
-                    <input
+                    <Label className="text-[10px] text-muted-foreground">
+                      Repository URL <span className="opacity-50">(optional)</span>
+                    </Label>
+                    <Input
                       value={repoUrl}
                       onChange={(e) => setRepoUrl(e.target.value)}
                       placeholder="https://github.com/org/repo"
-                      className="w-full px-3 py-1.5 text-xs bg-secondary-foreground/5 border border-secondary-foreground/10 rounded-md text-secondary-foreground placeholder:text-secondary-foreground/20 outline-none focus:border-primary/50"
+                      className="text-xs"
                     />
                   </div>
                   {repoUrl && (
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-secondary-foreground/40">Branch</label>
-                      <input
+                      <Label className="text-[10px] text-muted-foreground">Branch</Label>
+                      <Input
                         value={branch}
                         onChange={(e) => setBranch(e.target.value)}
                         placeholder="main"
-                        className="w-full px-3 py-1.5 text-xs bg-secondary-foreground/5 border border-secondary-foreground/10 rounded-md text-secondary-foreground placeholder:text-secondary-foreground/20 outline-none focus:border-primary/50"
+                        className="text-xs"
                       />
                     </div>
                   )}
@@ -199,21 +205,18 @@ export function LaunchMissionDialog({ agents, trigger }: LaunchMissionDialogProp
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setOpen(false)}
-            className="text-xs border-secondary-foreground/10"
-          >
+          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button
+            size="sm"
             onClick={handleLaunch}
             disabled={loading || !goal.trim() || !agentId}
-            className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium"
+            className="gap-1.5"
           >
             {loading ? (
               <>
-                <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                <Loader2 size={12} className="animate-spin" />
                 Launching...
               </>
             ) : (

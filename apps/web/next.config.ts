@@ -3,7 +3,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@starbridge/core", "@starbridge/sdk"],
-  cacheComponents: true,
+  serverExternalPackages: [
+    "@chat-adapter/discord",
+    "discord.js",
+    "@discordjs/ws",
+    "zlib-sync",
+  ],
   logging: {
     fetches: {
       fullUrl: true,

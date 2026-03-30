@@ -1,9 +1,10 @@
-import { handleCallback } from "@vercel/queue";
 import { after } from "next/server";
+import { getServerEnv } from "@/lib/env";
 import { createControlClient } from "@/lib/server";
 import { cloudAgentCatalog } from "@/lib/cloud-agents";
 import { sqlEscape } from "@/lib/sql";
 import { shouldRetry } from "@/lib/queue-retry";
+import { handleQueueCallback } from "@/lib/queue";
 import type { AgentLaunchMessage } from "@/lib/queue";
 import {
   normalizeJobRequest,
@@ -20,7 +21,7 @@ import {
 const cloudTarget = parseControlPlaneTarget("cloud");
 const systemChannel = parseMessageChannel("system");
 
-export const POST = handleCallback(
+export const POST = handleQueueCallback(
   async (message: AgentLaunchMessage) => {
     const { jobId, agentId, runId, operatorId, attempt } = message;
 
@@ -35,6 +36,15 @@ export const POST = handleCallback(
     }
 
     const client = createControlClient();
+
+    if (
+      !getServerEnv().sandboxExecutionEnabled &&
+      manifest.deployment.execution === "vercel-sandbox"
+    ) {
+      await client.markJobFailed(jobId, "Sandbox-backed agents are disabled in APP_STORE_SAFE_MODE");
+      console.warn(`[queue/agent-launch] Skipping sandbox-backed agent ${agentId} in APP_STORE_SAFE_MODE`);
+      return;
+    }
 
     // Create sandbox for vercel-sandbox agents
     let sandboxId: string | undefined;

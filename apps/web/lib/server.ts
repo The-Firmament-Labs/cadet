@@ -23,10 +23,10 @@ import {
 import { isScheduleDue, schedulesForManifest } from "@starbridge/core/schedule";
 import { StarbridgeControlClient } from "@starbridge/sdk";
 
-import { cloudAgentCatalog } from "./cloud-agents";
-import { requireSpacetimeServerEnv } from "./env";
-import { sendToAgentLaunch } from "./queue";
-import { createSandbox } from "./sandbox";
+import { cloudAgentCatalog } from "@/lib/cloud-agents";
+import { requireSpacetimeServerEnv } from "@/lib/env";
+import { sendToAgentLaunch } from "@/lib/queue";
+import { createSandbox } from "@/lib/sandbox";
 
 const presenceTtlMs = Number(process.env.STARBRIDGE_PRESENCE_TTL_MS ?? "90000");
 const staleRunnerPresenceStatus = parseRunnerPresenceStatus("stale");
@@ -326,6 +326,11 @@ export async function dispatchJobFromPayload(payload: unknown, authToken?: strin
     throw new Error("Cloud control plane only dispatches registered cloud agents");
   }
 
+  const env = requireSpacetimeServerEnv();
+  if (!env.sandboxExecutionEnabled && manifest.deployment.execution === "vercel-sandbox") {
+    throw new Error("Sandbox-backed agents are disabled in APP_STORE_SAFE_MODE");
+  }
+
   const normalized = normalizeJobRequest(
     buildCloudJobRequest(manifest, candidate, "cloud-control")
   );
@@ -333,7 +338,6 @@ export async function dispatchJobFromPayload(payload: unknown, authToken?: strin
   await client.enqueueJob(normalized);
 
   // Feature flag: async queue-based dispatch
-  const env = requireSpacetimeServerEnv();
   if (env.queuesEnabled) {
     const { messageId } = await sendToAgentLaunch({
       jobId: normalized.jobId,
@@ -404,6 +408,13 @@ export async function dispatchEdgeJobFromPayload(
 
   if (!manifest) {
     throw new Error(`Unknown edge agent '${agentId}'`);
+  }
+
+  if (
+    !requireSpacetimeServerEnv().sandboxExecutionEnabled &&
+    manifest.deployment.execution === "vercel-sandbox"
+  ) {
+    throw new Error("Sandbox-backed agents are disabled in APP_STORE_SAFE_MODE");
   }
 
   const job = normalizeJobRequest(buildCloudJobRequest(manifest, candidate, "cloud-control"));
@@ -734,6 +745,19 @@ export async function reconcileCloudControlPlane(): Promise<{
         agentId: schedule.agentId,
         status: parseScheduleDispatchStatus("skipped"),
         reason: "Cloud manifest no longer exists"
+      });
+      continue;
+    }
+
+    if (
+      !requireSpacetimeServerEnv().sandboxExecutionEnabled &&
+      manifest.deployment.execution === "vercel-sandbox"
+    ) {
+      runs.push({
+        scheduleId: schedule.scheduleId,
+        agentId: schedule.agentId,
+        status: parseScheduleDispatchStatus("skipped"),
+        reason: "Sandbox-backed agents are disabled in APP_STORE_SAFE_MODE"
       });
       continue;
     }

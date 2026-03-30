@@ -49,7 +49,7 @@ vi.mock("@starbridge/sdk", () => ({
   StarbridgeControlClient: vi.fn(() => mockClient)
 }));
 
-vi.mock("../cloud-agents", () => ({
+vi.mock("@/lib/cloud-agents", () => ({
   cloudAgentCatalog: [
     {
       id: "saturn",
@@ -118,7 +118,7 @@ vi.mock("../cloud-agents", () => ({
   ]
 }));
 
-vi.mock("../env", () => ({
+vi.mock("@/lib/env", () => ({
   requireSpacetimeServerEnv: vi.fn(() => ({
     controlPlaneUrl: "http://localhost:3001",
     spacetimeUrl: "http://127.0.0.1:3000",

@@ -79,6 +79,16 @@ export default async function SettingsPage() {
       mono: false,
     },
     {
+      label: "App Store Safe Mode",
+      value: env?.appStoreSafeMode ? "Enabled" : "Disabled",
+      mono: false,
+    },
+    {
+      label: "Sandbox Execution",
+      value: env?.sandboxExecutionEnabled ? "Enabled" : "Disabled",
+      mono: false,
+    },
+    {
       label: "Vercel Queues",
       value: env?.queuesEnabled ? "Enabled" : "Disabled",
       mono: false,

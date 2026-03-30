@@ -1,8 +1,9 @@
 import { requireVercelAccessToken, requireOperatorApiSession } from "@/lib/auth";
+import { getServerEnv } from "@/lib/env";
 import { createControlClient } from "@/lib/server";
 import { sqlEscape } from "@/lib/sql";
 import { createSandbox } from "@/lib/sandbox";
-import { apiError } from "@/lib/api-response";
+import { apiError, apiUnavailable } from "@/lib/api-response";
 
 export async function GET(request: Request) {
   const { unauthorized, operatorId } = await requireOperatorApiSession(request);
@@ -20,6 +21,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!getServerEnv().sandboxExecutionEnabled) {
+    return apiUnavailable("Sandbox execution is disabled in APP_STORE_SAFE_MODE");
+  }
+
   const { unauthorized, vercelAccessToken, operatorId } = await requireVercelAccessToken(request);
   if (unauthorized) return unauthorized;
 

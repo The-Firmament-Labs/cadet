@@ -2,7 +2,10 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
 import { vercelFetch } from "@/lib/use-vercel-fetch"
+import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface SandboxActionsProps {
   sandboxId: string
@@ -30,53 +33,37 @@ export function SandboxActions({ sandboxId, status, snapshotId, agentId }: Sandb
         body: JSON.stringify(body),
       })
 
+      toast.success(`Sandbox ${action} complete`)
       router.refresh()
-    } catch {
-      // Error handled by vercelFetch
+    } catch (err) {
+      toast.error(`Sandbox ${action} failed`)
     } finally {
       setLoading(false)
     }
   }
 
-  const buttonClass = "px-2 py-1 text-[10px] font-medium border rounded transition-colors disabled:opacity-50"
-
   return (
     <div className="flex items-center gap-1 justify-end">
+      {loading && <Loader2 size={12} className="animate-spin text-muted-foreground" />}
       {status === "running" && (
         <>
-          <button
-            onClick={() => handleAction("sleep")}
-            disabled={loading}
-            className={`${buttonClass} text-yellow-400 border-yellow-500/20 hover:bg-yellow-500/10`}
-          >
+          <Button variant="outline" size="sm" onClick={() => handleAction("sleep")} disabled={loading} className="h-6 px-2 text-[10px]">
             Sleep
-          </button>
-          <button
-            onClick={() => handleAction("snapshot")}
-            disabled={loading}
-            className={`${buttonClass} text-blue-400 border-blue-500/20 hover:bg-blue-500/10`}
-          >
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleAction("snapshot")} disabled={loading} className="h-6 px-2 text-[10px]">
             Snapshot
-          </button>
+          </Button>
         </>
       )}
       {status === "sleeping" && snapshotId && (
-        <button
-          onClick={() => handleAction("wake")}
-          disabled={loading}
-          className={`${buttonClass} text-green-400 border-green-500/20 hover:bg-green-500/10`}
-        >
+        <Button variant="outline" size="sm" onClick={() => handleAction("wake")} disabled={loading} className="h-6 px-2 text-[10px]">
           Wake
-        </button>
+        </Button>
       )}
       {(status === "running" || status === "sleeping" || status === "error") && (
-        <button
-          onClick={() => handleAction("stop")}
-          disabled={loading}
-          className={`${buttonClass} text-red-400 border-red-500/20 hover:bg-red-500/10`}
-        >
+        <Button variant="destructive" size="sm" onClick={() => handleAction("stop")} disabled={loading} className="h-6 px-2 text-[10px]">
           Stop
-        </button>
+        </Button>
       )}
     </div>
   )

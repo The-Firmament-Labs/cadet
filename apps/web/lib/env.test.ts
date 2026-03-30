@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getOperatorAuthConfig,
+  isAppStoreSafeMode,
   getSafeServerEnv,
   getServerEnv,
   hasSpacetimeConfig,
@@ -62,6 +63,8 @@ describe("getSafeServerEnv", () => {
       hasSpacetimeConfig: true,
       hasOperatorAuth: false,
       hasVercelOAuth: false,
+      appStoreSafeMode: false,
+      sandboxExecutionEnabled: true,
       queuesEnabled: false,
       workflowEnabled: false,
     });
@@ -163,6 +166,32 @@ describe("getServerEnv – defaults when no env vars are set", () => {
     expect(env.database).toBe("starbridge-control");
     expect(env.authToken).toBeUndefined();
     expect(env.cronSecret).toBeUndefined();
+    expect(env.appStoreSafeMode).toBe(false);
+    expect(env.sandboxExecutionEnabled).toBe(true);
+  });
+});
+
+describe("isAppStoreSafeMode", () => {
+  it("treats common truthy values as enabled", () => {
+    expect(isAppStoreSafeMode(asProcessEnv({ APP_STORE_SAFE_MODE: "true" }))).toBe(true);
+    expect(isAppStoreSafeMode(asProcessEnv({ APP_STORE_SAFE_MODE: "1" }))).toBe(true);
+    expect(isAppStoreSafeMode(asProcessEnv({ APP_STORE_SAFE_MODE: " yes " }))).toBe(true);
+  });
+
+  it("treats missing or falsey values as disabled", () => {
+    expect(isAppStoreSafeMode(asProcessEnv({}))).toBe(false);
+    expect(isAppStoreSafeMode(asProcessEnv({ APP_STORE_SAFE_MODE: "false" }))).toBe(false);
+  });
+});
+
+describe("getServerEnv – app store safe mode", () => {
+  it("disables sandbox execution when APP_STORE_SAFE_MODE is enabled", () => {
+    const env = getServerEnv(asProcessEnv({
+      APP_STORE_SAFE_MODE: "true"
+    }));
+
+    expect(env.appStoreSafeMode).toBe(true);
+    expect(env.sandboxExecutionEnabled).toBe(false);
   });
 });
 

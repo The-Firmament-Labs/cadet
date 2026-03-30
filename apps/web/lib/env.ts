@@ -6,6 +6,8 @@ export interface ServerEnv {
   cronSecret?: string | undefined;
   vercelClientId?: string | undefined;
   vercelClientSecret?: string | undefined;
+  appStoreSafeMode: boolean;
+  sandboxExecutionEnabled: boolean;
   queuesEnabled: boolean;
   workflowEnabled: boolean;
   sandboxDefaultTemplate?: string | undefined;
@@ -38,6 +40,8 @@ export interface SafeServerEnv {
   hasSpacetimeConfig: boolean;
   hasOperatorAuth: boolean;
   hasVercelOAuth: boolean;
+  appStoreSafeMode: boolean;
+  sandboxExecutionEnabled: boolean;
   queuesEnabled: boolean;
   workflowEnabled: boolean;
 }
@@ -80,12 +84,21 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
+function parseBooleanFlag(value: string | undefined): boolean {
+  const normalized = trimEnvValue(value)?.toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
 function isVercelRuntime(source: NodeJS.ProcessEnv): boolean {
   return Boolean(
     trimEnvValue(source.VERCEL) ??
       trimEnvValue(source.VERCEL_ENV) ??
       trimEnvValue(source.VERCEL_URL)
   );
+}
+
+export function isAppStoreSafeMode(source: NodeJS.ProcessEnv = process.env): boolean {
+  return parseBooleanFlag(source.APP_STORE_SAFE_MODE);
 }
 
 export function hasSpacetimeConfig(source: NodeJS.ProcessEnv = process.env): boolean {
@@ -95,6 +108,7 @@ export function hasSpacetimeConfig(source: NodeJS.ProcessEnv = process.env): boo
 }
 
 export function getServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
+  const appStoreSafeMode = isAppStoreSafeMode(source);
   const controlPlaneUrl =
     normalizeUrlValue(source.NEXT_PUBLIC_CONTROL_PLANE_URL) ??
     normalizeUrlValue(source.VERCEL_PROJECT_PRODUCTION_URL) ??
@@ -109,6 +123,8 @@ export function getServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv
     cronSecret: trimEnvValue(source.CRON_SECRET),
     vercelClientId: trimEnvValue(source.VERCEL_INTEGRATION_CLIENT_ID),
     vercelClientSecret: trimEnvValue(source.VERCEL_INTEGRATION_CLIENT_SECRET),
+    appStoreSafeMode,
+    sandboxExecutionEnabled: !appStoreSafeMode,
     queuesEnabled: trimEnvValue(source.VERCEL_QUEUES_ENABLED) === "true",
     workflowEnabled: trimEnvValue(source.WORKFLOW_ENABLED) === "true",
     sandboxDefaultTemplate: trimEnvValue(source.SANDBOX_DEFAULT_TEMPLATE),
@@ -129,6 +145,8 @@ export function getSafeServerEnv(source: NodeJS.ProcessEnv = process.env): SafeS
     hasSpacetimeConfig: hasSpacetimeConfig(source),
     hasOperatorAuth: hasOperatorAuth(source),
     hasVercelOAuth: Boolean(env.vercelClientId && env.vercelClientSecret),
+    appStoreSafeMode: env.appStoreSafeMode,
+    sandboxExecutionEnabled: env.sandboxExecutionEnabled,
     queuesEnabled: env.queuesEnabled,
     workflowEnabled: env.workflowEnabled,
   };

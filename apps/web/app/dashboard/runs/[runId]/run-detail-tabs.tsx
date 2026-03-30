@@ -76,8 +76,14 @@ interface RunDetailTabsProps {
   runId?: string
 }
 
+import { microsAgo, microsToLocale } from "@/lib/format-time"
+
 function formatTs(micros: number): string {
-  return new Date(micros / 1000).toLocaleTimeString()
+  return microsAgo(micros)
+}
+
+function fullTs(micros: number): string {
+  return microsToLocale(micros)
 }
 
 function tryParseJson(raw: string): string {
@@ -170,26 +176,24 @@ export function RunDetailTabs({
                 {steps.map((step) => (
                   <li key={step.stepId} className="relative pl-6">
                     <span
-                      className="absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-background flex items-center justify-center"
-                      style={{
-                        backgroundColor:
-                          step.status === "completed" || step.status === "succeeded"
-                            ? "#4dff88"
-                            : step.status === "running"
-                            ? "#00e5ff"
-                            : step.status === "failed"
-                            ? "#ff4d4d"
-                            : step.status === "blocked"
-                            ? "#ffaa33"
-                            : "rgba(220,228,255,0.3)",
-                      }}
+                      className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-background flex items-center justify-center ${
+                        step.status === "completed" || step.status === "succeeded"
+                          ? "bg-primary"
+                          : step.status === "running"
+                          ? "bg-ring"
+                          : step.status === "failed"
+                          ? "bg-destructive"
+                          : step.status === "blocked"
+                          ? "bg-accent"
+                          : "bg-muted"
+                      }`}
                     />
                     <div className="flex items-start gap-3 flex-wrap">
                       <span className="text-xs font-mono font-medium text-secondary-foreground">
                         {step.stage}
                       </span>
                       <StatusBadge status={step.status} />
-                      <span className="text-[10px] text-secondary-foreground/50 font-mono ml-auto">
+                      <span className="text-[10px] text-secondary-foreground/50 font-mono ml-auto" title={fullTs(step.updatedAtMicros)}>
                         {formatTs(step.updatedAtMicros)}
                       </span>
                     </div>

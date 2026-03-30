@@ -1,11 +1,17 @@
-import { handleCallback } from "@vercel/queue";
+import { getServerEnv } from "@/lib/env";
 import { createControlClient } from "@/lib/server";
+import { handleQueueCallback } from "@/lib/queue";
 import { sqlEscape } from "@/lib/sql";
 import { sleepSandbox, wakeSandbox, stopSandbox, snapshotSandbox } from "@/lib/sandbox";
 import type { AgentLifecycleMessage } from "@/lib/queue";
 
-export const POST = handleCallback(
+export const POST = handleQueueCallback(
   async (message: AgentLifecycleMessage) => {
+    if (!getServerEnv().sandboxExecutionEnabled) {
+      console.warn("[queue/agent-lifecycle] Ignoring lifecycle message in APP_STORE_SAFE_MODE");
+      return;
+    }
+
     const { sandboxId, action, operatorId, agentId, snapshotId, runId } = message;
     let { vercelAccessToken } = message;
 

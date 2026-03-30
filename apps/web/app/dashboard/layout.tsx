@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -13,8 +13,12 @@ import {
   Settings,
   Container,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { HexagonLogo } from "@/components/hexagon-logo"
+import { ChatPanel } from "@/components/chat-panel"
+import { CommandPalette } from "@/components/command-palette"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const navItems = [
@@ -48,6 +52,7 @@ function useOperatorIdentity(): { initials: string; name: string } {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { initials, name } = useOperatorIdentity()
+  const [chatOpen, setChatOpen] = useState(false)
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -129,8 +134,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </span>
           </div>
 
-          {/* Live indicator + theme toggle */}
+          {/* Actions */}
           <div className="flex items-center gap-3 shrink-0">
+            <Sheet open={chatOpen} onOpenChange={setChatOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 gap-1.5 text-[10px] font-mono">
+                  <MessageSquare size={12} />
+                  Chat
+                  <kbd className="ml-1 px-1 py-0.5 rounded bg-muted text-[8px] text-muted-foreground border border-border">⌘J</kbd>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[400px] sm:w-[440px] p-0">
+                <SheetTitle className="sr-only">Cadet Chat</SheetTitle>
+                <ChatPanel />
+              </SheetContent>
+            </Sheet>
             <ThemeToggle />
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
@@ -147,6 +165,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {/* Command palette (Cmd+K) */}
+      <CommandPalette
+        onOpenChat={() => setChatOpen(true)}
+      />
     </div>
   )
 }

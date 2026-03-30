@@ -1,5 +1,6 @@
 import { Container } from "lucide-react"
 import { getOperatorSession, getOperatorSpacetimeToken } from "@/lib/auth"
+import { getSafeServerEnv } from "@/lib/env"
 import { createControlClient } from "@/lib/server"
 import { StatusBadge } from "@/components/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,17 +22,20 @@ interface SandboxRow {
 }
 
 export default async function SandboxesPage() {
+  const env = getSafeServerEnv()
   const session = await getOperatorSession()
   let sandboxes: SandboxRow[] = []
   let error: string | null = null
 
-  try {
-    const client = createControlClient(getOperatorSpacetimeToken(session))
-    sandboxes = (await client.sql(
-      "SELECT sandbox_id, operator_id, agent_id, status, snapshot_id, created_at_micros, updated_at_micros FROM sandbox_instance ORDER BY updated_at_micros DESC"
-    )) as SandboxRow[]
-  } catch (e) {
-    error = e instanceof Error ? e.message : "Failed to load sandboxes"
+  if (!env.appStoreSafeMode) {
+    try {
+      const client = createControlClient(getOperatorSpacetimeToken(session))
+      sandboxes = (await client.sql(
+        "SELECT sandbox_id, operator_id, agent_id, status, snapshot_id, created_at_micros, updated_at_micros FROM sandbox_instance ORDER BY updated_at_micros DESC"
+      )) as SandboxRow[]
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to load sandboxes"
+    }
   }
 
   return (
@@ -51,6 +55,12 @@ export default async function SandboxesPage() {
           {error ? (
             <div className="px-4 py-8 text-center">
               <p className="text-sm text-destructive font-mono">{error}</p>
+            </div>
+          ) : env.appStoreSafeMode ? (
+            <div className="px-4 py-8 text-center">
+              <p className="text-sm text-secondary-foreground/50">
+                Sandbox execution is disabled in <span className="font-mono">APP_STORE_SAFE_MODE</span>.
+              </p>
             </div>
           ) : sandboxes.length === 0 ? (
             <div className="px-4 py-8 text-center">

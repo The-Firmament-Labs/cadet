@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Check, ChevronRight, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface SetupStep {
   id: string
@@ -27,18 +28,20 @@ export function SetupBanner({ steps, onLaunch }: SetupBannerProps) {
   if (allComplete) return null
 
   return (
-    <div className="relative border border-primary/20 bg-primary/5 rounded-lg px-4 py-3">
-      <button
+    <div className="relative border border-border rounded-lg px-4 py-3">
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => setDismissed(true)}
-        className="absolute top-2 right-2 p-1 text-secondary-foreground/30 hover:text-secondary-foreground/60 transition-colors"
+        className="absolute top-1 right-1 h-6 w-6 p-0 text-muted-foreground"
       >
         <X size={14} />
-      </button>
+      </Button>
 
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-primary">Getting Started</span>
-          <span className="text-[10px] text-secondary-foreground/50 font-mono">
+          <span className="text-xs font-semibold text-foreground">Getting Started</span>
+          <span className="text-[10px] text-muted-foreground font-mono">
             {completedCount}/{steps.length}
           </span>
         </div>
@@ -51,11 +54,11 @@ export function SetupBanner({ steps, onLaunch }: SetupBannerProps) {
               )}
               <div className="flex items-center gap-1.5">
                 {step.complete ? (
-                  <span className="w-4 h-4 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
-                    <Check size={10} className="text-green-400" />
+                  <span className="w-4 h-4 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
+                    <Check size={10} className="text-primary" />
                   </span>
                 ) : (
-                  <span className="w-4 h-4 rounded-full border border-secondary-foreground/20" />
+                  <span className="w-4 h-4 rounded-full border border-border" />
                 )}
                 {!step.complete && step.action ? (
                   <a
@@ -65,14 +68,11 @@ export function SetupBanner({ steps, onLaunch }: SetupBannerProps) {
                     {step.actionLabel ?? step.label}
                   </a>
                 ) : !step.complete && step.actionLabel && step.id === "agent" ? (
-                  <button
-                    onClick={onLaunch}
-                    className="text-xs text-primary hover:underline font-medium"
-                  >
+                  <Button variant="link" size="sm" onClick={onLaunch} className="h-auto p-0 text-xs">
                     {step.actionLabel}
-                  </button>
+                  </Button>
                 ) : (
-                  <span className={`text-xs ${step.complete ? "text-secondary-foreground/50" : "text-secondary-foreground/70"}`}>
+                  <span className={`text-xs ${step.complete ? "text-muted-foreground" : "text-foreground/70"}`}>
                     {step.label}
                   </span>
                 )}

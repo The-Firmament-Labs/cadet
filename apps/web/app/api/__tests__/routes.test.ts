@@ -94,6 +94,8 @@ const DEFAULT_SAFE_ENV = {
   hasSpacetimeConfig: false,
   hasOperatorAuth: false,
   hasVercelOAuth: false,
+  appStoreSafeMode: false,
+  sandboxExecutionEnabled: true,
   queuesEnabled: false,
   workflowEnabled: false,
 };
@@ -106,6 +108,8 @@ const DEFAULT_SERVER_ENV = {
   cronSecret: "super-secret-cron",
   vercelClientId: undefined as string | undefined,
   vercelClientSecret: undefined as string | undefined,
+  appStoreSafeMode: false,
+  sandboxExecutionEnabled: true,
   queuesEnabled: false,
   workflowEnabled: false,
   sandboxDefaultTemplate: undefined as string | undefined,

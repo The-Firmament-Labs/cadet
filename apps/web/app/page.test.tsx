@@ -22,6 +22,8 @@ vi.mock("@/lib/env", () => ({
     hasSpacetimeConfig: true,
     hasOperatorAuth: false,
     hasVercelOAuth: false,
+    appStoreSafeMode: false,
+    sandboxExecutionEnabled: true,
   }),
 }));
 

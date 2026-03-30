@@ -1,5 +1,5 @@
-import { createControlClient } from "./server";
-import { sqlEscape } from "./sql";
+import { createControlClient } from "@/lib/server";
+import { sqlEscape } from "@/lib/sql";
 import { streamText, stepCountIs } from "ai";
 
 // ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ async function actStep(
   // Branch by execution target
   if (execution === "vercel-sandbox" && sandboxContext?.sandboxId && sandboxContext?.vercelAccessToken) {
     // Coding agent — run Claude Code inside sandbox
-    const { runCodingAgent } = await import("./sandbox");
+    const { runCodingAgent } = await import("@/lib/sandbox");
     const codingResult = await runCodingAgent({
       sandboxId: sandboxContext.sandboxId,
       vercelAccessToken: sandboxContext.vercelAccessToken,
@@ -76,7 +76,7 @@ async function actStep(
 
   if (execution === "local-docker") {
     // Docker-based execution — dispatch to local control plane
-    const env = (await import("./env")).getServerEnv();
+    const env = (await import("@/lib/env")).getServerEnv();
     const res = await fetch(`${env.controlPlaneUrl.replace("localhost:3001", "localhost:3010")}/dispatch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -125,10 +125,25 @@ async function verifyStep(runId: string, actResult: { responseLength: number; to
   return { stage: "verify", verified, responseLength: actResult.responseLength, toolCallCount: actResult.toolCallCount };
 }
 
-async function summarizeStep(runId: string) {
+async function summarizeStep(runId: string, channel?: string, channelThreadId?: string, actSummary?: string) {
   "use step";
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "summarize"]);
+
+  // Reply to the originating platform if not web
+  if (channel && channelThreadId && channel !== "web" && channel !== "system") {
+    try {
+      const { replyToOrigin } = await import("./bot-reply");
+      await replyToOrigin({
+        channel,
+        channelThreadId,
+        summary: actSummary ?? `Run ${runId} completed.`,
+      });
+    } catch {
+      // Non-fatal — reply delivery is best-effort
+    }
+  }
+
   return { stage: "summarize" };
 }
 
@@ -159,6 +174,8 @@ export async function agentWorkflow(params: {
   goal: string;
   model?: string;
   execution?: string;
+  channel?: string;
+  channelThreadId?: string;
   sandboxContext?: {
     sandboxId?: string;
     vercelAccessToken?: string;
@@ -169,7 +186,7 @@ export async function agentWorkflow(params: {
 }): Promise<AgentWorkflowResult> {
   "use workflow";
 
-  const { jobId, agentId, runId, operatorId, goal, model, execution, sandboxContext } = params;
+  const { jobId, agentId, runId, operatorId, goal, model, execution, channel, channelThreadId, sandboxContext } = params;
 
   // Stage 1: Route — triage the job
   const routeResult = await routeStep(jobId, agentId);
@@ -194,7 +211,7 @@ export async function agentWorkflow(params: {
   const verifyResult = await verifyStep(runId, actResult);
 
   // Stage 6: Summarize — produce summary
-  const summarizeResult = await summarizeStep(runId);
+  const summarizeResult = await summarizeStep(runId, channel, channelThreadId, `Completed goal: ${goal}`);
 
   // Stage 7: Learn — extract learnings
   const learnResult = await learnStep(runId);

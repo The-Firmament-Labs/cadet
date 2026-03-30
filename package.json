@@ -7,6 +7,8 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "bun run fix:chat-sourcemap",
+    "fix:chat-sourcemap": "node ./scripts/fix-chat-sourcemap.mjs",
     "build": "bun run build:core && bun run build:sdk && bun run build:cli && bun run build:local-control && bun run build:web",
     "build:core": "bun run --cwd packages/core build",
     "build:sdk": "bun run --cwd packages/sdk build",

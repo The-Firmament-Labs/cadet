@@ -86,12 +86,12 @@ export default async function MemoryPage() {
                       </CardTitle>
                       <div className="flex items-center gap-2 mt-1">
                         {doc.namespace ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono bg-[rgba(0,229,255,0.08)] text-[rgba(0,229,255,0.7)] border border-[rgba(0,229,255,0.16)]">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono bg-primary/10 text-primary/70 border border-primary/20">
                             {doc.namespace}
                           </span>
                         ) : null}
                         {doc.source_kind ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono bg-[rgba(220,228,255,0.06)] text-secondary-foreground/50 border border-secondary-foreground/10">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono bg-muted text-muted-foreground border border-border">
                             {doc.source_kind}
                           </span>
                         ) : null}

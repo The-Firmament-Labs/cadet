@@ -1,4 +1,9 @@
-import { send } from "@vercel/queue";
+import { QueueClient } from "@vercel/queue";
+
+const queueRegion = process.env.VERCEL_REGION ?? "iad1";
+const queueClient = new QueueClient({ region: queueRegion });
+
+export const handleQueueCallback = queueClient.handleCallback;
 
 // ---------------------------------------------------------------------------
 // Message Types
@@ -31,7 +36,7 @@ export interface AgentLifecycleMessage {
 export async function sendToAgentLaunch(
   payload: AgentLaunchMessage,
 ): Promise<{ messageId: string | null }> {
-  const { messageId } = await send("agent-launch", payload, {
+  const { messageId } = await queueClient.send("agent-launch", payload, {
     idempotencyKey: `launch-${payload.jobId}-${payload.attempt}`,
   });
   return { messageId };
@@ -40,7 +45,7 @@ export async function sendToAgentLaunch(
 export async function sendToAgentLifecycle(
   payload: AgentLifecycleMessage,
 ): Promise<{ messageId: string | null }> {
-  const { messageId } = await send("agent-lifecycle", payload, {
+  const { messageId } = await queueClient.send("agent-lifecycle", payload, {
     idempotencyKey: `lifecycle-${payload.sandboxId}-${payload.action}`,
   });
   return { messageId };

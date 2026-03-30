@@ -16,6 +16,8 @@ export async function GET() {
       hasAuthToken: env.hasAuthToken,
       hasCronSecret: env.hasCronSecret,
       hasVercelOAuth: env.hasVercelOAuth,
+      appStoreSafeMode: env.appStoreSafeMode,
+      sandboxExecutionEnabled: env.sandboxExecutionEnabled,
       queuesEnabled: env.queuesEnabled,
       workflowEnabled: env.workflowEnabled,
       agentCount: cloudAgentCatalog.length,

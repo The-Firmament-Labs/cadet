@@ -15,8 +15,6 @@ import { Chat, type Adapter, type StateAdapter, type Lock, type QueueEntry } fro
 import { createSlackAdapter } from "@chat-adapter/slack";
 import { createGitHubAdapter } from "@chat-adapter/github";
 import { createTelegramAdapter } from "@chat-adapter/telegram";
-// Discord adapter uses discord.js which has Node-native deps — import dynamically
-// import { createDiscordAdapter } from "@chat-adapter/discord";
 
 import { getServerEnv } from "@/lib/env";
 
@@ -154,15 +152,15 @@ async function buildAdapters() {
     });
   }
 
-  // Discord loaded dynamically to avoid bundling discord.js native deps in all routes
+  // Discord is loaded via a dedicated module boundary so other routes do not
+  // pull the optional discord.js dependency tree into their bundles.
   if (process.env.DISCORD_BOT_TOKEN && process.env.DISCORD_PUBLIC_KEY) {
     try {
-      const { createDiscordAdapter } = await import("@chat-adapter/discord");
-      adapters.discord = createDiscordAdapter({
-        botToken: process.env.DISCORD_BOT_TOKEN,
-        publicKey: process.env.DISCORD_PUBLIC_KEY,
-        applicationId: process.env.DISCORD_APPLICATION_ID,
-      });
+      const { createConfiguredDiscordAdapter } = await import("./bot-discord");
+      const discordAdapter = await createConfiguredDiscordAdapter();
+      if (discordAdapter) {
+        adapters.discord = discordAdapter;
+      }
     } catch {
       console.warn("[bot] Discord adapter failed to load — @chat-adapter/discord may not be installed");
     }

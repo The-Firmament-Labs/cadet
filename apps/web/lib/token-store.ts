@@ -1,8 +1,8 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
-import { createControlClient } from "./server";
-import { refreshAccessToken } from "./vercel-auth";
-import { getServerEnv } from "./env";
-import { sqlEscape } from "./sql";
+import { createControlClient } from "@/lib/server";
+import { refreshAccessToken } from "@/lib/vercel-auth";
+import { getServerEnv } from "@/lib/env";
+import { sqlEscape } from "@/lib/sql";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
