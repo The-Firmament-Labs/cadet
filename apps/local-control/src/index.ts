@@ -426,6 +426,8 @@ export function methodNotAllowed(): Response {
 
 let heartbeatInFlight = false;
 let scheduleInFlight = false;
+let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+let scheduleTimer: ReturnType<typeof setInterval> | undefined;
 
 async function runHeartbeatLoop(): Promise<void> {
   if (heartbeatInFlight) {
@@ -460,10 +462,29 @@ async function runScheduleLoop(): Promise<void> {
   }
 }
 
-void runHeartbeatLoop();
-void runScheduleLoop();
-setInterval(() => void runHeartbeatLoop(), heartbeatIntervalMs);
-setInterval(() => void runScheduleLoop(), scheduleIntervalMs);
+export function startBackgroundLoops(): void {
+  if (!heartbeatTimer) {
+    void runHeartbeatLoop();
+    heartbeatTimer = setInterval(() => void runHeartbeatLoop(), heartbeatIntervalMs);
+  }
+
+  if (!scheduleTimer) {
+    void runScheduleLoop();
+    scheduleTimer = setInterval(() => void runScheduleLoop(), scheduleIntervalMs);
+  }
+}
+
+export function stopBackgroundLoops(): void {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = undefined;
+  }
+
+  if (scheduleTimer) {
+    clearInterval(scheduleTimer);
+    scheduleTimer = undefined;
+  }
+}
 
 export async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -535,9 +556,17 @@ export async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-const server = Bun.serve({
-  port,
-  fetch: handleRequest
-});
+export function startLocalControlServer() {
+  startBackgroundLoops();
+  const server = Bun.serve({
+    port,
+    fetch: handleRequest
+  });
 
-console.log(`Local control plane listening on http://127.0.0.1:${server.port}`);
+  console.log(`Local control plane listening on http://127.0.0.1:${server.port}`);
+  return server;
+}
+
+if (import.meta.main) {
+  startLocalControlServer();
+}

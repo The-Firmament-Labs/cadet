@@ -586,10 +586,12 @@ fn app() -> Element {
                     .await;
             });
 
-            // Start clipboard watcher so context capture works even before
-            // the Clipboard widget is toggled on.
-            let h = clipboard_history.clone();
-            starbridge_dioxus::clipboard::start_clipboard_watcher(h);
+            if cadet_config.widget.background_clipboard_capture {
+                // Start clipboard watcher so context capture works even before
+                // the Clipboard widget is toggled on.
+                let h = clipboard_history.clone();
+                starbridge_dioxus::clipboard::start_clipboard_watcher(h);
+            }
 
             command_center_spawned.set(true);
         }

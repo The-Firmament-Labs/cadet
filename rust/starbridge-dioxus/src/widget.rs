@@ -21,6 +21,8 @@ pub struct CadetConfig {
 pub struct WidgetConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
+    #[serde(default = "default_background_clipboard_capture")]
+    pub background_clipboard_capture: bool,
     #[serde(default = "default_agent")]
     pub default_agent: String,
     #[serde(default = "default_research_agent")]
@@ -46,6 +48,18 @@ pub struct QuickAction {
 }
 
 fn default_true() -> bool { true }
+fn app_store_safe_mode_from_env_var(value: Option<&str>) -> bool {
+    matches!(
+        value.map(str::trim).filter(|value| !value.is_empty()).map(|value| value.to_ascii_lowercase()),
+        Some(value) if matches!(value.as_str(), "1" | "true" | "yes" | "on")
+    )
+}
+fn default_background_clipboard_capture_from_env(value: Option<&str>) -> bool {
+    !app_store_safe_mode_from_env_var(value)
+}
+fn default_background_clipboard_capture() -> bool {
+    default_background_clipboard_capture_from_env(std::env::var("APP_STORE_SAFE_MODE").ok().as_deref())
+}
 fn default_agent() -> String { "saturn".to_string() }
 fn default_research_agent() -> String { "voyager".to_string() }
 fn default_style() -> String { "glass".to_string() }
@@ -86,6 +100,7 @@ impl Default for CadetConfig {
         Self {
             widget: WidgetConfig {
                 enabled: true,
+                background_clipboard_capture: default_background_clipboard_capture(),
                 default_agent: default_agent(),
                 research_agent: default_research_agent(),
                 style: default_style(),
@@ -2033,6 +2048,19 @@ mod tests {
     }
 
     #[test]
+    fn cadet_config_default_background_clipboard_capture_enabled_outside_store_mode() {
+        assert!(default_background_clipboard_capture_from_env(None));
+        assert!(default_background_clipboard_capture_from_env(Some("false")));
+    }
+
+    #[test]
+    fn cadet_config_default_background_clipboard_capture_disabled_in_store_mode() {
+        assert!(!default_background_clipboard_capture_from_env(Some("true")));
+        assert!(!default_background_clipboard_capture_from_env(Some("1")));
+        assert!(!default_background_clipboard_capture_from_env(Some(" yes ")));
+    }
+
+    #[test]
     fn cadet_config_default_action_ids() {
         let cfg = CadetConfig::default();
         let ids: Vec<&str> = cfg.widget.actions.iter().map(|a| a.id.as_str()).collect();
@@ -2071,6 +2099,7 @@ mod tests {
         let toml_str = r#"
 [widget]
 enabled = false
+background_clipboard_capture = false
 default_agent = "atlas"
 research_agent = "titan"
 style = "solid"
@@ -2078,6 +2107,7 @@ auto_dismiss_seconds = 10
 "#;
         let cfg: CadetConfig = toml::from_str(toml_str).expect("valid toml");
         assert!(!cfg.widget.enabled);
+        assert!(!cfg.widget.background_clipboard_capture);
         assert_eq!(cfg.widget.default_agent, "atlas");
         assert_eq!(cfg.widget.research_agent, "titan");
         assert_eq!(cfg.widget.style, "solid");

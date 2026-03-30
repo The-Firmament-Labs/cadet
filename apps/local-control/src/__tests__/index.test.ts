@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Module mocks — hoisted before all imports from index.ts
@@ -132,6 +132,26 @@ beforeEach(() => {
   delete process.env.SPACETIMEDB_DATABASE;
   delete process.env.SPACETIMEDB_AUTH_TOKEN;
   delete process.env.STARBRIDGE_MANIFEST_DIR;
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("module startup", () => {
+  it("does not start the server when imported as a module", async () => {
+    vi.resetModules();
+    const serve = vi.fn(() => ({ port: 3010 }));
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.stubGlobal("Bun", {
+      serve,
+    });
+
+    await import("../index");
+
+    expect(serve).not.toHaveBeenCalled();
+    logSpy.mockRestore();
+  });
 });
 
 // ---------------------------------------------------------------------------
