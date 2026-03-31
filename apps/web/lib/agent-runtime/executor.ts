@@ -9,6 +9,7 @@ import { Sandbox } from "@vercel/sandbox";
 import { getAgentConfig, type AgentConfig } from "./registry";
 import { parseAcpLine, parseRawOutput, type AgentOutputEvent } from "./output";
 import { recordSessionTurn, isCancelRequested, clearCancel } from "./session";
+import { generateMissionBrief, writeMissionBrief, runVerification } from "./mission-brief";
 
 function getSandboxCredentials(vercelAccessToken: string) {
   return {
@@ -45,11 +46,12 @@ export async function executeAgentPrompt(opts: {
   agentId: string;
   prompt: string;
   sessionId: string;
+  operatorId?: string;
   repoUrl?: string;
   branch?: string;
   apiKey?: string;
   workdir?: string;
-}): Promise<{ events: AgentOutputEvent[]; exitCode: number; output: string }> {
+}): Promise<{ events: AgentOutputEvent[]; exitCode: number; output: string; verification?: { passed: boolean; results: string[] } }> {
   const config = getAgentConfig(opts.agentId);
   if (!config) throw new Error(`Unknown agent: ${opts.agentId}`);
 
@@ -72,6 +74,16 @@ export async function executeAgentPrompt(opts: {
   } else {
     await sandbox.runCommand("mkdir", ["-p", workdir]);
   }
+
+  // Generate and write mission brief
+  const brief = await generateMissionBrief({
+    goal: opts.prompt,
+    agentConfig: config,
+    operatorId: opts.operatorId ?? "operator",
+    repoUrl: opts.repoUrl,
+    branch: opts.branch,
+  });
+  await writeMissionBrief(sandbox, brief, workdir);
 
   // Build environment
   const envParts: string[] = [];
@@ -120,5 +132,22 @@ export async function executeAgentPrompt(opts: {
     events.unshift({ type: "error", message: stderr.trim().slice(0, 500), timestamp: Date.now() });
   }
 
-  return { events, exitCode, output: stdout };
+  // Run post-execution verification
+  let verification: { passed: boolean; results: string[] } | undefined;
+  if (brief.verifyCommands.length > 0 && exitCode === 0) {
+    try {
+      verification = await runVerification(sandbox as never, brief, workdir);
+      if (!verification.passed) {
+        events.push({
+          type: "error",
+          message: `Verification failed:\n${verification.results.filter((r) => r.startsWith("FAIL")).join("\n")}`,
+          timestamp: Date.now(),
+        });
+      }
+    } catch {
+      // Verification is best-effort
+    }
+  }
+
+  return { events, exitCode, output: stdout, verification };
 }

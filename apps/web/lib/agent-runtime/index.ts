@@ -9,3 +9,4 @@ export { AGENT_REGISTRY, getAgentConfig, getAgentsByCapability, getAllCapabiliti
 export { createAgentSession, getActiveSession, loadAgentSession, closeAgentSession, markSessionCrashed, ensureSession, requestCancel, isCancelRequested, type AgentSession } from "./session";
 export { executeAgentPrompt, installAgent } from "./executor";
 export { parseAcpLine, parseRawOutput, type AgentOutputEvent } from "./output";
+export { generateMissionBrief, writeMissionBrief, runVerification, type MissionBrief } from "./mission-brief";
