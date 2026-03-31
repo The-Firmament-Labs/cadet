@@ -497,6 +497,26 @@ pub struct SandboxSnapshot {
     created_at_micros: i64,
 }
 
+// ── Agent Sessions ───────────────────────────────────────────────────
+
+#[table(accessor = agent_session, public)]
+pub struct AgentSessionRecord {
+    #[primary_key]
+    session_id: String,
+    #[index(btree)]
+    operator_id: String,
+    #[index(btree)]
+    agent_id: String,
+    sandbox_id: String,
+    repo_url: String,
+    status: String,
+    cancel_requested: bool,
+    turn_count: u32,
+    last_prompt: String,
+    created_at_micros: i64,
+    updated_at_micros: i64,
+}
+
 // ── Chat Messages ────────────────────────────────────────────────────
 
 #[table(accessor = chat_message, public)]
@@ -2547,6 +2567,114 @@ pub fn create_sandbox_snapshot(
                 ..existing
             });
     }
+    Ok(())
+}
+
+// ── Agent Session reducers ───────────────────────────────────────────
+
+#[reducer]
+pub fn create_agent_session(
+    ctx: &ReducerContext,
+    session_id: String,
+    operator_id: String,
+    agent_id: String,
+    sandbox_id: String,
+    repo_url: String,
+    status: String,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let session_id = validate_identifier(session_id, "session_id")?;
+    let operator_id = validate_identifier(operator_id, "operator_id")?;
+    let now = now_micros(ctx);
+    ctx.db.agent_session().insert(AgentSessionRecord {
+        session_id,
+        operator_id,
+        agent_id,
+        sandbox_id,
+        repo_url,
+        status,
+        cancel_requested: false,
+        turn_count: 0,
+        last_prompt: String::new(),
+        created_at_micros: now,
+        updated_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn update_agent_session_status(
+    ctx: &ReducerContext,
+    session_id: String,
+    status: String,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let session_id = validate_identifier(session_id, "session_id")?;
+    let now = now_micros(ctx);
+    let existing = ctx.db.agent_session().session_id().find(session_id.clone())
+        .ok_or_else(|| format!("Session {session_id} not found"))?;
+    ctx.db.agent_session().session_id().update(AgentSessionRecord {
+        status,
+        updated_at_micros: now,
+        ..existing
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn record_session_turn(
+    ctx: &ReducerContext,
+    session_id: String,
+    last_prompt: String,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let session_id = validate_identifier(session_id, "session_id")?;
+    let now = now_micros(ctx);
+    let existing = ctx.db.agent_session().session_id().find(session_id.clone())
+        .ok_or_else(|| format!("Session {session_id} not found"))?;
+    ctx.db.agent_session().session_id().update(AgentSessionRecord {
+        turn_count: existing.turn_count + 1,
+        last_prompt,
+        cancel_requested: false,
+        updated_at_micros: now,
+        ..existing
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn request_session_cancel(
+    ctx: &ReducerContext,
+    session_id: String,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let session_id = validate_identifier(session_id, "session_id")?;
+    let now = now_micros(ctx);
+    let existing = ctx.db.agent_session().session_id().find(session_id.clone())
+        .ok_or_else(|| format!("Session {session_id} not found"))?;
+    ctx.db.agent_session().session_id().update(AgentSessionRecord {
+        cancel_requested: true,
+        updated_at_micros: now,
+        ..existing
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn clear_session_cancel(
+    ctx: &ReducerContext,
+    session_id: String,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let session_id = validate_identifier(session_id, "session_id")?;
+    let now = now_micros(ctx);
+    let existing = ctx.db.agent_session().session_id().find(session_id.clone())
+        .ok_or_else(|| format!("Session {session_id} not found"))?;
+    ctx.db.agent_session().session_id().update(AgentSessionRecord {
+        cancel_requested: false,
+        updated_at_micros: now,
+        ..existing
+    });
     Ok(())
 }
 

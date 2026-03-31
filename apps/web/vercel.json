@@ -29,7 +29,8 @@
       ]
     },
     "app/api/workflows/agent/route.ts": { "maxDuration": 300 },
-    "app/api/chat/route.ts": { "maxDuration": 60 }
+    "app/api/chat/route.ts": { "maxDuration": 60 },
+    "app/api/agents/[agentId]/prompt/route.ts": { "maxDuration": 300 }
   },
   "crons": [
     {
