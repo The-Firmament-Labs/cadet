@@ -159,7 +159,7 @@ async function loadOperatorPreferences(operatorId: string): Promise<string[]> {
   try {
     const client = createControlClient();
     const rows = (await client.sql(
-      `SELECT content FROM memory_document WHERE namespace = 'assistant' AND source_kind = 'conversation' LIMIT 10`,
+      `SELECT content FROM memory_document WHERE namespace = 'assistant' AND source_kind = 'conversation' AND agent_id = '${sqlEscape(operatorId)}' LIMIT 10`,
     )) as Array<Record<string, unknown>>;
 
     return rows.map((r) => sanitizeContext(String(r.content ?? ""), 200)).filter((c) => c.length > 0);
@@ -196,9 +196,9 @@ export async function writeMissionBrief(
   brief: MissionBrief,
   workdir: string = "/workspace",
 ): Promise<void> {
-  // Write CLAUDE.md
-  const escaped = brief.claudeMd.replace(/'/g, "'\\''");
-  await sandbox.runCommand("sh", ["-c", `cat > ${workdir}/CLAUDE.md << 'CADET_BRIEF_EOF'\n${brief.claudeMd}\nCADET_BRIEF_EOF`]);
+  // Write CLAUDE.md via base64 to avoid heredoc/shell injection
+  const encoded = Buffer.from(brief.claudeMd, "utf-8").toString("base64");
+  await sandbox.runCommand("sh", ["-c", `echo '${encoded}' | base64 -d > ${workdir}/CLAUDE.md`]);
 
   // Run setup commands
   for (const cmd of brief.setupCommands) {

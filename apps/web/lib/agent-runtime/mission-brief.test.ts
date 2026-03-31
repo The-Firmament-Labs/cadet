@@ -261,7 +261,7 @@ describe("writeMissionBrief", () => {
     expect(cmd).toBe("sh");
     const script = args[1] as string;
     expect(script).toContain("CLAUDE.md");
-    expect(script).toContain("# Mission Brief");
+    expect(script).toContain("base64 -d");
   });
 
   it("runs setup commands in the workdir", async () => {

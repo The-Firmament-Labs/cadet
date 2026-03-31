@@ -70,8 +70,8 @@ export async function executeHooks(
   for (const hook of hooks) {
     const start = Date.now();
     try {
-      // Create a sandboxed function from the handler
-      const fn = new Function("context", "console", hook.handler);
+      // Run handler in an isolated VM context — no access to require, process, fs, etc.
+      const { runInNewContext } = await import("node:vm");
       const logs: string[] = [];
       const safeConsole = {
         log: (...args: unknown[]) => logs.push(args.map(String).join(" ")),
@@ -79,7 +79,8 @@ export async function executeHooks(
         error: (...args: unknown[]) => logs.push(`ERROR: ${args.map(String).join(" ")}`),
       };
 
-      const output = await Promise.resolve(fn(context, safeConsole));
+      const sandbox = { context, console: safeConsole, JSON, Date, Math, String, Number, Array, Object, Boolean, parseInt, parseFloat };
+      const output = runInNewContext(`(function(context, console) { ${hook.handler} })(context, console)`, sandbox, { timeout: 5000 });
       results.push({
         hookId: hook.hookId,
         success: true,

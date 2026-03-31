@@ -159,7 +159,7 @@ async function resolveRef(
     case "url": {
       const safeUrl = sanitizeUrl(value);
       if (!safeUrl) return { ref: `@url:${value}`, type: "url", content: "[URL blocked: invalid or private network]", tokenEstimate: 10 };
-      const res = await fetch(safeUrl, { signal: AbortSignal.timeout(10_000) });
+      const res = await fetch(safeUrl, { signal: AbortSignal.timeout(10_000), redirect: "error" });
       if (!res.ok) return null;
       const html = await res.text();
       const text = sanitizeHtml(html, 3000);

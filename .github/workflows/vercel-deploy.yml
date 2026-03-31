@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
@@ -13,9 +16,17 @@ concurrency:
 permissions:
   contents: read
   deployments: write
+  pull-requests: write
 
 jobs:
+  # Gate: wait for CI to pass before deploying
+  ci:
+    name: Wait for CI
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    name: Deploy
+    needs: [ci]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -60,7 +71,7 @@ jobs:
         run: npm install --global vercel@latest
 
       - name: Create GitHub deployment
-        if: steps.config.outputs.enabled == 'true'
+        if: steps.config.outputs.enabled == 'true' && github.event_name == 'push'
         id: github_deployment
         run: |
           payload="$(jq -n \
@@ -107,16 +118,26 @@ jobs:
 
       - name: Build for Vercel
         if: steps.config.outputs.enabled == 'true'
-        run: vercel build --prod --token="${VERCEL_TOKEN}"
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            vercel build --prod --token="${VERCEL_TOKEN}"
+          else
+            vercel build --token="${VERCEL_TOKEN}"
+          fi
 
-      - name: Deploy prebuilt to Vercel
+      - name: Deploy to Vercel
         id: vercel_deploy
         if: steps.config.outputs.enabled == 'true'
         continue-on-error: true
         run: |
           set -eo pipefail
           deploy_log="$(mktemp)"
-          vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}" 2>&1 | tee "${deploy_log}"
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}" 2>&1 | tee "${deploy_log}"
+          else
+            vercel deploy --prebuilt --token="${VERCEL_TOKEN}" 2>&1 | tee "${deploy_log}"
+          fi
 
           deployment_url="$(grep -Eo 'https://[^ ]+' "${deploy_log}" | tail -n 1 | tr -d '\r')"
           if [ -z "${deployment_url}" ]; then
@@ -125,7 +146,32 @@ jobs:
           fi
 
           echo "deployment_url=${deployment_url}" >> "$GITHUB_OUTPUT"
-          echo "Production deployment URL: ${deployment_url}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment URL: ${deployment_url}" >> "$GITHUB_STEP_SUMMARY"
+
+      # Post-deploy health check
+      - name: Health check
+        if: steps.vercel_deploy.outcome == 'success'
+        run: |
+          url="${{ steps.vercel_deploy.outputs.deployment_url }}"
+          echo "Checking health at ${url}/api/health ..."
+          for i in 1 2 3 4 5; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' "${url}/api/health" || true)
+            if [ "$status" = "200" ]; then
+              echo "Health check passed (attempt ${i})"
+              exit 0
+            fi
+            echo "Attempt ${i}: status ${status}, retrying in 5s..."
+            sleep 5
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1
+
+      # PR preview: post deployment URL as a comment
+      - name: Comment preview URL on PR
+        if: github.event_name == 'pull_request' && steps.vercel_deploy.outcome == 'success'
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body "**Preview deployed** — [${{ steps.vercel_deploy.outputs.deployment_url }}](${{ steps.vercel_deploy.outputs.deployment_url }})"
 
       - name: Mark deployment successful
         if: steps.github_deployment.outputs.deployment_id != '' && steps.vercel_deploy.outcome == 'success'

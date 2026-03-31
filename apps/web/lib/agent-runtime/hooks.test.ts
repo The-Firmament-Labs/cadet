@@ -92,7 +92,7 @@ describe("executeHooks", () => {
 
     const bad = results.find((r) => r.hookId === "hook_bad");
     expect(bad!.success).toBe(false);
-    expect(bad!.error).toBe("hook failed");
+    expect(bad!.error).toContain("hook failed");
 
     const good = results.find((r) => r.hookId === "hook_good");
     expect(good!.success).toBe(true);

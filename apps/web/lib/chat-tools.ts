@@ -142,7 +142,7 @@ export const chatTools = {
         const safeUrl = sanitizeUrl(url);
         if (!safeUrl) return { stored: false, message: "URL blocked: invalid or private network address" };
 
-        const res = await fetch(safeUrl, { signal: AbortSignal.timeout(10_000) });
+        const res = await fetch(safeUrl, { signal: AbortSignal.timeout(10_000), redirect: "error" });
         if (!res.ok) return { stored: false, message: `Failed to fetch: ${res.status}` };
 
         const html = await res.text();

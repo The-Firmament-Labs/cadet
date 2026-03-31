@@ -85,13 +85,21 @@ export async function POST(request: Request) {
       });
     } catch { /* hooks are best-effort */ }
 
+    // Select model based on operator routing preferences (or default)
+    let modelId: string = cadetAgent.model;
+    try {
+      const { getOperatorRouting, selectModel } = await import("@/lib/agent-runtime/provider-routing");
+      const prefs = await getOperatorRouting(session.operatorId);
+      modelId = selectModel(prefs);
+    } catch { /* fall back to default */ }
+
     const result = streamText({
-      model: cadetAgent.model,
+      model: modelId,
       system: [cadetAgent.system, journalPrompt, refContext].filter(Boolean).join("\n\n"),
       messages: await convertToModelMessages(messages),
       tools: chatTools,
       stopWhen: stepCountIs(5),
-      onFinish: async ({ text }) => {
+      onFinish: async ({ text, toolCalls }) => {
         // Persist assistant response
         try {
           const client = createControlClient();
@@ -115,15 +123,13 @@ export async function POST(request: Request) {
           });
         } catch { /* hooks are best-effort */ }
 
-        // Auto-learn: add notable facts to Ship's Log
-        if (text.length > 100) {
+        // Auto-learn: add to Ship's Log only when tools were actually used
+        // (not based on substring matching which creates false positives)
+        if (toolCalls && toolCalls.length > 0) {
           try {
             const { addLogEntry } = await import("@/lib/agent-runtime/mission-journal");
-            // Only log if the response contains a tool call result or significant action
-            if (text.includes("created") || text.includes("deployed") || text.includes("fixed") || text.includes("PR")) {
-              const summary = text.slice(0, 120).replace(/\n/g, " ");
-              await addLogEntry(session.operatorId, summary);
-            }
+            const toolNames = toolCalls.map((tc: { toolName: string }) => tc.toolName).join(", ");
+            await addLogEntry(session.operatorId, `Used tools: ${toolNames}`);
           } catch { /* best-effort */ }
         }
       },
