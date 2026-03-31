@@ -6,6 +6,7 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -59,6 +60,29 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-cadet-workspace
       - run: cd spacetimedb && spacetime build
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test]
+    env:
+      SPACETIMEDB_URL: ${{ secrets.SPACETIMEDB_URL }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-cadet-workspace
+      - name: Run integration tests (skipped if secrets not configured)
+        run: |
+          cd apps/web
+          if [ -n "$SPACETIMEDB_URL" ] || [ -n "$VERCEL_TOKEN" ]; then
+            bun run test:integration
+          else
+            echo "Skipping integration tests — no secrets configured"
+          fi
 
   docs:
     name: Docs
