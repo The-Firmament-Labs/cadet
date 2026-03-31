@@ -29,6 +29,7 @@ export { selectModel, buildFallbackChain, getOperatorRouting, saveOperatorRoutin
 export { executeHooks, registerHook, listHooks, toggleHook, deleteHook, type HookEvent, type HookDefinition, type HookContext } from "./hooks";
 export { searchSessions, type SearchResult } from "./session-search";
 export { parseRefs, resolveRefs, stripRefs, type ResolvedRef } from "./context-refs";
+export { assembleContext, buildHandoffContext, type AssembledContext } from "./context-assembly";
 export { textToSpeech, speechToText, VOICE_PRESETS, DEFAULT_VOICE_CONFIG, type VoiceConfig } from "./voice";
 export { createBrowserSession, executeBrowserAction, screenshotUrl, type BrowserSession, type BrowserAction, type BrowserResult } from "./browser";
 export { submitBatch, getBatchStatus, type BatchJob, type BatchPrompt } from "./batch";

@@ -58,65 +58,31 @@ async function gatherStep(runId: string, agentId: string, goal: string, operator
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "gather"]);
 
-  const gathered: string[] = [];
-
-  // 1. Relevant memories filtered by goal keywords
+  // Use the centralized context assembly to pull from ALL SpacetimeDB sources
   try {
-    const keywords = goal.toLowerCase().split(/\s+/).filter((w) => w.length > 3).slice(0, 4);
-    if (keywords.length > 0) {
-      const conditions = keywords.map((k) => `content LIKE '%${sqlEscape(k)}%'`).join(" OR ");
-      const memories = (await client.sql(
-        `SELECT title, content FROM memory_document WHERE (${conditions}) LIMIT 5`,
-      )) as Record<string, unknown>[];
-      if (memories.length > 0) {
-        gathered.push("## Relevant Knowledge");
-        for (const m of memories) {
-          gathered.push(`- **${sanitizeContext(String(m.title), 80)}**: ${sanitizeContext(String(m.content), 200)}`);
-        }
-      }
-    }
-  } catch { /* best-effort */ }
+    const { assembleContext } = await import("./agent-runtime/context-assembly");
+    const assembled = await assembleContext({
+      operatorId,
+      goal,
+      tokenBudget: 3000,
+      includeChat: true,       // past conversation turns
+      includeRuns: true,       // what agents did recently
+      includeMemory: true,     // relevant stored knowledge
+      includeLearnings: true,  // learnings from past runs
+      includeSessions: true,   // active sandbox sessions
+      chatTurns: 6,
+    });
 
-  // 2. Recent runs for the same agent (cross-run context)
-  try {
-    const recentRuns = (await client.sql(
-      `SELECT run_id, goal, status, current_stage FROM workflow_run WHERE agent_id = '${sqlEscape(agentId)}' AND run_id != '${sqlEscape(runId)}' ORDER BY updated_at_micros DESC LIMIT 3`,
-    )) as Record<string, unknown>[];
-    if (recentRuns.length > 0) {
-      gathered.push("## Recent Runs by This Agent");
-      for (const r of recentRuns) {
-        gathered.push(`- ${r.run_id}: "${sanitizeContext(String(r.goal), 80)}" → ${r.status}`);
-      }
-    }
-  } catch { /* best-effort */ }
-
-  // 3. Tool call history for recent runs (what the agent did before)
-  try {
-    const toolHistory = (await client.sql(
-      `SELECT tool_name, output_json FROM tool_call_record WHERE run_id IN (SELECT run_id FROM workflow_run WHERE agent_id = '${sqlEscape(agentId)}' ORDER BY updated_at_micros DESC LIMIT 2) LIMIT 10`,
-    )) as Record<string, unknown>[];
-    if (toolHistory.length > 0) {
-      gathered.push("## Recent Tool Usage");
-      for (const t of toolHistory) {
-        gathered.push(`- ${t.tool_name}: ${sanitizeContext(String(t.output_json ?? "").slice(0, 100), 100)}`);
-      }
-    }
-  } catch { /* best-effort */ }
-
-  // 4. Mission Journal standing orders
-  try {
-    const { loadMissionJournal } = await import("./agent-runtime/mission-journal");
-    const journal = await loadMissionJournal(operatorId);
-    if (journal.standingOrders.length > 0) {
-      gathered.push("## Standing Orders");
-      for (const order of journal.standingOrders) {
-        gathered.push(`- ${sanitizeContext(order, 100)}`);
-      }
-    }
-  } catch { /* best-effort */ }
-
-  const contextContent = gathered.join("\n");
-  return { stage: "gather", contextItems: gathered.length, contextContent };
+    return {
+      stage: "gather",
+      contextItems: assembled.sources.length,
+      contextContent: assembled.plainSummary,
+      sources: assembled.sources,
+    };
+  } catch {
+    // Fallback: minimal context
+    return { stage: "gather", contextItems: 0, contextContent: "", sources: [] };
+  }
 }
 
 async function actStep(

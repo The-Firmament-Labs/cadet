@@ -6,7 +6,7 @@ import { cloudAgentCatalog } from "@/lib/cloud-agents";
 import { createControlClient } from "@/lib/server";
 import { sqlEscape } from "@/lib/sql";
 import { apiError, apiUnauthorized } from "@/lib/api-response";
-import { sanitizeContext, fenceContext } from "@/lib/sanitize";
+import { fenceContext } from "@/lib/sanitize";
 
 const cadetAgent = cloudAgentCatalog.find((a) => a.id === "cadet")!;
 
@@ -14,7 +14,6 @@ export async function GET(request: Request) {
   const session = parseSessionFromRequest(request);
   if (!session) return apiUnauthorized();
 
-  // Load conversation history for this operator
   try {
     const client = createControlClient();
     const rows = await client.sql(
@@ -33,66 +32,89 @@ export async function POST(request: Request) {
   try {
     const { messages } = (await request.json()) as { messages: UIMessage[] };
 
-    // Resolve @ references in the latest user message
+    // Extract the latest user message text
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+    const userText = lastUserMsg?.parts?.filter((p) => p.type === "text").map((p) => (p as { text: string }).text).join("\n") ?? "";
+
+    // --- Phase 1: Resolve @ references ---
     let refContext = "";
-    if (lastUserMsg) {
-      const textParts = lastUserMsg.parts.filter((p) => p.type === "text");
-      const rawText = textParts.map((p) => (p as { text: string }).text).join("\n");
-      if (rawText.includes("@")) {
-        try {
-          const { resolveRefs } = await import("@/lib/agent-runtime/context-refs");
-          const resolved = await resolveRefs(rawText);
-          if (resolved.context.length > 0) {
-            refContext = resolved.context
-              .map((r) => fenceContext(`@${r.type}:${r.ref}`, r.content))
-              .join("\n");
-          }
-        } catch { /* ref resolution is best-effort */ }
-      }
+    if (userText.includes("@")) {
+      try {
+        const { resolveRefs } = await import("@/lib/agent-runtime/context-refs");
+        const resolved = await resolveRefs(userText);
+        if (resolved.context.length > 0) {
+          refContext = resolved.context
+            .map((r) => fenceContext(`@${r.type}:${r.ref}`, r.content))
+            .join("\n");
+        }
+      } catch { /* best-effort */ }
     }
+
+    // --- Phase 2: Assemble SpacetimeDB context ---
+    // Pull past conversations, agent results, memories, learnings, active sessions
+    let dbContext = "";
+    try {
+      const { assembleContext } = await import("@/lib/agent-runtime/context-assembly");
+      const assembled = await assembleContext({
+        operatorId: session.operatorId,
+        goal: userText,
+        tokenBudget: 3000,
+        chatTurns: 8,
+      });
+      if (assembled.systemBlocks.length > 0) {
+        dbContext = assembled.systemBlocks.join("\n");
+      }
+    } catch { /* best-effort */ }
+
+    // --- Phase 3: Load Mission Journal ---
+    let journalPrompt = "";
+    try {
+      const { loadMissionJournal, renderJournalForPrompt } = await import("@/lib/agent-runtime/mission-journal");
+      const journal = await loadMissionJournal(session.operatorId);
+      journalPrompt = fenceContext("mission-journal", renderJournalForPrompt(journal));
+    } catch { /* best-effort */ }
+
+    // --- Phase 4: Fire hooks ---
+    try {
+      const { executeHooks } = await import("@/lib/agent-runtime/hooks");
+      await executeHooks("prompt:before", {
+        event: "prompt:before",
+        operatorId: session.operatorId,
+        prompt: userText,
+      });
+    } catch { /* best-effort */ }
+
+    // --- Phase 5: Persist user message (background) ---
     if (lastUserMsg) {
       after(async () => {
         try {
           const client = createControlClient();
           await client.callReducer("save_chat_message", [
-            `msg_${Date.now().toString(36)}`,
+            `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
             session.operatorId,
             "default",
             "user",
-            lastUserMsg.parts.filter((p) => p.type === "text").map((p) => (p as { text: string }).text).join("\n") || JSON.stringify(lastUserMsg.parts),
+            userText || JSON.stringify(lastUserMsg.parts),
             "{}",
           ]);
         } catch { /* best-effort */ }
       });
     }
 
-    // Load Mission Journal for operator personality
-    let journalPrompt = "";
+    // --- Phase 6: Set tool context for handoffs ---
+    let handoffSummary = "";
     try {
-      const { loadMissionJournal, renderJournalForPrompt } = await import("@/lib/agent-runtime/mission-journal");
-      const journal = await loadMissionJournal(session.operatorId);
-      journalPrompt = fenceContext("mission-journal", renderJournalForPrompt(journal));
-    } catch { /* journal unavailable */ }
+      const { buildHandoffContext } = await import("@/lib/agent-runtime/context-assembly");
+      handoffSummary = await buildHandoffContext(session.operatorId, userText);
+    } catch { /* best-effort */ }
 
-    // Fire session hooks
-    try {
-      const { executeHooks } = await import("@/lib/agent-runtime/hooks");
-      await executeHooks("prompt:before", {
-        event: "prompt:before",
-        operatorId: session.operatorId,
-        prompt: lastUserMsg?.parts.filter((p) => p.type === "text").map((p) => (p as { text: string }).text).join("\n"),
-      });
-    } catch { /* hooks are best-effort */ }
-
-    // Set tool context so handoff_to_agent can pass operatorId and conversation context
     setChatToolContext({
       operatorId: session.operatorId,
-      conversationSummary: messages.slice(-4).map((m) => `${m.role}: ${m.parts?.filter((p) => p.type === "text").map((p) => (p as { text: string }).text).join("").slice(0, 100)}`).join("\n"),
+      conversationSummary: handoffSummary,
       refContext: refContext.slice(0, 1000),
     });
 
-    // Select model based on operator routing preferences (or default)
+    // --- Phase 7: Select model ---
     let modelId: string = cadetAgent.model;
     try {
       const { getOperatorRouting, selectModel } = await import("@/lib/agent-runtime/provider-routing");
@@ -100,24 +122,34 @@ export async function POST(request: Request) {
       modelId = selectModel(prefs);
     } catch { /* fall back to default */ }
 
+    // --- Phase 8: Stream response ---
+    const systemPrompt = [
+      cadetAgent.system,
+      journalPrompt,
+      dbContext,   // SpacetimeDB assembled context (chat history, runs, memories, learnings)
+      refContext,  // @ reference resolved content
+    ].filter(Boolean).join("\n\n");
+
     const result = streamText({
       model: modelId,
-      system: [cadetAgent.system, journalPrompt, refContext].filter(Boolean).join("\n\n"),
+      system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: chatTools,
       stopWhen: stepCountIs(5),
       onFinish: async ({ text, toolCalls }) => {
         clearChatToolContext();
-        // Persist assistant response
+
+        // Persist assistant response with tool metadata
         try {
           const client = createControlClient();
+          const toolNames = toolCalls?.map((tc: { toolName: string }) => tc.toolName) ?? [];
           await client.callReducer("save_chat_message", [
-            `msg_${Date.now().toString(36)}`,
+            `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
             session.operatorId,
             "default",
             "assistant",
             text,
-            "{}",
+            JSON.stringify({ tools: toolNames }),
           ]);
         } catch { /* best-effort */ }
 
@@ -129,10 +161,9 @@ export async function POST(request: Request) {
             operatorId: session.operatorId,
             prompt: text.slice(0, 200),
           });
-        } catch { /* hooks are best-effort */ }
+        } catch { /* best-effort */ }
 
-        // Auto-learn: add to Ship's Log only when tools were actually used
-        // (not based on substring matching which creates false positives)
+        // Auto-learn: log tool usage to Ship's Log
         if (toolCalls && toolCalls.length > 0) {
           try {
             const { addLogEntry } = await import("@/lib/agent-runtime/mission-journal");
