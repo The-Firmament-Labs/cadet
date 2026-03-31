@@ -497,6 +497,59 @@ pub struct SandboxSnapshot {
     created_at_micros: i64,
 }
 
+// ── Agent Skills ─────────────────────────────────────────────────────
+
+#[table(accessor = agent_skill, public)]
+pub struct AgentSkill {
+    #[primary_key]
+    skill_id: String,
+    name: String,
+    description: String,
+    category: String,
+    version: String,
+    author: String,
+    token_estimate: u32,
+    content: String,
+    activation_patterns_json: String,
+    source: String,
+    created_at_micros: i64,
+    updated_at_micros: i64,
+}
+
+// ── Agent Checkpoints ────────────────────────────────────────────────
+
+#[table(accessor = agent_checkpoint, public)]
+pub struct AgentCheckpoint {
+    #[primary_key]
+    checkpoint_id: String,
+    #[index(btree)]
+    session_id: String,
+    sandbox_id: String,
+    snapshot_id: String,
+    label: String,
+    turn_number: u32,
+    created_at_micros: i64,
+}
+
+// ── Agent Hooks ──────────────────────────────────────────────────────
+
+#[table(accessor = agent_hook, public)]
+pub struct AgentHook {
+    #[primary_key]
+    hook_id: String,
+    #[index(btree)]
+    event: String,
+    name: String,
+    description: String,
+    handler: String,
+    enabled: bool,
+    priority: u32,
+    #[index(btree)]
+    operator_id: String,
+    created_at_micros: i64,
+    updated_at_micros: i64,
+}
+
 // ── Agent Sessions ───────────────────────────────────────────────────
 
 #[table(accessor = agent_session, public)]
@@ -2570,6 +2623,117 @@ pub fn create_sandbox_snapshot(
     Ok(())
 }
 
+// ── Agent Skill reducers ─────────────────────────────────────────────
+
+#[reducer]
+pub fn upsert_agent_skill(
+    ctx: &ReducerContext,
+    skill_id: String,
+    name: String,
+    description: String,
+    category: String,
+    version: String,
+    author: String,
+    token_estimate: u32,
+    content: String,
+    activation_patterns_json: String,
+    source: String,
+) -> Result<(), String> {
+    let now = now_micros(ctx);
+    if let Some(existing) = ctx.db.agent_skill().skill_id().find(skill_id.clone()) {
+        ctx.db.agent_skill().skill_id().update(AgentSkill {
+            name, description, category, version, author, token_estimate,
+            content, activation_patterns_json, source,
+            updated_at_micros: now,
+            ..existing
+        });
+    } else {
+        ctx.db.agent_skill().insert(AgentSkill {
+            skill_id, name, description, category, version, author,
+            token_estimate, content, activation_patterns_json, source,
+            created_at_micros: now, updated_at_micros: now,
+        });
+    }
+    Ok(())
+}
+
+#[reducer]
+pub fn delete_agent_skill(ctx: &ReducerContext, skill_id: String) -> Result<(), String> {
+    if let Some(existing) = ctx.db.agent_skill().skill_id().find(skill_id.clone()) {
+        ctx.db.agent_skill().skill_id().delete(skill_id);
+    }
+    Ok(())
+}
+
+// ── Agent Checkpoint reducers ────────────────────────────────────────
+
+#[reducer]
+pub fn create_checkpoint(
+    ctx: &ReducerContext,
+    checkpoint_id: String,
+    session_id: String,
+    sandbox_id: String,
+    snapshot_id: String,
+    label: String,
+    turn_number: u32,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let now = now_micros(ctx);
+    ctx.db.agent_checkpoint().insert(AgentCheckpoint {
+        checkpoint_id, session_id, sandbox_id, snapshot_id,
+        label, turn_number, created_at_micros: now,
+    });
+    Ok(())
+}
+
+// ── Agent Hook reducers ──────────────────────────────────────────────
+
+#[reducer]
+pub fn create_agent_hook(
+    ctx: &ReducerContext,
+    hook_id: String,
+    event: String,
+    name: String,
+    description: String,
+    handler: String,
+    enabled: bool,
+    priority: u32,
+    operator_id: String,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let now = now_micros(ctx);
+    ctx.db.agent_hook().insert(AgentHook {
+        hook_id, event, name, description, handler,
+        enabled, priority, operator_id,
+        created_at_micros: now, updated_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn toggle_agent_hook(
+    ctx: &ReducerContext,
+    hook_id: String,
+    enabled: bool,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let now = now_micros(ctx);
+    let existing = ctx.db.agent_hook().hook_id().find(hook_id.clone())
+        .ok_or_else(|| format!("Hook {hook_id} not found"))?;
+    ctx.db.agent_hook().hook_id().update(AgentHook {
+        enabled, updated_at_micros: now, ..existing
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn delete_agent_hook(ctx: &ReducerContext, hook_id: String) -> Result<(), String> {
+    if let Some(_) = ctx.db.agent_hook().hook_id().find(hook_id.clone()) {
+        ctx.db.agent_hook().hook_id().delete(hook_id);
+    }
+    Ok(())
+}
+
 // ── Agent Session reducers ───────────────────────────────────────────
 
 #[reducer]
@@ -2672,6 +2836,25 @@ pub fn clear_session_cancel(
         .ok_or_else(|| format!("Session {session_id} not found"))?;
     ctx.db.agent_session().session_id().update(AgentSessionRecord {
         cancel_requested: false,
+        updated_at_micros: now,
+        ..existing
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn update_agent_session_sandbox(
+    ctx: &ReducerContext,
+    session_id: String,
+    sandbox_id: String,
+    _timestamp_ms: i64,
+) -> Result<(), String> {
+    let session_id = validate_identifier(session_id, "session_id")?;
+    let now = now_micros(ctx);
+    let existing = ctx.db.agent_session().session_id().find(session_id.clone())
+        .ok_or_else(|| format!("Session {session_id} not found"))?;
+    ctx.db.agent_session().session_id().update(AgentSessionRecord {
+        sandbox_id,
         updated_at_micros: now,
         ..existing
     });

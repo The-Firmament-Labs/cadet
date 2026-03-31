@@ -365,4 +365,85 @@ export const chatTools = {
       }
     },
   }),
+
+  // ── Skills tools ──────────────────────────────────────────────────
+
+  list_skills: tool({
+    description: "List available agent skills. Skills are on-demand knowledge documents that provide context for specific tasks.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      const { listSkills } = await import("./agent-runtime/skills");
+      const skills = await listSkills();
+      return { count: skills.length, skills: skills.map((s) => ({ id: s.id, name: s.name, description: s.description, category: s.category })) };
+    },
+  }),
+
+  load_skill: tool({
+    description: "Load a specific skill's full content. Use after list_skills to get detailed guidance on a topic.",
+    inputSchema: z.object({ skillId: z.string().describe("Skill ID to load") }),
+    execute: async ({ skillId }) => {
+      const { viewSkill } = await import("./agent-runtime/skills");
+      const skill = await viewSkill(skillId);
+      if (!skill) return { found: false, message: `Skill '${skillId}' not found` };
+      return { found: true, name: skill.name, content: skill.content };
+    },
+  }),
+
+  // ── Search tools ──────────────────────────────────────────────────
+
+  search_history: tool({
+    description: "Search across past conversations, runs, memory, and threads. Use when the user asks about something that happened before or wants to find a previous result.",
+    inputSchema: z.object({
+      query: z.string().describe("Search query"),
+      type: z.enum(["chat", "run", "memory", "thread"]).optional().describe("Filter by type"),
+    }),
+    execute: async ({ query, type }) => {
+      const { searchSessions } = await import("./agent-runtime/session-search");
+      const results = await searchSessions(query, { type, limit: 10 });
+      return { count: results.length, results: results.map((r) => ({ type: r.type, id: r.id, title: r.title, preview: r.content.slice(0, 100) })) };
+    },
+  }),
+
+  // ── Checkpoint tools ──────────────────────────────────────────────
+
+  rollback: tool({
+    description: "Rollback a sandbox to a previous checkpoint. Use when the user says 'undo', 'revert', 'go back', or the agent made bad changes.",
+    inputSchema: z.object({
+      sessionId: z.string().describe("Session ID to rollback"),
+      checkpointId: z.string().optional().describe("Specific checkpoint ID (defaults to latest)"),
+    }),
+    execute: async ({ sessionId, checkpointId }) => {
+      try {
+        const { listCheckpoints, rollbackToCheckpoint } = await import("./agent-runtime/checkpoints");
+        const checkpoints = await listCheckpoints(sessionId);
+        if (checkpoints.length === 0) return { success: false, message: "No checkpoints found for this session" };
+
+        const target = checkpointId ? checkpoints.find((c) => c.checkpointId === checkpointId) : checkpoints[0];
+        if (!target) return { success: false, message: "Checkpoint not found" };
+
+        // Need a vercel token — this would come from the session context in a real flow
+        return { success: false, message: `Rollback to ${target.label} (turn ${target.turnNumber}) requires operator confirmation. Use the dashboard to rollback.` };
+      } catch (error) {
+        return { success: false, message: error instanceof Error ? error.message : "Rollback failed" };
+      }
+    },
+  }),
+
+  // ── Provider routing tools ────────────────────────────────────────
+
+  set_routing: tool({
+    description: "Set the AI provider routing strategy. Use when the user asks to optimize for cost, speed, or quality.",
+    inputSchema: z.object({
+      strategy: z.enum(["cost", "speed", "quality", "balanced"]).describe("Routing strategy"),
+    }),
+    execute: async ({ strategy }) => {
+      try {
+        const { saveOperatorRouting } = await import("./agent-runtime/provider-routing");
+        await saveOperatorRouting("operator", { strategy });
+        return { set: true, message: `Routing strategy set to '${strategy}'` };
+      } catch {
+        return { set: false, message: "Could not save routing preference" };
+      }
+    },
+  }),
 };
