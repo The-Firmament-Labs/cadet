@@ -80,7 +80,7 @@ export function selectModel(
   }
 
   // Filter by cost tier
-  if (preferences.maxCostTier) {
+  if (preferences.maxCostTier !== undefined) {
     candidates = candidates.filter((p) => p.costTier <= preferences.maxCostTier!);
   }
 
@@ -88,32 +88,33 @@ export function selectModel(
     return "anthropic/claude-sonnet-4.5"; // safe fallback
   }
 
-  // Sort preferred to front
+  // Separate preferred from rest
+  const preferred: ProviderConfig[] = [];
+  const rest: ProviderConfig[] = [];
   if (preferences.preferred?.length) {
-    candidates.sort((a, b) => {
-      const aPreferred = preferences.preferred!.includes(a.model) ? 0 : 1;
-      const bPreferred = preferences.preferred!.includes(b.model) ? 0 : 1;
-      return aPreferred - bPreferred;
-    });
+    for (const c of candidates) {
+      if (preferences.preferred.includes(c.model)) preferred.push(c);
+      else rest.push(c);
+    }
+  } else {
+    rest.push(...candidates);
   }
 
-  // Sort by strategy
-  switch (preferences.strategy) {
-    case "cost":
-      candidates.sort((a, b) => a.costTier - b.costTier);
-      break;
-    case "speed":
-      candidates.sort((a, b) => a.speedTier - b.speedTier);
-      break;
-    case "quality":
-      candidates.sort((a, b) => a.qualityTier - b.qualityTier);
-      break;
-    case "balanced":
-      candidates.sort((a, b) => (a.costTier + a.speedTier + a.qualityTier) - (b.costTier + b.speedTier + b.qualityTier));
-      break;
-  }
+  // Sort non-preferred by strategy
+  const sortFn = (a: ProviderConfig, b: ProviderConfig) => {
+    switch (preferences.strategy) {
+      case "cost": return a.costTier - b.costTier;
+      case "speed": return a.speedTier - b.speedTier;
+      case "quality": return a.qualityTier - b.qualityTier;
+      case "balanced": return (a.costTier + a.speedTier + a.qualityTier) - (b.costTier + b.speedTier + b.qualityTier);
+    }
+  };
+  preferred.sort(sortFn);
+  rest.sort(sortFn);
 
-  return candidates[0]!.model;
+  // Preferred always comes first
+  const sorted = [...preferred, ...rest];
+  return sorted[0]!.model;
 }
 
 /** Build a fallback chain: primary → backup models. */

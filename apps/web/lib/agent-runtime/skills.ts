@@ -273,7 +273,7 @@ export async function viewSkill(skillId: string): Promise<Skill | null> {
 
 /** Find skills that match activation patterns for a given goal. */
 export async function matchSkills(goal: string): Promise<SkillMetadata[]> {
-  const words = goal.toLowerCase().split(/\s+/);
+  const words = goal.toLowerCase().split(/\s+/).filter(Boolean);
   const all = await listSkills();
 
   return all.filter((skill) => {
