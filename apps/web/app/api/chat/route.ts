@@ -32,8 +32,23 @@ export async function POST(request: Request) {
   try {
     const { messages } = (await request.json()) as { messages: UIMessage[] };
 
-    // Persist the latest user message in the background
+    // Resolve @ references in the latest user message
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+    let refContext = "";
+    if (lastUserMsg) {
+      const textParts = lastUserMsg.parts.filter((p) => p.type === "text");
+      const rawText = textParts.map((p) => (p as { text: string }).text).join("\n");
+      if (rawText.includes("@")) {
+        try {
+          const { resolveRefs } = await import("@/lib/agent-runtime/context-refs");
+          const resolved = await resolveRefs(rawText);
+          if (resolved.context.length > 0) {
+            refContext = "\n\n---\n## Referenced Context\n" +
+              resolved.context.map((r) => r.content).join("\n\n");
+          }
+        } catch { /* ref resolution is best-effort */ }
+      }
+    }
     if (lastUserMsg) {
       after(async () => {
         try {
@@ -50,9 +65,27 @@ export async function POST(request: Request) {
       });
     }
 
+    // Load Mission Journal for operator personality
+    let journalPrompt = "";
+    try {
+      const { loadMissionJournal, renderJournalForPrompt } = await import("@/lib/agent-runtime/mission-journal");
+      const journal = await loadMissionJournal(session.operatorId);
+      journalPrompt = renderJournalForPrompt(journal);
+    } catch { /* journal unavailable */ }
+
+    // Fire session hooks
+    try {
+      const { executeHooks } = await import("@/lib/agent-runtime/hooks");
+      await executeHooks("prompt:before", {
+        event: "prompt:before",
+        operatorId: session.operatorId,
+        prompt: lastUserMsg?.parts.filter((p) => p.type === "text").map((p) => (p as { text: string }).text).join("\n"),
+      });
+    } catch { /* hooks are best-effort */ }
+
     const result = streamText({
       model: cadetAgent.model,
-      system: cadetAgent.system,
+      system: [cadetAgent.system, journalPrompt, refContext].filter(Boolean).join("\n\n"),
       messages: await convertToModelMessages(messages),
       tools: chatTools,
       stopWhen: stepCountIs(5),
@@ -69,6 +102,28 @@ export async function POST(request: Request) {
             "{}",
           ]);
         } catch { /* best-effort */ }
+
+        // Fire post-prompt hooks
+        try {
+          const { executeHooks } = await import("@/lib/agent-runtime/hooks");
+          await executeHooks("prompt:after", {
+            event: "prompt:after",
+            operatorId: session.operatorId,
+            prompt: text.slice(0, 200),
+          });
+        } catch { /* hooks are best-effort */ }
+
+        // Auto-learn: add notable facts to Ship's Log
+        if (text.length > 100) {
+          try {
+            const { addLogEntry } = await import("@/lib/agent-runtime/mission-journal");
+            // Only log if the response contains a tool call result or significant action
+            if (text.includes("created") || text.includes("deployed") || text.includes("fixed") || text.includes("PR")) {
+              const summary = text.slice(0, 120).replace(/\n/g, " ");
+              await addLogEntry(session.operatorId, summary);
+            }
+          } catch { /* best-effort */ }
+        }
       },
     });
 
