@@ -45,11 +45,24 @@ interface MissionContext {
 export async function generateMissionBrief(opts: MissionContext): Promise<MissionBrief> {
   const sections: string[] = [];
 
+  // Load Mission Journal for operator personality and preferences
+  let journalSection = "";
+  try {
+    const { loadMissionJournal, renderJournalForPrompt } = await import("./mission-journal");
+    const journal = await loadMissionJournal(opts.operatorId);
+    journalSection = renderJournalForPrompt(journal);
+  } catch { /* journal unavailable */ }
+
   // Header
   sections.push(`# Mission Brief`);
   sections.push(`Agent: ${opts.agentConfig.name} (${opts.agentConfig.id})`);
   sections.push(`Model: ${opts.agentConfig.defaultModel}`);
   sections.push("");
+
+  // Inject Mission Journal
+  if (journalSection) {
+    sections.push(journalSection);
+  }
 
   // Goal
   sections.push(`## Goal`);
