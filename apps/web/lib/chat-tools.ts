@@ -8,10 +8,10 @@ import { sanitizeHtml, sanitizeUrl, sanitizeContext } from "./sanitize";
 export const chatTools = {
   handoff_to_agent: tool({
     description:
-      "Delegate a task to a specialist agent. Use 'voyager' for coding tasks (write code, fix bugs, debug). Use 'saturn' for operations tasks (deploy, rollback, monitoring). Returns a run ID for tracking.",
+      "Delegate a task to a specialist agent for sustained execution. Use 'voyager' for coding tasks (write code, fix bugs, debug, refactor, create tests). Use 'saturn' for operations tasks (run deployments, rollback production, incident triage, infrastructure changes). Only delegate when the task requires agent execution — use other tools for quick lookups.",
     inputSchema: z.object({
-      agentId: z.enum(["voyager", "saturn"]).describe("The specialist agent to delegate to"),
-      goal: z.string().describe("The task description for the specialist agent"),
+      agentId: z.enum(["voyager", "saturn"]).describe("'voyager' for coding, 'saturn' for operations"),
+      goal: z.string().describe("Full task description including file names, error details, and context"),
     }),
     execute: async ({ agentId, goal }) => {
       try {
@@ -39,7 +39,7 @@ export const chatTools = {
 
   search_memory: tool({
     description:
-      "Search the knowledge base for information from previous conversations and agent runs. Use this when the user references something from the past or asks about stored knowledge.",
+      "Search stored facts, preferences, and ingested knowledge in the knowledge base. Use for 'what do you know about X', 'search memory for X', or recalling saved information. This searches the knowledge base, NOT chat history — use search_history for past conversations.",
     inputSchema: z.object({
       query: z.string().describe("Search query for the knowledge base"),
     }),
@@ -228,7 +228,7 @@ export const chatTools = {
 
   check_deployment: tool({
     description:
-      "Check the status of the latest Vercel deployment. Use when the user asks about deploy status, recent deploys, or production state.",
+      "Check the status of recent Vercel deployments (read-only). Does NOT trigger deployments — use handoff_to_agent with saturn to actually deploy. Use when checking deploy status, verifying a deploy succeeded, or viewing recent deploy history.",
     inputSchema: z.object({
       limit: z.number().optional().describe("Number of deployments to check (default 3)"),
     }),
@@ -273,15 +273,26 @@ export const chatTools = {
 
   list_recent_runs: tool({
     description:
-      "List recent agent runs for a standup summary or status check. Shows the most recent missions with their status.",
+      "List recent agent runs with their status. Supports date filtering with 'since' parameter.",
     inputSchema: z.object({
       limit: z.number().optional().describe("Number of runs to show (default 10)"),
+      since: z.string().optional().describe("Only show runs after this date: 'today', 'yesterday', 'this_week', or ISO date string"),
     }),
-    execute: async ({ limit }) => {
+    execute: async ({ limit, since }) => {
       try {
         const client = createControlClient();
+        let whereClause = "";
+        if (since) {
+          let sinceMs: number;
+          const now = Date.now();
+          if (since === "today") sinceMs = new Date().setHours(0, 0, 0, 0);
+          else if (since === "yesterday") sinceMs = new Date().setHours(0, 0, 0, 0) - 86400000;
+          else if (since === "this_week") sinceMs = now - 7 * 86400000;
+          else sinceMs = new Date(since).getTime();
+          if (!isNaN(sinceMs)) whereClause = `WHERE updated_at_micros >= ${sinceMs * 1000}`;
+        }
         const rows = (await client.sql(
-          `SELECT run_id, agent_id, goal, status, current_stage FROM workflow_run ORDER BY updated_at_micros DESC LIMIT ${limit ?? 10}`,
+          `SELECT run_id, agent_id, goal, status, current_stage FROM workflow_run ${whereClause} ORDER BY updated_at_micros DESC LIMIT ${limit ?? 10}`,
         )) as Array<Record<string, unknown>>;
 
         return {
@@ -396,7 +407,7 @@ export const chatTools = {
   // ── Search tools ──────────────────────────────────────────────────
 
   search_history: tool({
-    description: "Search across past conversations, runs, memory, and threads. Use when the user asks about something that happened before or wants to find a previous result.",
+    description: "Search past chat conversations, agent run transcripts, and thread messages. Use for 'what happened yesterday', 'find that conversation about X', or reviewing session history. This searches chat/run history, NOT the knowledge base — use search_memory for stored facts.",
     inputSchema: z.object({
       query: z.string().describe("Search query"),
       type: z.enum(["chat", "run", "memory", "thread"]).optional().describe("Filter by type"),
@@ -411,22 +422,38 @@ export const chatTools = {
   // ── Checkpoint tools ──────────────────────────────────────────────
 
   rollback: tool({
-    description: "Rollback a sandbox to a previous checkpoint. Use when the user says 'undo', 'revert', 'go back', or the agent made bad changes.",
+    description: "Rollback a sandbox to a previous checkpoint. Use when the user says 'undo', 'revert', 'go back', or the agent made bad changes. Session ID is optional — defaults to the most recent active session.",
     inputSchema: z.object({
-      sessionId: z.string().describe("Session ID to rollback"),
+      sessionId: z.string().optional().describe("Session ID (auto-detected if omitted)"),
       checkpointId: z.string().optional().describe("Specific checkpoint ID (defaults to latest)"),
     }),
     execute: async ({ sessionId, checkpointId }) => {
       try {
-        const { listCheckpoints, rollbackToCheckpoint } = await import("./agent-runtime/checkpoints");
-        const checkpoints = await listCheckpoints(sessionId);
-        if (checkpoints.length === 0) return { success: false, message: "No checkpoints found for this session" };
+        const { listCheckpoints } = await import("./agent-runtime/checkpoints");
+
+        // Auto-discover session if not provided
+        let targetSessionId = sessionId;
+        if (!targetSessionId) {
+          const client = createControlClient();
+          const rows = (await client.sql(
+            "SELECT session_id FROM agent_session WHERE status = 'active' ORDER BY updated_at_micros DESC LIMIT 1",
+          )) as Record<string, unknown>[];
+          if (rows.length === 0) return { success: false, message: "No active sessions found. Nothing to rollback." };
+          targetSessionId = String(rows[0]!.session_id);
+        }
+
+        const checkpoints = await listCheckpoints(targetSessionId);
+        if (checkpoints.length === 0) return { success: false, message: `No checkpoints found for session ${targetSessionId}. The agent may not have created any checkpoints yet.` };
 
         const target = checkpointId ? checkpoints.find((c) => c.checkpointId === checkpointId) : checkpoints[0];
         if (!target) return { success: false, message: "Checkpoint not found" };
 
-        // Need a vercel token — this would come from the session context in a real flow
-        return { success: false, message: `Rollback to ${target.label} (turn ${target.turnNumber}) requires operator confirmation. Use the dashboard to rollback.` };
+        return {
+          success: true,
+          message: `Found checkpoint "${target.label}" (turn ${target.turnNumber}). To complete rollback, use the dashboard at /dashboard/runs or the /api/agents/{agentId}/session endpoint.`,
+          checkpoint: { id: target.checkpointId, label: target.label, turn: target.turnNumber },
+          sessionId: targetSessionId,
+        };
       } catch (error) {
         return { success: false, message: error instanceof Error ? error.message : "Rollback failed" };
       }
@@ -447,6 +474,90 @@ export const chatTools = {
         return { set: true, message: `Routing strategy set to '${strategy}'` };
       } catch {
         return { set: false, message: "Could not save routing preference" };
+      }
+    },
+  }),
+
+  // ── Missing tools identified by QA audit ──────────────────────────
+
+  cancel_run: tool({
+    description: "Cancel a running agent execution. Use when the user says 'cancel', 'stop', 'abort' a running task.",
+    inputSchema: z.object({
+      runId: z.string().optional().describe("Run ID to cancel (defaults to most recent running)"),
+    }),
+    execute: async ({ runId }) => {
+      try {
+        const client = createControlClient();
+        let targetRunId = runId;
+        if (!targetRunId) {
+          const rows = (await client.sql(
+            "SELECT run_id FROM workflow_run WHERE status = 'running' ORDER BY updated_at_micros DESC LIMIT 1",
+          )) as Record<string, unknown>[];
+          if (rows.length === 0) return { cancelled: false, message: "No running tasks found." };
+          targetRunId = String(rows[0]!.run_id);
+        }
+        await client.callReducer("update_run_status", [targetRunId, "cancelled"]);
+        // Also cancel the agent session if one exists
+        try {
+          const { requestCancel } = await import("./agent-runtime/session");
+          const sesRows = (await client.sql(
+            `SELECT session_id FROM agent_session WHERE status = 'active' ORDER BY updated_at_micros DESC LIMIT 1`,
+          )) as Record<string, unknown>[];
+          if (sesRows.length > 0) await requestCancel(String(sesRows[0]!.session_id));
+        } catch { /* session cancel is best-effort */ }
+        return { cancelled: true, message: `Cancelled run ${targetRunId}` };
+      } catch (error) {
+        return { cancelled: false, message: error instanceof Error ? error.message : "Cancel failed" };
+      }
+    },
+  }),
+
+  delete_memory: tool({
+    description: "Delete a stored memory or fact from the knowledge base. Use when the user says 'forget X', 'delete that memory', 'remove that note'.",
+    inputSchema: z.object({
+      query: z.string().describe("Search query to find the memory to delete"),
+    }),
+    execute: async ({ query }) => {
+      try {
+        const client = createControlClient();
+        const keywords = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2).slice(0, 3);
+        if (keywords.length === 0) return { deleted: false, message: "Please specify what to forget." };
+        const conditions = keywords.map((k) => `title LIKE '%${sqlEscape(k)}%'`).join(" OR ");
+        const rows = (await client.sql(
+          `SELECT document_id, title FROM memory_document WHERE (${conditions}) LIMIT 1`,
+        )) as Record<string, unknown>[];
+        if (rows.length === 0) return { deleted: false, message: "No matching memory found." };
+        const docId = String(rows[0]!.document_id);
+        const title = String(rows[0]!.title);
+        await client.callReducer("delete_memory_document", [docId]);
+        return { deleted: true, message: `Deleted memory: "${title}"` };
+      } catch (error) {
+        return { deleted: false, message: error instanceof Error ? error.message : "Delete failed" };
+      }
+    },
+  }),
+
+  list_agents: tool({
+    description: "List available agents and their capabilities. Use when the user asks 'what agents do you have', 'who can help', or 'list agents'.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      try {
+        const { AGENT_REGISTRY } = await import("./agent-runtime/registry");
+        return {
+          agents: AGENT_REGISTRY.map((a) => ({
+            id: a.id,
+            name: a.name,
+            capabilities: [...a.capabilities],
+            description: a.description,
+          })),
+          orchestrators: [
+            { id: "cadet", name: "Cadet", role: "Router — handles conversations, delegates to specialists" },
+            { id: "voyager", name: "Voyager", role: "Coding — writes code, fixes bugs, creates PRs" },
+            { id: "saturn", name: "Saturn", role: "Operations — deploys, monitors, incident response" },
+          ],
+        };
+      } catch {
+        return { agents: [], orchestrators: [] };
       }
     },
   }),
