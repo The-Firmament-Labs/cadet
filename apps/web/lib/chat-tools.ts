@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createControlClient } from "./server";
 import { dispatchJobFromPayload } from "./server";
 import { sqlEscape } from "./sql";
+import { sanitizeHtml, sanitizeUrl, sanitizeContext } from "./sanitize";
 
 export const chatTools = {
   handoff_to_agent: tool({
@@ -138,12 +139,15 @@ export const chatTools = {
     }),
     execute: async ({ url, title }) => {
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+        const safeUrl = sanitizeUrl(url);
+        if (!safeUrl) return { stored: false, message: "URL blocked: invalid or private network address" };
+
+        const res = await fetch(safeUrl, { signal: AbortSignal.timeout(10_000) });
         if (!res.ok) return { stored: false, message: `Failed to fetch: ${res.status}` };
 
         const html = await res.text();
-        // Simple extraction: strip HTML tags, trim to 4000 chars
-        const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+        // Sanitize HTML: strip tags, scripts, injection patterns
+        const text = sanitizeHtml(html, 4000);
 
         const client = createControlClient();
         await client.callReducer("upsert_memory_document", [

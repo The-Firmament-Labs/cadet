@@ -21,6 +21,7 @@
 
 import { createControlClient } from "../server";
 import { sqlEscape } from "../sql";
+import { sanitizeContext, sanitizeHtml, sanitizeUrl } from "../sanitize";
 
 export interface ResolvedRef {
   /** Original reference string */
@@ -132,7 +133,7 @@ async function resolveRef(
       )) as Record<string, unknown>[];
 
       if (rows.length === 0) return null;
-      const content = rows.map((r) => `### ${r.title}\n${String(r.content).slice(0, 300)}`).join("\n\n");
+      const content = rows.map((r) => `### ${sanitizeContext(String(r.title), 100)}\n${sanitizeContext(String(r.content), 300)}`).join("\n\n");
       return { ref: `@memory:${value}`, type: "memory", content, tokenEstimate: estimateTokens(content) };
     }
 
@@ -156,10 +157,12 @@ async function resolveRef(
     }
 
     case "url": {
-      const res = await fetch(value, { signal: AbortSignal.timeout(10_000) });
+      const safeUrl = sanitizeUrl(value);
+      if (!safeUrl) return { ref: `@url:${value}`, type: "url", content: "[URL blocked: invalid or private network]", tokenEstimate: 10 };
+      const res = await fetch(safeUrl, { signal: AbortSignal.timeout(10_000) });
       if (!res.ok) return null;
       const html = await res.text();
-      const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 3000);
+      const text = sanitizeHtml(html, 3000);
       return { ref: `@url:${value}`, type: "url", content: `## URL: ${value}\n${text}`, tokenEstimate: estimateTokens(text) };
     }
 

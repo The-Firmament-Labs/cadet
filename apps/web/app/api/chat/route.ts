@@ -6,6 +6,7 @@ import { cloudAgentCatalog } from "@/lib/cloud-agents";
 import { createControlClient } from "@/lib/server";
 import { sqlEscape } from "@/lib/sql";
 import { apiError, apiUnauthorized } from "@/lib/api-response";
+import { sanitizeContext, fenceContext } from "@/lib/sanitize";
 
 const cadetAgent = cloudAgentCatalog.find((a) => a.id === "cadet")!;
 
@@ -43,8 +44,9 @@ export async function POST(request: Request) {
           const { resolveRefs } = await import("@/lib/agent-runtime/context-refs");
           const resolved = await resolveRefs(rawText);
           if (resolved.context.length > 0) {
-            refContext = "\n\n---\n## Referenced Context\n" +
-              resolved.context.map((r) => r.content).join("\n\n");
+            refContext = resolved.context
+              .map((r) => fenceContext(`@${r.type}:${r.ref}`, r.content))
+              .join("\n");
           }
         } catch { /* ref resolution is best-effort */ }
       }
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
     try {
       const { loadMissionJournal, renderJournalForPrompt } = await import("@/lib/agent-runtime/mission-journal");
       const journal = await loadMissionJournal(session.operatorId);
-      journalPrompt = renderJournalForPrompt(journal);
+      journalPrompt = fenceContext("mission-journal", renderJournalForPrompt(journal));
     } catch { /* journal unavailable */ }
 
     // Fire session hooks

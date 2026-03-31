@@ -12,6 +12,7 @@
 
 import { createControlClient } from "../server";
 import { sqlEscape } from "../sql";
+import { sanitizeContext } from "../sanitize";
 import type { AgentConfig } from "./registry";
 
 export interface MissionBrief {
@@ -146,8 +147,8 @@ async function loadRelevantMemories(
     )) as Array<Record<string, unknown>>;
 
     return rows.map((r) => ({
-      title: String(r.title ?? ""),
-      content: String(r.content ?? ""),
+      title: sanitizeContext(String(r.title ?? ""), 100),
+      content: sanitizeContext(String(r.content ?? ""), 300),
     }));
   } catch {
     return [];
@@ -161,7 +162,7 @@ async function loadOperatorPreferences(operatorId: string): Promise<string[]> {
       `SELECT content FROM memory_document WHERE namespace = 'assistant' AND source_kind = 'conversation' LIMIT 10`,
     )) as Array<Record<string, unknown>>;
 
-    return rows.map((r) => String(r.content ?? "")).filter((c) => c.length > 0);
+    return rows.map((r) => sanitizeContext(String(r.content ?? ""), 200)).filter((c) => c.length > 0);
   } catch {
     return [];
   }
