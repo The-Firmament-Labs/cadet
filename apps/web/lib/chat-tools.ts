@@ -5,6 +5,25 @@ import { dispatchJobFromPayload } from "./server";
 import { sqlEscape } from "./sql";
 import { sanitizeHtml, sanitizeUrl, sanitizeContext } from "./sanitize";
 
+/** Context passed from the chat route to tools that need it. */
+export interface ChatToolContext {
+  operatorId: string;
+  conversationSummary?: string;
+  refContext?: string;
+}
+
+/** Default context for backward compatibility. */
+const defaultCtx: ChatToolContext = { operatorId: "operator" };
+
+/** Mutable context — set by the chat route before streaming. */
+let _toolCtx: ChatToolContext = defaultCtx;
+
+/** Set the tool context for the current request. Call before streamText. */
+export function setChatToolContext(ctx: ChatToolContext) { _toolCtx = ctx; }
+
+/** Reset after request completes. */
+export function clearChatToolContext() { _toolCtx = defaultCtx; }
+
 export const chatTools = {
   handoff_to_agent: tool({
     description:
@@ -15,7 +34,16 @@ export const chatTools = {
     }),
     execute: async ({ agentId, goal }) => {
       try {
-        const result = await dispatchJobFromPayload({ agentId, goal });
+        const result = await dispatchJobFromPayload({
+          agentId,
+          goal,
+          context: {
+            operatorId: _toolCtx.operatorId,
+            conversationContext: _toolCtx.conversationSummary?.slice(0, 1000),
+            refContext: _toolCtx.refContext?.slice(0, 1000),
+            channel: "web",
+          },
+        });
         const runId =
           (result as Record<string, unknown>).workflow &&
           typeof (result as Record<string, unknown>).workflow === "object"
@@ -26,7 +54,7 @@ export const chatTools = {
           success: true,
           agentId,
           runId: runId ?? "unknown",
-          message: `Task delegated to ${agentId}. Tracking as run ${runId ?? "unknown"}.`,
+          message: `Task delegated to ${agentId}. Tracking as run ${runId ?? "unknown"}. You'll see a completion message when it finishes.`,
         };
       } catch (error) {
         return {
@@ -470,7 +498,7 @@ export const chatTools = {
     execute: async ({ strategy }) => {
       try {
         const { saveOperatorRouting } = await import("./agent-runtime/provider-routing");
-        await saveOperatorRouting("operator", { strategy });
+        await saveOperatorRouting(_toolCtx.operatorId, { strategy });
         return { set: true, message: `Routing strategy set to '${strategy}'` };
       } catch {
         return { set: false, message: "Could not save routing preference" };

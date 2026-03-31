@@ -71,10 +71,12 @@ describe("chatTools.handoff_to_agent — success", () => {
 
     await exec(chatTools.handoff_to_agent, { agentId: "voyager", goal: "Fix the bug" });
 
-    expect(mockDispatchJobFromPayload).toHaveBeenCalledWith({
-      agentId: "voyager",
-      goal: "Fix the bug",
-    });
+    expect(mockDispatchJobFromPayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "voyager",
+        goal: "Fix the bug",
+      }),
+    );
   });
 
   it("returns success=true and the runId from workflow.runId", async () => {

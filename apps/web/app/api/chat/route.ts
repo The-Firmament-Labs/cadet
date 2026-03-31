@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { streamText, stepCountIs, type UIMessage, convertToModelMessages } from "ai";
 import { parseSessionFromRequest } from "@/lib/auth";
-import { chatTools } from "@/lib/chat-tools";
+import { chatTools, setChatToolContext, clearChatToolContext } from "@/lib/chat-tools";
 import { cloudAgentCatalog } from "@/lib/cloud-agents";
 import { createControlClient } from "@/lib/server";
 import { sqlEscape } from "@/lib/sql";
@@ -85,6 +85,13 @@ export async function POST(request: Request) {
       });
     } catch { /* hooks are best-effort */ }
 
+    // Set tool context so handoff_to_agent can pass operatorId and conversation context
+    setChatToolContext({
+      operatorId: session.operatorId,
+      conversationSummary: messages.slice(-4).map((m) => `${m.role}: ${m.parts?.filter((p) => p.type === "text").map((p) => (p as { text: string }).text).join("").slice(0, 100)}`).join("\n"),
+      refContext: refContext.slice(0, 1000),
+    });
+
     // Select model based on operator routing preferences (or default)
     let modelId: string = cadetAgent.model;
     try {
@@ -100,6 +107,7 @@ export async function POST(request: Request) {
       tools: chatTools,
       stopWhen: stepCountIs(5),
       onFinish: async ({ text, toolCalls }) => {
+        clearChatToolContext();
         // Persist assistant response
         try {
           const client = createControlClient();

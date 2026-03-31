@@ -1,9 +1,10 @@
 import { createControlClient } from "@/lib/server";
 import { sqlEscape } from "@/lib/sql";
+import { sanitizeContext } from "@/lib/sanitize";
 import { streamText, stepCountIs } from "ai";
 
 // ---------------------------------------------------------------------------
-// Durable step functions — each runs with full Node.js access
+// Durable step functions — each runs as a retryable workflow step
 // ---------------------------------------------------------------------------
 
 async function routeStep(jobId: string, agentId: string) {
@@ -19,24 +20,103 @@ async function routeStep(jobId: string, agentId: string) {
   return { job: jobs[0], stage: "route" };
 }
 
-async function planStep(runId: string, agentId: string, goal: string) {
+async function planStep(runId: string, agentId: string, goal: string, gatheredContext: string) {
   "use step";
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "plan"]);
-  return { stage: "plan", runId, agentId, goal };
+
+  // Generate a lightweight plan using a fast model
+  try {
+    const planResult = await streamText({
+      model: "anthropic/claude-haiku-4.5",
+      system: "You are a task planner. Given a goal and context, output a concise numbered plan (3-7 steps). Focus on what files to modify, what to check, and verification steps. Be specific. No preamble.",
+      prompt: `Goal: ${goal}\n\nContext:\n${gatheredContext.slice(0, 2000)}`,
+      stopWhen: stepCountIs(1),
+    });
+    const planText = await planResult.text;
+
+    // Store the plan as a workflow step record
+    await client.callReducer("record_tool_call", [
+      `plan_${runId}`,
+      runId,
+      "plan_generation",
+      JSON.stringify({ goal }),
+      planText.slice(0, 2000),
+      "completed",
+      Date.now(),
+    ]);
+
+    return { stage: "plan", runId, agentId, goal, plan: planText };
+  } catch {
+    // Plan generation is best-effort — continue without plan
+    return { stage: "plan", runId, agentId, goal, plan: "" };
+  }
 }
 
-async function gatherStep(runId: string) {
+async function gatherStep(runId: string, agentId: string, goal: string, operatorId: string) {
   "use step";
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "gather"]);
 
-  // Gather context: memory documents, previous runs, etc.
-  const memories = (await client.sql(
-    `SELECT title, content FROM memory_document LIMIT 10`,
-  )) as Record<string, unknown>[];
+  const gathered: string[] = [];
 
-  return { stage: "gather", contextItems: memories.length };
+  // 1. Relevant memories filtered by goal keywords
+  try {
+    const keywords = goal.toLowerCase().split(/\s+/).filter((w) => w.length > 3).slice(0, 4);
+    if (keywords.length > 0) {
+      const conditions = keywords.map((k) => `content LIKE '%${sqlEscape(k)}%'`).join(" OR ");
+      const memories = (await client.sql(
+        `SELECT title, content FROM memory_document WHERE (${conditions}) LIMIT 5`,
+      )) as Record<string, unknown>[];
+      if (memories.length > 0) {
+        gathered.push("## Relevant Knowledge");
+        for (const m of memories) {
+          gathered.push(`- **${sanitizeContext(String(m.title), 80)}**: ${sanitizeContext(String(m.content), 200)}`);
+        }
+      }
+    }
+  } catch { /* best-effort */ }
+
+  // 2. Recent runs for the same agent (cross-run context)
+  try {
+    const recentRuns = (await client.sql(
+      `SELECT run_id, goal, status, current_stage FROM workflow_run WHERE agent_id = '${sqlEscape(agentId)}' AND run_id != '${sqlEscape(runId)}' ORDER BY updated_at_micros DESC LIMIT 3`,
+    )) as Record<string, unknown>[];
+    if (recentRuns.length > 0) {
+      gathered.push("## Recent Runs by This Agent");
+      for (const r of recentRuns) {
+        gathered.push(`- ${r.run_id}: "${sanitizeContext(String(r.goal), 80)}" → ${r.status}`);
+      }
+    }
+  } catch { /* best-effort */ }
+
+  // 3. Tool call history for recent runs (what the agent did before)
+  try {
+    const toolHistory = (await client.sql(
+      `SELECT tool_name, output_json FROM tool_call_record WHERE run_id IN (SELECT run_id FROM workflow_run WHERE agent_id = '${sqlEscape(agentId)}' ORDER BY updated_at_micros DESC LIMIT 2) LIMIT 10`,
+    )) as Record<string, unknown>[];
+    if (toolHistory.length > 0) {
+      gathered.push("## Recent Tool Usage");
+      for (const t of toolHistory) {
+        gathered.push(`- ${t.tool_name}: ${sanitizeContext(String(t.output_json ?? "").slice(0, 100), 100)}`);
+      }
+    }
+  } catch { /* best-effort */ }
+
+  // 4. Mission Journal standing orders
+  try {
+    const { loadMissionJournal } = await import("./agent-runtime/mission-journal");
+    const journal = await loadMissionJournal(operatorId);
+    if (journal.standingOrders.length > 0) {
+      gathered.push("## Standing Orders");
+      for (const order of journal.standingOrders) {
+        gathered.push(`- ${sanitizeContext(order, 100)}`);
+      }
+    }
+  } catch { /* best-effort */ }
+
+  const contextContent = gathered.join("\n");
+  return { stage: "gather", contextItems: gathered.length, contextContent };
 }
 
 async function actStep(
@@ -53,50 +133,74 @@ async function actStep(
 
   // Branch by execution target
   if (execution === "vercel-sandbox" && sandboxContext?.sandboxId && sandboxContext?.vercelAccessToken) {
-    // Coding agent — run Claude Code inside sandbox
-    const { runCodingAgent } = await import("@/lib/sandbox");
-    const codingResult = await runCodingAgent({
-      sandboxId: sandboxContext.sandboxId,
-      vercelAccessToken: sandboxContext.vercelAccessToken,
-      goal,
-      repoUrl: sandboxContext.repoUrl,
-      branch: sandboxContext.branch,
-      apiKey: sandboxContext.apiKey,
-    });
+    // Use the full agent runtime executor with mission brief
+    try {
+      const { executeAgentPrompt } = await import("./agent-runtime/executor");
+      const result = await executeAgentPrompt({
+        sandboxId: sandboxContext.sandboxId,
+        vercelAccessToken: sandboxContext.vercelAccessToken,
+        agentId: "claude-code",
+        prompt: goal,
+        sessionId: runId, // use runId as session for tracking
+        operatorId: runId.replace("run_", ""),
+        repoUrl: sandboxContext.repoUrl,
+        branch: sandboxContext.branch,
+        apiKey: sandboxContext.apiKey,
+      });
 
-    // Auto-create PR if repo was cloned and agent succeeded
-    let prUrl: string | undefined;
-    if (sandboxContext.repoUrl && codingResult.exitCode === 0) {
-      try {
-        const { createPrFromSandbox } = await import("./github-pr");
-        const pr = await createPrFromSandbox({
-          sandboxId: sandboxContext.sandboxId,
-          vercelAccessToken: sandboxContext.vercelAccessToken,
-          operatorId: runId.replace("run_", ""),
-          repoUrl: sandboxContext.repoUrl,
-          baseBranch: sandboxContext.branch ?? "main",
-          goal,
-          runId,
-        });
-        prUrl = pr?.prUrl;
-      } catch {
-        // PR creation is best-effort
+      // Auto-create PR if repo was cloned and agent succeeded
+      let prUrl: string | undefined;
+      if (sandboxContext.repoUrl && result.exitCode === 0) {
+        try {
+          const { createPrFromSandbox } = await import("./github-pr");
+          const pr = await createPrFromSandbox({
+            sandboxId: sandboxContext.sandboxId,
+            vercelAccessToken: sandboxContext.vercelAccessToken,
+            operatorId: runId.replace("run_", ""),
+            repoUrl: sandboxContext.repoUrl,
+            baseBranch: sandboxContext.branch ?? "main",
+            goal,
+            runId,
+          });
+          prUrl = pr?.prUrl;
+        } catch { /* PR creation is best-effort */ }
       }
-    }
 
-    return {
-      stage: "act",
-      model: "claude-code",
-      goal,
-      responseLength: codingResult.output.length,
-      toolCallCount: 0,
-      exitCode: codingResult.exitCode,
-      prUrl,
-    };
+      return {
+        stage: "act",
+        model: "claude-code",
+        goal,
+        responseLength: result.output.length,
+        toolCallCount: result.events.filter((e) => e.type === "tool-call").length,
+        exitCode: result.exitCode,
+        prUrl,
+        verification: result.verification,
+        output: result.output.slice(0, 2000), // keep summary for later stages
+      };
+    } catch (error) {
+      // Fallback to direct sandbox command
+      const { runCodingAgent } = await import("@/lib/sandbox");
+      const codingResult = await runCodingAgent({
+        sandboxId: sandboxContext.sandboxId,
+        vercelAccessToken: sandboxContext.vercelAccessToken,
+        goal,
+        repoUrl: sandboxContext.repoUrl,
+        branch: sandboxContext.branch,
+        apiKey: sandboxContext.apiKey,
+      });
+      return {
+        stage: "act",
+        model: "claude-code",
+        goal,
+        responseLength: codingResult.output.length,
+        toolCallCount: 0,
+        exitCode: codingResult.exitCode,
+        output: codingResult.output.slice(0, 2000),
+      };
+    }
   }
 
   if (execution === "local-docker") {
-    // Docker-based execution — dispatch to local control plane
     const env = (await import("@/lib/env")).getServerEnv();
     const res = await fetch(`${env.controlPlaneUrl.replace("localhost:3001", "localhost:3010")}/dispatch`, {
       method: "POST",
@@ -104,7 +208,7 @@ async function actStep(
       body: JSON.stringify({ agentId: runId.replace("run_", ""), goal, model }),
     });
     const result = await res.json();
-    return { stage: "act", model, goal, responseLength: JSON.stringify(result).length, toolCallCount: 0 };
+    return { stage: "act", model, goal, responseLength: JSON.stringify(result).length, toolCallCount: 0, output: JSON.stringify(result).slice(0, 2000) };
   }
 
   // Default: AI SDK streamText (edge/cloud agents)
@@ -130,48 +234,114 @@ async function actStep(
     ]);
   }
 
-  return { stage: "act", model, goal, responseLength: text.length, toolCallCount: toolCalls.length };
+  return { stage: "act", model, goal, responseLength: text.length, toolCallCount: toolCalls.length, output: text.slice(0, 2000) };
 }
 
-async function verifyStep(runId: string, actResult: { responseLength: number; toolCallCount: number }) {
+async function verifyStep(
+  runId: string,
+  actResult: { responseLength: number; toolCallCount: number; exitCode?: number; verification?: { passed: boolean; results: string[] } },
+) {
   "use step";
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "verify"]);
 
-  const verified = actResult.responseLength > 0;
+  // Check agent-runtime verification results if available
+  if (actResult.verification) {
+    if (!actResult.verification.passed) {
+      console.warn(`[workflow/verify] Run ${runId}: verification failed — ${actResult.verification.results.filter((r) => r.startsWith("FAIL")).join("; ")}`);
+    }
+    return {
+      stage: "verify",
+      verified: actResult.verification.passed,
+      responseLength: actResult.responseLength,
+      toolCallCount: actResult.toolCallCount,
+      verificationResults: actResult.verification.results,
+    };
+  }
+
+  // Fallback: check basic output quality
+  const verified = actResult.responseLength > 0 && (actResult.exitCode === undefined || actResult.exitCode === 0);
   if (!verified) {
-    console.warn(`[workflow/verify] Run ${runId}: agent produced empty response`);
+    console.warn(`[workflow/verify] Run ${runId}: agent produced empty response or non-zero exit`);
   }
 
   return { stage: "verify", verified, responseLength: actResult.responseLength, toolCallCount: actResult.toolCallCount };
 }
 
-async function summarizeStep(runId: string, channel?: string, channelThreadId?: string, actSummary?: string) {
+async function summarizeStep(
+  runId: string,
+  operatorId: string,
+  channel?: string,
+  channelThreadId?: string,
+  actSummary?: string,
+  prUrl?: string,
+) {
   "use step";
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "summarize"]);
 
-  // Reply to the originating platform if not web
-  if (channel && channelThreadId && channel !== "web" && channel !== "system") {
+  const summary = actSummary ?? `Run ${runId} completed.`;
+
+  // Deliver result — web gets a chat_message, platforms get a reply, system is silent
+  if (channel === "system") {
+    // System-triggered runs don't notify anyone
+  } else if (channel === "web" || !channel) {
+    // Write completion message to chat_message table so the frontend can display it
+    try {
+      const completionMsg = prUrl
+        ? `${summary}\n\nPR created: ${prUrl}`
+        : summary;
+      await client.callReducer("save_chat_message", [
+        `msg_${Date.now().toString(36)}`,
+        operatorId,
+        "default",
+        "assistant",
+        completionMsg,
+        JSON.stringify({ runId, source: "agent-completion", prUrl }),
+      ]);
+    } catch { /* best-effort */ }
+  } else if (channelThreadId) {
+    // Reply to the originating platform (Slack, Discord, etc.)
     try {
       const { replyToOrigin } = await import("./bot-reply");
-      await replyToOrigin({
-        channel,
-        channelThreadId,
-        summary: actSummary ?? `Run ${runId} completed.`,
-      });
-    } catch {
-      // Non-fatal — reply delivery is best-effort
-    }
+      await replyToOrigin({ channel, channelThreadId, summary });
+    } catch { /* best-effort */ }
   }
 
   return { stage: "summarize" };
 }
 
-async function learnStep(runId: string) {
+async function learnStep(runId: string, agentId: string, goal: string, actOutput?: string) {
   "use step";
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "learn"]);
+
+  // Extract learnings from the run and store in memory
+  if (actOutput && actOutput.length > 50) {
+    try {
+      // Use a fast model to extract key learnings
+      const learnResult = await streamText({
+        model: "anthropic/claude-haiku-4.5",
+        system: "Extract 1-3 key learnings from this agent run output. Each learning should be a single sentence that would be useful for future runs on the same codebase. Output only the learnings, one per line. If nothing notable, output 'none'.",
+        prompt: `Goal: ${goal}\n\nOutput:\n${actOutput.slice(0, 1500)}`,
+        stopWhen: stepCountIs(1),
+      });
+      const learnings = await learnResult.text;
+
+      if (learnings.toLowerCase().trim() !== "none" && learnings.length > 10) {
+        await client.callReducer("upsert_memory_document", [
+          `learn_${runId}`,
+          agentId,
+          "learnings",
+          `Learnings from run ${runId}: ${goal.slice(0, 50)}`,
+          sanitizeContext(learnings, 500),
+          "agent-learning",
+          JSON.stringify({ runId, agentId }),
+        ]);
+      }
+    } catch { /* learning extraction is best-effort */ }
+  }
+
   await client.callReducer("update_run_status", [runId, "completed"]);
   return { stage: "learn", completed: true };
 }
@@ -197,6 +367,7 @@ export async function agentWorkflow(params: {
   execution?: string;
   channel?: string;
   channelThreadId?: string;
+  conversationContext?: string;
   sandboxContext?: {
     sandboxId?: string;
     vercelAccessToken?: string;
@@ -207,48 +378,54 @@ export async function agentWorkflow(params: {
 }): Promise<AgentWorkflowResult> {
   "use workflow";
 
-  const { jobId, agentId, runId, operatorId, goal, model, execution, channel, channelThreadId, sandboxContext } = params;
+  const { jobId, agentId, runId, operatorId, goal, model, execution, channel, channelThreadId, conversationContext, sandboxContext } = params;
 
   // Stage 1: Route — triage the job
   const routeResult = await routeStep(jobId, agentId);
 
-  // Stage 2: Plan — generate execution plan
-  const planResult = await planStep(runId, agentId, goal);
+  // Stage 2: Gather — retrieve context from SpacetimeDB (memories, runs, tools, journal)
+  const gatherResult = await gatherStep(runId, agentId, goal, operatorId);
 
-  // Stage 3: Gather — retrieve context and memory
-  const gatherResult = await gatherStep(runId);
+  // Combine gathered context with conversation context passed from chat
+  const fullContext = [conversationContext, gatherResult.contextContent].filter(Boolean).join("\n\n");
 
-  // Stage 4: Act — execute agent actions
+  // Stage 3: Plan — generate execution plan using gathered context
+  const planResult = await planStep(runId, agentId, goal, fullContext);
+
+  // Build rich instructions from gathered context + plan
+  const instructions = [
+    `You are agent ${agentId}. Execute the following goal.`,
+    planResult.plan ? `\n## Plan\n${planResult.plan}` : "",
+    fullContext ? `\n## Context\n${fullContext.slice(0, 3000)}` : "",
+  ].filter(Boolean).join("\n");
+
+  // Stage 4: Act — execute agent actions with full context
   const actResult = await actStep(
     runId,
     model ?? "anthropic/claude-sonnet-4.5",
-    `You are agent ${agentId}. Execute the following goal.`,
+    instructions,
     goal,
     execution,
     sandboxContext,
   );
 
-  // Stage 5: Verify — check results
+  // Stage 5: Verify — check results using real verification
   const verifyResult = await verifyStep(runId, actResult);
 
-  // Stage 6: Summarize — produce summary
-  const summarizeResult = await summarizeStep(runId, channel, channelThreadId, `Completed goal: ${goal}`);
+  // Stage 6: Summarize — deliver result back to user (web AND platforms)
+  const actSummary = `Completed: ${goal}${(actResult as Record<string, unknown>).prUrl ? `\nPR: ${(actResult as Record<string, unknown>).prUrl}` : ""}`;
+  const summarizeResult = await summarizeStep(
+    runId, operatorId, channel ?? "web", channelThreadId,
+    actSummary, (actResult as Record<string, unknown>).prUrl as string | undefined,
+  );
 
-  // Stage 7: Learn — extract learnings
-  const learnResult = await learnStep(runId);
+  // Stage 7: Learn — extract and store learnings
+  const learnResult = await learnStep(runId, agentId, goal, (actResult as Record<string, unknown>).output as string | undefined);
 
   return {
     runId,
     agentId,
-    stages: [
-      routeResult,
-      planResult,
-      gatherResult,
-      actResult,
-      verifyResult,
-      summarizeResult,
-      learnResult,
-    ],
+    stages: [routeResult, planResult, gatherResult, actResult, verifyResult, summarizeResult, learnResult],
     completed: true,
   };
 }
