@@ -64,6 +64,26 @@ async function actStep(
       apiKey: sandboxContext.apiKey,
     });
 
+    // Auto-create PR if repo was cloned and agent succeeded
+    let prUrl: string | undefined;
+    if (sandboxContext.repoUrl && codingResult.exitCode === 0) {
+      try {
+        const { createPrFromSandbox } = await import("./github-pr");
+        const pr = await createPrFromSandbox({
+          sandboxId: sandboxContext.sandboxId,
+          vercelAccessToken: sandboxContext.vercelAccessToken,
+          operatorId: runId.replace("run_", ""),
+          repoUrl: sandboxContext.repoUrl,
+          baseBranch: sandboxContext.branch ?? "main",
+          goal,
+          runId,
+        });
+        prUrl = pr?.prUrl;
+      } catch {
+        // PR creation is best-effort
+      }
+    }
+
     return {
       stage: "act",
       model: "claude-code",
@@ -71,6 +91,7 @@ async function actStep(
       responseLength: codingResult.output.length,
       toolCallCount: 0,
       exitCode: codingResult.exitCode,
+      prUrl,
     };
   }
 

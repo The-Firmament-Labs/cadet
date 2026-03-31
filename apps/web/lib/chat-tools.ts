@@ -296,6 +296,37 @@ export const chatTools = {
     },
   }),
 
+  create_pr: tool({
+    description:
+      "Create a GitHub pull request. Use when the user asks to create a PR, submit changes, or open a pull request.",
+    inputSchema: z.object({
+      repoOwner: z.string().describe("GitHub repository owner"),
+      repoName: z.string().describe("GitHub repository name"),
+      baseBranch: z.string().optional().describe("Base branch (default: main)"),
+      headBranch: z.string().describe("Head branch with changes"),
+      title: z.string().describe("PR title"),
+      body: z.string().describe("PR description"),
+    }),
+    execute: async ({ repoOwner, repoName, baseBranch, headBranch, title, body }) => {
+      try {
+        const { createPullRequest } = await import("./github-pr");
+        const pr = await createPullRequest({
+          operatorId: "operator",
+          repoOwner,
+          repoName,
+          baseBranch: baseBranch ?? "main",
+          headBranch,
+          title,
+          body,
+        });
+        if (!pr) return { created: false, message: "PR creation failed — check GitHub token" };
+        return { created: true, prUrl: pr.prUrl, prNumber: pr.prNumber };
+      } catch (error) {
+        return { created: false, message: error instanceof Error ? error.message : "PR creation failed" };
+      }
+    },
+  }),
+
   compose_standup: tool({
     description:
       "Compose a standup summary from recent runs, approvals, and agent activity. Use when the user asks for a status report or daily standup.",
