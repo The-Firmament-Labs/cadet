@@ -1,0 +1,518 @@
+/**
+ * Tests for apps/web/lib/durable-agent.ts
+ *
+ * The step functions (routeStep, planStep, gatherStep, actStep, verifyStep,
+ * summarizeStep, learnStep) are NOT exported individually. They are tested
+ * through the public agentWorkflow() function.
+ *
+ * "use step" / "use workflow" directives are bare string literals and are
+ * no-ops in a Node.js test environment.
+ *
+ * Strategy:
+ *   - Mock createControlClient from @/lib/server
+ *   - Mock streamText from ai
+ *   - Mock runCodingAgent from @/lib/sandbox (dynamic import)
+ *   - Mock bot-reply (dynamic import inside summarizeStep)
+ *   - Mock @/lib/env for local-docker branch
+ */
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// ---------------------------------------------------------------------------
+// Shared mock client
+// ---------------------------------------------------------------------------
+
+const mockClient = {
+  sql: vi.fn(),
+  callReducer: vi.fn(),
+};
+
+// ---------------------------------------------------------------------------
+// Module-level mocks
+// ---------------------------------------------------------------------------
+
+vi.mock("@/lib/server", () => ({
+  createControlClient: vi.fn(() => mockClient),
+}));
+
+vi.mock("ai", () => ({
+  streamText: vi.fn(),
+  stepCountIs: vi.fn((n: number) => n),
+}));
+
+// Dynamic imports inside actStep
+vi.mock("@/lib/sandbox", () => ({
+  runCodingAgent: vi.fn(),
+}));
+
+// Dynamic import inside summarizeStep
+vi.mock("./bot-reply", () => ({
+  replyToOrigin: vi.fn(),
+}));
+
+// Dynamic import inside local-docker branch
+vi.mock("@/lib/env", () => ({
+  getServerEnv: vi.fn(() => ({ controlPlaneUrl: "http://localhost:3001" })),
+}));
+
+// ---------------------------------------------------------------------------
+// Imports (after mocks)
+// ---------------------------------------------------------------------------
+
+import { agentWorkflow } from "./durable-agent";
+import { streamText } from "ai";
+import { runCodingAgent } from "@/lib/sandbox";
+import { replyToOrigin } from "./bot-reply";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeStreamTextResult(text = "response text", toolCalls: unknown[] = []) {
+  return {
+    text: Promise.resolve(text),
+    toolCalls: Promise.resolve(toolCalls),
+  } as never;
+}
+
+const BASE_PARAMS = {
+  jobId: "job_001",
+  agentId: "agent_saturn",
+  runId: "run_001",
+  operatorId: "op_001",
+  goal: "Write a test",
+  model: "anthropic/claude-sonnet-4",
+};
+
+// ---------------------------------------------------------------------------
+// routeStep — called first in agentWorkflow
+// ---------------------------------------------------------------------------
+
+describe("routeStep (via agentWorkflow)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default: streamText happy path
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult() as ReturnType<typeof streamText>);
+  });
+
+  it("queries job table and calls update_run_stage with 'route'", async () => {
+    mockClient.sql
+      .mockResolvedValueOnce([{ job_id: "job_001", run_id: "run_001" }]) // routeStep SELECT
+      .mockResolvedValue([]); // gatherStep SELECT
+
+    mockClient.callReducer.mockResolvedValue(undefined);
+
+    await agentWorkflow(BASE_PARAMS);
+
+    const sqlCalls = mockClient.sql.mock.calls;
+    expect(sqlCalls[0]![0]).toContain("job_001");
+
+    const reducerCalls = mockClient.callReducer.mock.calls;
+    const routeCall = reducerCalls.find(([name, args]) => name === "update_run_stage" && args[1] === "route");
+    expect(routeCall).toBeDefined();
+  });
+
+  it("throws when job is not found", async () => {
+    mockClient.sql.mockResolvedValueOnce([]); // routeStep finds no rows
+    mockClient.callReducer.mockResolvedValue(undefined);
+
+    await expect(agentWorkflow(BASE_PARAMS)).rejects.toThrow("Job job_001 not found");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// planStep — calls update_run_stage with 'plan'
+// ---------------------------------------------------------------------------
+
+describe("planStep (via agentWorkflow)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult() as ReturnType<typeof streamText>);
+  });
+
+  it("calls update_run_stage with 'plan'", async () => {
+    mockClient.sql
+      .mockResolvedValueOnce([{ job_id: "job_001", run_id: "run_001" }])
+      .mockResolvedValue([]);
+    mockClient.callReducer.mockResolvedValue(undefined);
+
+    await agentWorkflow(BASE_PARAMS);
+
+    const planCall = mockClient.callReducer.mock.calls.find(
+      ([name, args]) => name === "update_run_stage" && args[1] === "plan"
+    );
+    expect(planCall).toBeDefined();
+    expect(planCall![1][0]).toBe("run_001");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// gatherStep — calls update_run_stage with 'gather', queries memory_document
+// ---------------------------------------------------------------------------
+
+describe("gatherStep (via agentWorkflow)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult() as ReturnType<typeof streamText>);
+  });
+
+  it("calls update_run_stage with 'gather' and queries memory_document", async () => {
+    const memoryRows = [
+      { title: "doc1", content: "content1" },
+      { title: "doc2", content: "content2" },
+    ];
+    mockClient.sql
+      .mockResolvedValueOnce([{ job_id: "job_001", run_id: "run_001" }]) // route
+      .mockResolvedValueOnce(memoryRows); // gather
+    mockClient.callReducer.mockResolvedValue(undefined);
+
+    const result = await agentWorkflow(BASE_PARAMS);
+
+    const gatherCall = mockClient.callReducer.mock.calls.find(
+      ([name, args]) => name === "update_run_stage" && args[1] === "gather"
+    );
+    expect(gatherCall).toBeDefined();
+
+    const gatherStage = result.stages.find((s) => s.stage === "gather") as { stage: string; contextItems: number };
+    expect(gatherStage?.contextItems).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// actStep — default streamText path
+// ---------------------------------------------------------------------------
+
+describe("actStep – default streamText path (via agentWorkflow)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockClient.sql
+      .mockResolvedValueOnce([{ job_id: "job_001", run_id: "run_001" }])
+      .mockResolvedValue([]);
+    mockClient.callReducer.mockResolvedValue(undefined);
+  });
+
+  it("calls streamText with correct model and system prompt", async () => {
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult("hello world") as ReturnType<typeof streamText>);
+
+    await agentWorkflow({ ...BASE_PARAMS, model: "anthropic/claude-sonnet-4" });
+
+    expect(streamText).toHaveBeenCalledTimes(1);
+    const [opts] = vi.mocked(streamText).mock.calls[0]!;
+    expect(opts.model).toBe("anthropic/claude-sonnet-4");
+    expect(opts.prompt).toBe("Write a test");
+    expect(opts.system).toContain("agent_saturn");
+  });
+
+  it("uses default model when none is provided", async () => {
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult() as ReturnType<typeof streamText>);
+
+    const { model: _omit, ...paramsWithoutModel } = BASE_PARAMS;
+    await agentWorkflow(paramsWithoutModel);
+
+    const [opts] = vi.mocked(streamText).mock.calls[0]!;
+    expect(opts.model).toBe("anthropic/claude-sonnet-4.5");
+  });
+
+  it("calls update_run_stage with 'act'", async () => {
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult() as ReturnType<typeof streamText>);
+
+    await agentWorkflow(BASE_PARAMS);
+
+    const actCall = mockClient.callReducer.mock.calls.find(
+      ([name, args]) => name === "update_run_stage" && args[1] === "act"
+    );
+    expect(actCall).toBeDefined();
+  });
+
+  it("records tool calls via record_tool_call reducer", async () => {
+    const toolCalls = [
+      { toolName: "read_file", args: { path: "/tmp/foo" } },
+    ];
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult("done", toolCalls) as ReturnType<typeof streamText>);
+
+    await agentWorkflow(BASE_PARAMS);
+
+    const tcCalls = mockClient.callReducer.mock.calls.filter(([name]) => name === "record_tool_call");
+    expect(tcCalls).toHaveLength(1);
+    expect(tcCalls[0]![1][2]).toBe("read_file");
+  });
+
+  it("returns act stage with responseLength and toolCallCount", async () => {
+    vi.mocked(streamText).mockReturnValue(
+      makeStreamTextResult("a".repeat(42), [{ toolName: "x", args: {} }, { toolName: "y", args: {} }]) as ReturnType<typeof streamText>,
+    );
+
+    const result = await agentWorkflow(BASE_PARAMS);
+
+    const actStage = result.stages.find((s) => s.stage === "act") as { stage: string; responseLength: number; toolCallCount: number };
+    expect(actStage?.responseLength).toBe(42);
+    expect(actStage?.toolCallCount).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// actStep — vercel-sandbox path
+// ---------------------------------------------------------------------------
+
+describe("actStep – vercel-sandbox path (via agentWorkflow)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockClient.sql
+      .mockResolvedValueOnce([{ job_id: "job_001", run_id: "run_001" }])
+      .mockResolvedValue([]);
+    mockClient.callReducer.mockResolvedValue(undefined);
+  });
+
+  it("calls runCodingAgent when execution is 'vercel-sandbox' and sandboxContext is provided", async () => {
+    vi.mocked(runCodingAgent).mockResolvedValue({ output: "code output here", exitCode: 0 });
+
+    await agentWorkflow({
+      ...BASE_PARAMS,
+      execution: "vercel-sandbox",
+      sandboxContext: {
+        sandboxId: "sbx_abc",
+        vercelAccessToken: "tok_123",
+        repoUrl: "https://github.com/org/repo",
+        branch: "main",
+      },
+    });
+
+    expect(runCodingAgent).toHaveBeenCalledTimes(1);
+    expect(runCodingAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sandboxId: "sbx_abc",
+        vercelAccessToken: "tok_123",
+        goal: "Write a test",
+        repoUrl: "https://github.com/org/repo",
+        branch: "main",
+      }),
+    );
+  });
+
+  it("does NOT call streamText when execution is 'vercel-sandbox'", async () => {
+    vi.mocked(runCodingAgent).mockResolvedValue({ output: "output", exitCode: 0 });
+
+    await agentWorkflow({
+      ...BASE_PARAMS,
+      execution: "vercel-sandbox",
+      sandboxContext: { sandboxId: "sbx_abc", vercelAccessToken: "tok_123" },
+    });
+
+    expect(streamText).not.toHaveBeenCalled();
+  });
+
+  it("returns model as 'claude-code' and correct exitCode in act stage", async () => {
+    vi.mocked(runCodingAgent).mockResolvedValue({ output: "result text", exitCode: 0 });
+
+    const result = await agentWorkflow({
+      ...BASE_PARAMS,
+      execution: "vercel-sandbox",
+      sandboxContext: { sandboxId: "sbx_abc", vercelAccessToken: "tok_123" },
+    });
+
+    const actStage = result.stages.find((s) => s.stage === "act") as { stage: string; model: string; exitCode: number; responseLength: number };
+    expect(actStage?.model).toBe("claude-code");
+    expect(actStage?.exitCode).toBe(0);
+    expect(actStage?.responseLength).toBe("result text".length);
+  });
+
+  it("falls through to streamText when sandboxContext is missing sandboxId", async () => {
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult() as ReturnType<typeof streamText>);
+
+    await agentWorkflow({
+      ...BASE_PARAMS,
+      execution: "vercel-sandbox",
+      sandboxContext: { vercelAccessToken: "tok_123" }, // no sandboxId
+    });
+
+    expect(runCodingAgent).not.toHaveBeenCalled();
+    expect(streamText).toHaveBeenCalled();
+  });
+
+  it("passes apiKey to runCodingAgent when provided", async () => {
+    vi.mocked(runCodingAgent).mockResolvedValue({ output: "done", exitCode: 0 });
+
+    await agentWorkflow({
+      ...BASE_PARAMS,
+      execution: "vercel-sandbox",
+      sandboxContext: { sandboxId: "sbx_abc", vercelAccessToken: "tok_123", apiKey: "sk-test" },
+    });
+
+    expect(runCodingAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "sk-test" }),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyStep — calls update_run_stage with 'verify'
+// ---------------------------------------------------------------------------
+
+describe("verifyStep (via agentWorkflow)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockClient.sql
+      .mockResolvedValueOnce([{ job_id: "job_001", run_id: "run_001" }])
+      .mockResolvedValue([]);
+    mockClient.callReducer.mockResolvedValue(undefined);
+  });
+
+  it("calls update_run_stage with 'verify'", async () => {
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult("some text") as ReturnType<typeof streamText>);
+
+    await agentWorkflow(BASE_PARAMS);
+
+    const verifyCall = mockClient.callReducer.mock.calls.find(
+      ([name, args]) => name === "update_run_stage" && args[1] === "verify"
+    );
+    expect(verifyCall).toBeDefined();
+  });
+
+  it("returns verified=true when responseLength > 0", async () => {
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult("non-empty") as ReturnType<typeof streamText>);
+
+    const result = await agentWorkflow(BASE_PARAMS);
+
+    const verifyStage = result.stages.find((s) => s.stage === "verify") as { stage: string; verified: boolean };
+    expect(verifyStage?.verified).toBe(true);
+  });
+
+  it("returns verified=false when response is empty", async () => {
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult("") as ReturnType<typeof streamText>);
+
+    const result = await agentWorkflow(BASE_PARAMS);
+
+    const verifyStage = result.stages.find((s) => s.stage === "verify") as { stage: string; verified: boolean };
+    expect(verifyStage?.verified).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// summarizeStep — calls update_run_stage with 'summarize'
+// ---------------------------------------------------------------------------
+
+describe("summarizeStep (via agentWorkflow)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockClient.sql
+      .mockResolvedValueOnce([{ job_id: "job_001", run_id: "run_001" }])
+      .mockResolvedValue([]);
+    mockClient.callReducer.mockResolvedValue(undefined);
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult() as ReturnType<typeof streamText>);
+  });
+
+  it("calls update_run_stage with 'summarize'", async () => {
+    await agentWorkflow(BASE_PARAMS);
+
+    const sumCall = mockClient.callReducer.mock.calls.find(
+      ([name, args]) => name === "update_run_stage" && args[1] === "summarize"
+    );
+    expect(sumCall).toBeDefined();
+  });
+
+  it("calls replyToOrigin for non-web/non-system channels", async () => {
+    vi.mocked(replyToOrigin).mockResolvedValue(undefined);
+
+    await agentWorkflow({
+      ...BASE_PARAMS,
+      channel: "slack",
+      channelThreadId: "C123_456",
+    });
+
+    expect(replyToOrigin).toHaveBeenCalledTimes(1);
+    expect(replyToOrigin).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: "slack", channelThreadId: "C123_456" }),
+    );
+  });
+
+  it("does NOT call replyToOrigin for 'web' channel", async () => {
+    await agentWorkflow({ ...BASE_PARAMS, channel: "web", channelThreadId: "web_thread" });
+
+    expect(replyToOrigin).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call replyToOrigin for 'system' channel", async () => {
+    await agentWorkflow({ ...BASE_PARAMS, channel: "system", channelThreadId: "sys_thread" });
+
+    expect(replyToOrigin).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call replyToOrigin when channel is undefined", async () => {
+    await agentWorkflow(BASE_PARAMS);
+
+    expect(replyToOrigin).not.toHaveBeenCalled();
+  });
+
+  it("does not propagate replyToOrigin errors (non-fatal)", async () => {
+    vi.mocked(replyToOrigin).mockRejectedValueOnce(new Error("reply failed"));
+
+    await expect(
+      agentWorkflow({ ...BASE_PARAMS, channel: "slack", channelThreadId: "C1_2" }),
+    ).resolves.toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// learnStep — calls update_run_stage with 'learn' and update_run_status with 'completed'
+// ---------------------------------------------------------------------------
+
+describe("learnStep (via agentWorkflow)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockClient.sql
+      .mockResolvedValueOnce([{ job_id: "job_001", run_id: "run_001" }])
+      .mockResolvedValue([]);
+    mockClient.callReducer.mockResolvedValue(undefined);
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult() as ReturnType<typeof streamText>);
+  });
+
+  it("calls update_run_stage with 'learn'", async () => {
+    await agentWorkflow(BASE_PARAMS);
+
+    const learnStageCall = mockClient.callReducer.mock.calls.find(
+      ([name, args]) => name === "update_run_stage" && args[1] === "learn"
+    );
+    expect(learnStageCall).toBeDefined();
+  });
+
+  it("calls update_run_status with 'completed'", async () => {
+    await agentWorkflow(BASE_PARAMS);
+
+    const statusCall = mockClient.callReducer.mock.calls.find(([name]) => name === "update_run_status");
+    expect(statusCall).toBeDefined();
+    expect(statusCall![1][1]).toBe("completed");
+  });
+
+  it("returns completed=true", async () => {
+    const result = await agentWorkflow(BASE_PARAMS);
+    expect(result.completed).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// agentWorkflow — full golden-path integration
+// ---------------------------------------------------------------------------
+
+describe("agentWorkflow – full golden path", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns expected structure with all 7 stages", async () => {
+    mockClient.sql
+      .mockResolvedValueOnce([{ job_id: "job_001", run_id: "run_001" }])
+      .mockResolvedValue([]);
+    mockClient.callReducer.mockResolvedValue(undefined);
+    vi.mocked(streamText).mockReturnValue(makeStreamTextResult("output") as ReturnType<typeof streamText>);
+
+    const result = await agentWorkflow(BASE_PARAMS);
+
+    expect(result.runId).toBe("run_001");
+    expect(result.agentId).toBe("agent_saturn");
+    expect(result.completed).toBe(true);
+    expect(result.stages).toHaveLength(7);
+
+    const stageNames = result.stages.map((s) => s.stage);
+    expect(stageNames).toEqual(["route", "plan", "gather", "act", "verify", "summarize", "learn"]);
+  });
+});

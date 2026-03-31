@@ -32,7 +32,7 @@ export default function RootLayout({
       className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
     >
       <body className="font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster position="bottom-right" richColors closeButton />
         </ThemeProvider>

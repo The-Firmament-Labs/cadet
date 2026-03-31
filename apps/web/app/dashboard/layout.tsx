@@ -12,6 +12,7 @@ import {
   Brain,
   Settings,
   Container,
+  Code2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/dashboard/threads",     icon: MessageSquare,   label: "Threads"    },
   { href: "/dashboard/approvals",   icon: ShieldCheck,     label: "Approvals"  },
   { href: "/dashboard/memory",      icon: Brain,           label: "Memory"     },
+  { href: "/dashboard/api",         icon: Code2,           label: "API"        },
   { href: "/dashboard/settings",    icon: Settings,        label: "Settings"   },
 ]
 
