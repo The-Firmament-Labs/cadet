@@ -172,7 +172,7 @@ export const chatTools = {
 
   ingest_url: tool({
     description:
-      "Fetch a URL and store its content in the knowledge base for future reference. Use when the user shares a link and wants to save the information.",
+      "Fetch a URL and PERMANENTLY STORE its content in the knowledge base. Use ONLY when the user explicitly wants to save/remember a link for later. If the user just wants to read a page, use fetch_url instead.",
     inputSchema: z.object({
       url: z.string().url().describe("The URL to fetch and store"),
       title: z.string().describe("A short title for this knowledge entry"),
@@ -353,26 +353,43 @@ export const chatTools = {
 
   create_pr: tool({
     description:
-      "Create a GitHub pull request. Use when the user asks to create a PR, submit changes, or open a pull request.",
+      "Create a GitHub pull request. Repo owner/name are auto-detected from active sessions if not provided.",
     inputSchema: z.object({
-      repoOwner: z.string().describe("GitHub repository owner"),
-      repoName: z.string().describe("GitHub repository name"),
+      repoOwner: z.string().optional().describe("GitHub repo owner (auto-detected if omitted)"),
+      repoName: z.string().optional().describe("GitHub repo name (auto-detected if omitted)"),
       baseBranch: z.string().optional().describe("Base branch (default: main)"),
       headBranch: z.string().describe("Head branch with changes"),
       title: z.string().describe("PR title"),
-      body: z.string().describe("PR description"),
+      body: z.string().optional().describe("PR description (auto-generated if omitted)"),
     }),
     execute: async ({ repoOwner, repoName, baseBranch, headBranch, title, body }) => {
       try {
+        // Auto-detect repo from active session if not provided
+        let owner = repoOwner;
+        let name = repoName;
+        if (!owner || !name) {
+          try {
+            const client = createControlClient();
+            const rows = (await client.sql(
+              "SELECT repo_url FROM agent_session WHERE status = 'active' AND repo_url != '' ORDER BY updated_at_micros DESC LIMIT 1",
+            )) as Record<string, unknown>[];
+            if (rows.length > 0) {
+              const match = String(rows[0]!.repo_url).match(/github\.com[/:]([^/]+)\/([^/.]+)/);
+              if (match) { owner = owner ?? match[1]; name = name ?? match[2]; }
+            }
+          } catch { /* fall through */ }
+        }
+        if (!owner || !name) return { created: false, message: "Could not determine repo. Provide repoOwner and repoName, or start a session with a GitHub repo." };
+
         const { createPullRequest } = await import("./github-pr");
         const pr = await createPullRequest({
-          operatorId: "operator",
-          repoOwner,
-          repoName,
+          operatorId: getToolCtx().operatorId,
+          repoOwner: owner!,
+          repoName: name!,
           baseBranch: baseBranch ?? "main",
           headBranch,
           title,
-          body,
+          body: body ?? `PR created by Cadet agent\n\nBranch: ${headBranch}`,
         });
         if (!pr) return { created: false, message: "PR creation failed — check GitHub token" };
         return { created: true, prUrl: pr.prUrl, prNumber: pr.prNumber };
@@ -492,9 +509,25 @@ export const chatTools = {
         const target = checkpointId ? checkpoints.find((c) => c.checkpointId === checkpointId) : checkpoints[0];
         if (!target) return { success: false, message: "Checkpoint not found" };
 
+        // Get the operator's Vercel token to perform the rollback
+        try {
+          const { getVercelAccessToken } = await import("./token-store");
+          const token = await getVercelAccessToken(getToolCtx().operatorId);
+          if (token) {
+            const { rollbackToCheckpoint } = await import("./agent-runtime/checkpoints");
+            const { newSandboxId } = await rollbackToCheckpoint(target.checkpointId, token);
+            return {
+              success: true,
+              message: `Rolled back to checkpoint "${target.label}" (turn ${target.turnNumber}). New sandbox: ${newSandboxId}`,
+              checkpoint: { id: target.checkpointId, label: target.label, turn: target.turnNumber },
+              newSandboxId,
+            };
+          }
+        } catch { /* token unavailable — fall through to guidance */ }
+
         return {
           success: true,
-          message: `Found checkpoint "${target.label}" (turn ${target.turnNumber}). To complete rollback, use the dashboard at /dashboard/runs or the /api/agents/{agentId}/session endpoint.`,
+          message: `Found checkpoint "${target.label}" (turn ${target.turnNumber}). Connect your Vercel account in Settings to enable automatic rollback.`,
           checkpoint: { id: target.checkpointId, label: target.label, turn: target.turnNumber },
           sessionId: targetSessionId,
         };
@@ -609,7 +642,7 @@ export const chatTools = {
   // ── Internet access tools (Agent Reach pattern) ───────────────────
 
   fetch_url: tool({
-    description: "Fetch and read a web page, YouTube video, GitHub repo/issue, or RSS feed. Auto-detects the type from the URL. Use when the user shares a link or asks to read something from the internet.",
+    description: "Read a web page, YouTube video, GitHub repo/issue, or RSS feed without saving it. Auto-detects type. Use when the user shares a link or asks to read/check something. Does NOT store content — use ingest_url to save for later.",
     inputSchema: z.object({
       url: z.string().describe("URL to fetch, or search query for web search"),
     }),
@@ -648,6 +681,57 @@ export const chatTools = {
         const { checkChannelStatus } = await import("./agent-runtime/internet-channels");
         return { channels: await checkChannelStatus() };
       } catch { return { channels: [] }; }
+    },
+  }),
+
+  // ── Approval management ───────────────────────────────────────────
+
+  list_approvals: tool({
+    description: "List pending approval requests that need your attention. Use when the user asks about approvals, pending reviews, or what needs sign-off.",
+    inputSchema: z.object({
+      status: z.enum(["pending", "approved", "rejected"]).optional().describe("Filter by status (default: pending)"),
+    }),
+    execute: async ({ status }) => {
+      try {
+        const client = createControlClient();
+        const where = `WHERE status = '${sqlEscape(status ?? "pending")}'`;
+        const rows = (await client.sql(
+          `SELECT approval_id, run_id, agent_id, title, detail, risk, status FROM approval_request ${where} ORDER BY updated_at_micros DESC LIMIT 10`,
+        )) as Record<string, unknown>[];
+        return { count: rows.length, approvals: rows.map((r) => ({ id: r.approval_id, runId: r.run_id, agent: r.agent_id, title: r.title, risk: r.risk, status: r.status })) };
+      } catch { return { count: 0, approvals: [] }; }
+    },
+  }),
+
+  resolve_approval: tool({
+    description: "Approve or reject a pending approval request. Use when the user says 'approve it', 'reject that', or makes a decision on a pending approval.",
+    inputSchema: z.object({
+      approvalId: z.string().describe("Approval ID to resolve"),
+      decision: z.enum(["approved", "rejected"]).describe("The decision"),
+      note: z.string().optional().describe("Optional note explaining the decision"),
+    }),
+    execute: async ({ approvalId, decision, note }) => {
+      try {
+        const { resolveApprovalRecord } = await import("./durable-approval");
+        await resolveApprovalRecord(approvalId, decision, note ?? "");
+
+        // Resume any suspended workflow hook
+        try {
+          const env = (await import("./env")).getServerEnv();
+          if (env.workflowEnabled) {
+            const { resumeHook } = await import("workflow/api");
+            await resumeHook(approvalId, {
+              approved: decision === "approved",
+              comment: note ?? "",
+              operatorId: getToolCtx().operatorId,
+            });
+          }
+        } catch { /* hook may not exist */ }
+
+        return { resolved: true, approvalId, decision, message: `Approval ${approvalId} ${decision}.` };
+      } catch (error) {
+        return { resolved: false, message: error instanceof Error ? error.message : "Failed to resolve approval" };
+      }
     },
   }),
 };
