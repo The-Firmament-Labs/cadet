@@ -48,6 +48,24 @@ pub struct ChatMessageDraft {
 
 impl LiveSnapshotOptions {
     pub fn from_env() -> Self {
+        // Load ~/.cadet/.env if it exists (persistent config for desktop)
+        if let Ok(home) = env::var("HOME") {
+            let env_path = format!("{}/.cadet/.env", home);
+            if let Ok(content) = std::fs::read_to_string(&env_path) {
+                for line in content.lines() {
+                    let line = line.trim();
+                    if line.is_empty() || line.starts_with('#') { continue; }
+                    if let Some((key, val)) = line.split_once('=') {
+                        let key = key.trim();
+                        let val = val.trim().trim_matches('"');
+                        if env::var(key).is_err() {
+                            env::set_var(key, val);
+                        }
+                    }
+                }
+            }
+        }
+
         Self {
             base_url: env::var("SPACETIMEDB_URL")
                 .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string()),
