@@ -14,6 +14,36 @@ No competitor has all three loops running simultaneously. Most have zero.
 
 ---
 
+## Core Principle: No Lock-In, Every Layer Optional
+
+**Every compute-heavy capability has three execution modes.** The user picks per-capability, not all-or-nothing:
+
+| Capability | Local (on-device) | Remote (your server) | Cloud (managed API) |
+|-----------|-------------------|---------------------|-------------------|
+| **LLM inference** | llama.cpp / MLX on Apple Silicon | Self-hosted vLLM / Ollama on your GPU server | OpenAI / Anthropic / AI Gateway |
+| **Embeddings** | fastembed-rs on CPU/Metal | Remote embedding server | OpenAI embeddings API |
+| **Trajectory scoring** | Local 4B judge model | Remote judge on GPU server | Cloud LLM-as-judge (Haiku) |
+| **LoRA training** | MLX-LM-LoRA on M4 Max | Remote training on GPU cluster | (Not offered — training stays user-owned) |
+| **Vector search** | SimSIMD / Qdrant embedded | Remote Qdrant server | Cloud Pinecone / Weaviate |
+
+**Settings UI:** Each capability has a 3-way toggle: `Local | Remote | Cloud`. Default is Cloud (zero setup). Users who want performance/privacy switch to Local. Teams with a GPU server use Remote.
+
+**Remote server deployment:** Users can run `cadet-inference-server` (a Rust binary we ship) on any machine with a GPU. It exposes the same API as the local services. The desktop connects to it via URL in settings. This means:
+- A team shares one GPU server for scoring and embeddings
+- An individual uses a home server with an RTX 4090
+- A cloud instance on Railway/Fly.io/Modal runs the heavy compute
+- The desktop stays lightweight — just the UI + SpacetimeDB subscription
+
+**Resource-conscious mode:** For users who multitask heavily, the default profile uses:
+- Cloud APIs for inference (zero local resources)
+- Cloud embeddings (zero local resources)
+- Background-only scoring (only when idle, pauses when CPU > 60%)
+- No local training (export trajectories to train elsewhere)
+
+The local ML features are **opt-in behind a feature flag** (`local-ml` in Cargo.toml). The base desktop app doesn't even compile the ML crates unless enabled.
+
+---
+
 ## What We Already Built
 
 The trajectory pipeline is already 60% complete:
@@ -290,20 +320,108 @@ Hermes has some self-improvement (GEPA, Atropos) but requires cloud infrastructu
 
 ---
 
+## Remote Server Architecture (cadet-inference-server)
+
+A standalone Rust binary that teams deploy on any GPU machine:
+
+```
+cadet-inference-server
+├── /v1/chat/completions     ← OpenAI-compatible inference
+├── /v1/embeddings           ← Embedding generation
+├── /v1/score                ← Trajectory scoring
+├── /v1/train/start          ← Start LoRA training job
+├── /v1/train/status         ← Training job status
+├── /v1/models               ← List available models + adapters
+└── /health                  ← Health check
+```
+
+**Deployment options:**
+- `cargo install cadet-inference-server` on any Linux/macOS machine with GPU
+- Docker image: `ghcr.io/the-firmament-labs/cadet-inference-server`
+- One-click deploy on Railway / Fly.io / Modal
+- Kubernetes Helm chart for teams
+
+**Desktop connection:** Settings → Remote Server URL → `https://gpu.myteam.com:8443`
+
+The remote server writes scores back to SpacetimeDB via the same reducers the local pipeline uses. All clients see results regardless of where compute happened.
+
+---
+
+## Resource Profiles (User Selectable)
+
+### Profile: Lightweight (default)
+**For:** Users who multitask, limited RAM, don't want background processes
+```
+Inference:  Cloud (AI Gateway)
+Embeddings: Cloud (OpenAI)
+Scoring:    Cloud (Haiku) — only on explicit request, not automatic
+Training:   Disabled (export trajectories for external training)
+Memory:     ~0 MB additional (SpacetimeDB subscription only)
+```
+
+### Profile: Balanced
+**For:** Users with M4 Pro+ who want some local benefits
+```
+Inference:  Cloud (AI Gateway)
+Embeddings: Local (fastembed-rs, ~500MB model, idle when not needed)
+Scoring:    Local when idle (4B judge, pauses at CPU > 60%)
+Training:   Manual trigger only (not scheduled)
+Memory:     ~3 GB when active, ~500 MB idle
+```
+
+### Profile: Power
+**For:** Users with M4 Max 128GB who want maximum performance/privacy
+```
+Inference:  Local for simple tasks (14B), Cloud for complex
+Embeddings: Local (fastembed-rs)
+Scoring:    Local continuous (4B judge on every trajectory)
+Training:   Weekly automatic (LoRA via MLX)
+Memory:     ~15 GB when active
+```
+
+### Profile: Team
+**For:** Teams with a shared GPU server
+```
+Inference:  Remote server (team GPU)
+Embeddings: Remote server
+Scoring:    Remote server (continuous)
+Training:   Remote server (scheduled)
+Memory:     ~0 MB local (all compute on remote)
+```
+
+### Profile: Custom
+**For:** Users who want granular control
+```
+Each capability individually configurable:
+  Inference:  [Local | Remote | Cloud]
+  Embeddings: [Local | Remote | Cloud]
+  Scoring:    [Local | Remote | Cloud | Off]
+  Training:   [Local | Remote | Off]
+  
+  Local options:
+    Model size: [3B | 7B | 14B | 30B | 70B]
+    GPU priority: [Background | Normal | High]
+    Idle-only mode: [On | Off]
+    Max memory: [slider, GB]
+```
+
+---
+
 ## New Cargo Dependencies
 
 ```toml
-# Phase 1: Local embeddings
+# Local ML (opt-in, not compiled by default)
 fastembed = { version = "5.12", features = ["coreml"], optional = true }
 simsimd = { version = "5", optional = true }
-
-# Phase 2: Local scoring
 llama-cpp-2 = { version = "0.1", features = ["metal"], optional = true }
 
-# Feature flag
 [features]
+default = []
+desktop-ui = ["dioxus/desktop", "dep:dioxus-desktop", "dep:arboard", "dep:toml", "dep:reqwest"]
 local-ml = ["dep:fastembed", "dep:simsimd", "dep:llama-cpp-2"]
 ```
+
+The `local-ml` feature is separate from `desktop-ui`. Users can run the desktop without any ML dependencies. The Settings UI shows which capabilities are available based on compiled features.
 
 ## New SpacetimeDB Tables
 
