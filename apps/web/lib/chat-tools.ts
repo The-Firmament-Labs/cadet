@@ -112,7 +112,7 @@ export const chatTools = {
 
   get_run_status: tool({
     description:
-      "Check the status of a mission/run by its run ID. Use this when the user asks about an ongoing or completed task.",
+      "Check the full status of a mission/run by its ID, including error details and tool calls. Use when asking 'what happened', 'why did it fail', or checking task progress.",
     inputSchema: z.object({
       runId: z.string().describe("The run ID to check (e.g., run_abc123)"),
     }),
@@ -128,6 +128,32 @@ export const chatTools = {
         }
 
         const run = runs[0]!;
+
+        // Load tool calls and errors for forensic depth
+        let toolCalls: string[] = [];
+        let lastOutput = "";
+        try {
+          const tcRows = (await client.sql(
+            `SELECT tool_name, status, output_json FROM tool_call_record WHERE run_id = '${sqlEscape(runId)}' ORDER BY created_at_micros DESC LIMIT 5`,
+          )) as Array<Record<string, unknown>>;
+          toolCalls = tcRows.map((tc) => `${tc.tool_name} (${tc.status})`);
+
+          // Get the last meaningful output
+          const outputRow = tcRows.find((tc) => tc.output_json && String(tc.output_json).length > 5);
+          if (outputRow) lastOutput = sanitizeContext(String(outputRow.output_json).slice(0, 500), 500);
+        } catch { /* best-effort */ }
+
+        // Load taxonomy messages for this run (errors, results)
+        let errorInfo = "";
+        try {
+          const msgs = (await client.sql(
+            `SELECT content FROM chat_message WHERE conversation_id = '${sqlEscape(runId)}' ORDER BY created_at_micros DESC LIMIT 3`,
+          )) as Array<Record<string, unknown>>;
+          if (msgs.length > 0) {
+            errorInfo = msgs.map((m) => sanitizeContext(String(m.content).slice(0, 200), 200)).join("; ");
+          }
+        } catch { /* best-effort */ }
+
         return {
           found: true,
           runId: String(run.run_id),
@@ -135,6 +161,9 @@ export const chatTools = {
           goal: String(run.goal),
           status: String(run.status),
           stage: String(run.current_stage),
+          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+          lastOutput: lastOutput || undefined,
+          details: errorInfo || undefined,
         };
       } catch {
         return { found: false, message: "Run status check unavailable." };
@@ -313,15 +342,17 @@ export const chatTools = {
 
   list_recent_runs: tool({
     description:
-      "List recent agent runs with their status. Supports date filtering with 'since' parameter.",
+      "List recent agent runs with their status. Filter by agent, date, or both.",
     inputSchema: z.object({
       limit: z.number().optional().describe("Number of runs to show (default 10)"),
-      since: z.string().optional().describe("Only show runs after this date: 'today', 'yesterday', 'this_week', or ISO date string"),
+      agentId: z.string().optional().describe("Filter by agent: 'voyager', 'saturn', etc."),
+      since: z.string().optional().describe("Only show runs after: 'today', 'yesterday', 'this_week', or ISO date"),
     }),
-    execute: async ({ limit, since }) => {
+    execute: async ({ limit, agentId, since }) => {
       try {
         const client = createControlClient();
-        let whereClause = "";
+        const conditions: string[] = [];
+        if (agentId) conditions.push(`agent_id = '${sqlEscape(agentId)}'`);
         if (since) {
           let sinceMs: number;
           const now = Date.now();
@@ -329,8 +360,9 @@ export const chatTools = {
           else if (since === "yesterday") sinceMs = new Date().setHours(0, 0, 0, 0) - 86400000;
           else if (since === "this_week") sinceMs = now - 7 * 86400000;
           else sinceMs = new Date(since).getTime();
-          if (!isNaN(sinceMs)) whereClause = `WHERE updated_at_micros >= ${sinceMs * 1000}`;
+          if (!isNaN(sinceMs)) conditions.push(`updated_at_micros >= ${sinceMs * 1000}`);
         }
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
         const rows = (await client.sql(
           `SELECT run_id, agent_id, goal, status, current_stage FROM workflow_run ${whereClause} ORDER BY updated_at_micros DESC LIMIT ${limit ?? 10}`,
         )) as Array<Record<string, unknown>>;
@@ -472,11 +504,16 @@ export const chatTools = {
     inputSchema: z.object({
       query: z.string().describe("Search query"),
       type: z.enum(["chat", "run", "memory", "thread"]).optional().describe("Filter by type"),
+      since: z.string().optional().describe("Only show results after: 'today', 'yesterday', 'this_week', or ISO date"),
     }),
-    execute: async ({ query, type }) => {
-      const { searchSessions } = await import("./agent-runtime/session-search");
-      const results = await searchSessions(query, { type, limit: 10 });
-      return { count: results.length, results: results.map((r) => ({ type: r.type, id: r.id, title: r.title, preview: r.content.slice(0, 100) })) };
+    execute: async ({ query, type, since }) => {
+      try {
+        const { searchSessions } = await import("./agent-runtime/session-search");
+        // If since is provided, append it to the query for keyword matching
+        const enrichedQuery = since ? `${query} ${since}` : query;
+        const results = await searchSessions(enrichedQuery, { type, limit: 10 });
+        return { count: results.length, results: results.map((r) => ({ type: r.type, id: r.id, title: r.title, preview: r.content.slice(0, 100) })) };
+      } catch { return { count: 0, results: [] }; }
     },
   }),
 
@@ -590,26 +627,31 @@ export const chatTools = {
   }),
 
   delete_memory: tool({
-    description: "Delete a stored memory or fact from the knowledge base. Use when the user says 'forget X', 'delete that memory', 'remove that note'.",
+    description: "Delete stored memories matching a query. Deletes ALL matches when deleteAll is true, otherwise just the first. Use for 'forget X', 'forget everything about Y', 'remove all notes about Z'.",
     inputSchema: z.object({
-      query: z.string().describe("Search query to find the memory to delete"),
+      query: z.string().describe("Search query to find memories to delete"),
+      deleteAll: z.boolean().optional().describe("Delete all matches (default: false, deletes first match only)"),
     }),
-    execute: async ({ query }) => {
+    execute: async ({ query, deleteAll }) => {
       try {
         const client = createControlClient();
         const keywords = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2).slice(0, 3);
-        if (keywords.length === 0) return { deleted: false, message: "Please specify what to forget." };
-        const conditions = keywords.map((k) => `title LIKE '%${sqlEscape(k)}%'`).join(" OR ");
+        if (keywords.length === 0) return { deleted: 0, message: "Please specify what to forget." };
+        const conditions = keywords.map((k) => `title LIKE '%${sqlEscape(k)}%' OR content LIKE '%${sqlEscape(k)}%'`).join(" OR ");
+        const limit = deleteAll ? 20 : 1;
         const rows = (await client.sql(
-          `SELECT document_id, title FROM memory_document WHERE (${conditions}) LIMIT 1`,
+          `SELECT document_id, title FROM memory_document WHERE (${conditions}) LIMIT ${limit}`,
         )) as Record<string, unknown>[];
-        if (rows.length === 0) return { deleted: false, message: "No matching memory found." };
-        const docId = String(rows[0]!.document_id);
-        const title = String(rows[0]!.title);
-        await client.callReducer("delete_memory_document", [docId]);
-        return { deleted: true, message: `Deleted memory: "${title}"` };
+        if (rows.length === 0) return { deleted: 0, message: "No matching memories found." };
+
+        const deleted: string[] = [];
+        for (const row of rows) {
+          await client.callReducer("delete_memory_document", [String(row.document_id)]);
+          deleted.push(String(row.title));
+        }
+        return { deleted: deleted.length, message: `Deleted ${deleted.length} memor${deleted.length === 1 ? "y" : "ies"}: ${deleted.map((t) => `"${t}"`).join(", ")}` };
       } catch (error) {
-        return { deleted: false, message: error instanceof Error ? error.message : "Delete failed" };
+        return { deleted: 0, message: error instanceof Error ? error.message : "Delete failed" };
       }
     },
   }),
