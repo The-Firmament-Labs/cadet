@@ -80,15 +80,34 @@ async function handleVerify(request: Request) {
   try {
     const body = await request.json();
 
-    // Find valid challenge
-    let matchedChallenge: string | undefined;
-    for (const [key, value] of challenges) {
-      if (Date.now() < value.expiresAt) {
-        matchedChallenge = value.challenge;
-        challenges.delete(key);
-        break;
+    // Extract the challenge from the client's response to match the right one
+    let clientChallenge: string | undefined;
+    try {
+      const clientDataJSON = body.response?.clientDataJSON;
+      if (clientDataJSON) {
+        const decoded = JSON.parse(Buffer.from(clientDataJSON, "base64url").toString("utf-8"));
+        clientChallenge = decoded.challenge;
       }
-      challenges.delete(key);
+    } catch { /* fall through to first-match */ }
+
+    // Match the specific challenge the client used, or fall back to first valid
+    let matchedChallenge: string | undefined;
+    if (clientChallenge && challenges.has(clientChallenge)) {
+      const entry = challenges.get(clientChallenge)!;
+      if (Date.now() < entry.expiresAt) {
+        matchedChallenge = entry.challenge;
+      }
+      challenges.delete(clientChallenge);
+    } else {
+      // Fallback: find any valid challenge
+      for (const [key, value] of challenges) {
+        if (Date.now() < value.expiresAt) {
+          matchedChallenge = value.challenge;
+          challenges.delete(key);
+          break;
+        }
+        challenges.delete(key);
+      }
     }
 
     if (!matchedChallenge) {
