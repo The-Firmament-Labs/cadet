@@ -3,6 +3,8 @@ pub mod clipboard;
 pub mod live;
 pub mod mascot;
 mod ui;
+#[cfg(feature = "desktop-ui")]
+pub mod web_client;
 pub mod widget;
 
 pub use auth_provider::AuthProviderRegistry;
