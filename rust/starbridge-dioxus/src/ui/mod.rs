@@ -36,7 +36,7 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
     let metrics = queue_metrics(&snapshot);
     let namespaces = memory_namespaces(&snapshot);
     let mut page = use_signal(|| WorkspacePage::Overview);
-    let mut sidebar_expanded = use_signal(|| false);
+    let mut sidebar_expanded = use_signal(|| true);
     let mut show_command_palette = use_signal(|| false);
 
     // Consume menu actions from the desktop shell (if running as desktop app)
@@ -63,6 +63,12 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
         "sidebar"
     };
 
+    let shell_class = if sidebar_expanded() {
+        "app-shell"
+    } else {
+        "app-shell app-shell-collapsed"
+    };
+
     rsx! {
         style { "{APP_STYLES}" }
 
@@ -79,7 +85,7 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
             }
         }
 
-        div { class: "app-shell",
+        div { class: "{shell_class}",
             aside { class: "{sidebar_class}",
                 // Brand mark
                 div { class: "sidebar-brand",

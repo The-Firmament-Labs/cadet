@@ -97,12 +97,16 @@ pub const APP_STYLES: &str = r#"
 
     .app-shell {
         display: grid;
-        grid-template-columns: 48px minmax(0, 1fr);
+        grid-template-columns: 200px minmax(0, 1fr);
         height: 100vh;
         max-height: 100vh;
         min-height: 0;
         overflow: hidden;
         transition: grid-template-columns 200ms ease;
+    }
+
+    .app-shell.app-shell-collapsed {
+        grid-template-columns: 48px minmax(0, 1fr);
     }
 
     /* ── Sidebar ────────────────────────────────────────────────────── */
