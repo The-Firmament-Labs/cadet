@@ -1,3 +1,4 @@
+mod ai_chat;
 mod catalog;
 mod chat;
 mod memory;
@@ -6,6 +7,7 @@ mod overview;
 mod surfaces;
 mod workflow;
 
+pub use ai_chat::AiChatView;
 pub use catalog::CatalogView;
 pub use chat::ChatView;
 pub use memory::MemoryView;

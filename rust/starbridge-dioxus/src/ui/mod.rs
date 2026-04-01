@@ -10,7 +10,7 @@ mod views;
 use models::{memory_namespaces, queue_metrics, WorkspacePage};
 use shared::SidebarNavButton;
 use styles::APP_STYLES;
-use views::{CatalogView, ChatView, MemoryView, OverviewView, WorkflowStudioView};
+use views::{AiChatView, CatalogView, ChatView, MemoryView, OverviewView, WorkflowStudioView};
 
 use crate::LiveSnapshotOptions;
 
@@ -35,7 +35,7 @@ pub struct MenuAction(pub Signal<Option<String>>);
 pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
     let metrics = queue_metrics(&snapshot);
     let namespaces = memory_namespaces(&snapshot);
-    let mut page = use_signal(|| WorkspacePage::Overview);
+    let mut page = use_signal(|| WorkspacePage::Chat);
     let mut sidebar_expanded = use_signal(|| true);
     let mut show_command_palette = use_signal(|| false);
 
@@ -45,6 +45,7 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
             let mut signal = menu_ctx.0;
             signal.set(None);
             match action.as_str() {
+                "view-chat" => page.set(WorkspacePage::Chat),
                 "view-overview" => page.set(WorkspacePage::Overview),
                 "view-conversations" => page.set(WorkspacePage::Conversations),
                 "view-workflow" => page.set(WorkspacePage::Workflow),
@@ -105,6 +106,13 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                 div { class: "sidebar-section", "Workspace" }
                 nav { class: "sidebar-nav",
                     SidebarNavButton {
+                        icon: "◉".to_string(),
+                        label: "Chat".to_string(),
+                        count: None,
+                        active: page() == WorkspacePage::Chat,
+                        onclick: move |_| page.set(WorkspacePage::Chat),
+                    }
+                    SidebarNavButton {
                         icon: "⊞".to_string(),
                         label: "Overview".to_string(),
                         count: Some(metrics.active_runs.to_string()),
@@ -113,7 +121,7 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                     }
                     SidebarNavButton {
                         icon: "💬".to_string(),
-                        label: "Conversations".to_string(),
+                        label: "Threads".to_string(),
                         count: Some(snapshot.threads.len().to_string()),
                         active: page() == WorkspacePage::Conversations,
                         onclick: move |_| page.set(WorkspacePage::Conversations),
@@ -184,6 +192,7 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
 
                 main { class: "page-content",
                     match page() {
+                        WorkspacePage::Chat => rsx! { AiChatView {} },
                         WorkspacePage::Overview => rsx! { OverviewView { snapshot: snapshot.clone() } },
                         WorkspacePage::Conversations => rsx! { ChatView { snapshot: snapshot.clone() } },
                         WorkspacePage::Workflow => rsx! { WorkflowStudioView { snapshot: snapshot.clone() } },
@@ -205,10 +214,11 @@ fn CommandPalette(
 ) -> Element {
     let mut query = use_signal(String::new);
     let nav_items: Vec<(WorkspacePage, &str, &str)> = vec![
+        (WorkspacePage::Chat,          "◉", "Chat"),
         (WorkspacePage::Overview,      "⊞", "Overview"),
-        (WorkspacePage::Conversations, "💬", "Conversations"),
-        (WorkspacePage::Workflow,      "▶", "Workflow Studio"),
-        (WorkspacePage::Catalog,       "⊞", "Catalog"),
+        (WorkspacePage::Conversations, "💬", "Threads"),
+        (WorkspacePage::Workflow,      "▶", "Runs"),
+        (WorkspacePage::Catalog,       "⊞", "Agents"),
         (WorkspacePage::Memory,        "🧠", "Memory"),
     ];
 

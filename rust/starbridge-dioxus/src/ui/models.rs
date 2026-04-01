@@ -5,6 +5,7 @@ use starbridge_core::{MissionControlSnapshot, WorkflowStepRecord};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum WorkspacePage {
+    Chat,
     Overview,
     Conversations,
     Workflow,
@@ -15,21 +16,23 @@ pub enum WorkspacePage {
 impl WorkspacePage {
     pub fn label(self) -> &'static str {
         match self {
+            WorkspacePage::Chat => "Chat",
             WorkspacePage::Overview => "Overview",
-            WorkspacePage::Conversations => "Conversations",
-            WorkspacePage::Workflow => "Workflow Studio",
-            WorkspacePage::Catalog => "Catalog",
+            WorkspacePage::Conversations => "Threads",
+            WorkspacePage::Workflow => "Runs",
+            WorkspacePage::Catalog => "Agents",
             WorkspacePage::Memory => "Memory",
         }
     }
 
     pub fn description(self) -> &'static str {
         match self {
-            WorkspacePage::Overview => "Inspect the live run queue, browser work, and approval state without leaving the native client.",
-            WorkspacePage::Conversations => "Operate channel threads as first-class workspaces instead of isolated webhook payloads.",
-            WorkspacePage::Workflow => "Rehearse stage movement and ownership changes against the live workflow graph.",
-            WorkspacePage::Catalog => "Browse agents, tools, and integrations.",
-            WorkspacePage::Memory => "Review durable memory documents and the retrieval traces that fed each run.",
+            WorkspacePage::Chat => "Talk to Cadet AI. Dispatch tasks, search memory, manage agents.",
+            WorkspacePage::Overview => "Live run queue, browser work, and approval state.",
+            WorkspacePage::Conversations => "Channel threads and message history.",
+            WorkspacePage::Workflow => "Workflow stages and step movement.",
+            WorkspacePage::Catalog => "Agents, tools, and integrations.",
+            WorkspacePage::Memory => "Memory documents, embeddings, and retrieval traces.",
         }
     }
 }

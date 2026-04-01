@@ -13,12 +13,13 @@ serde_json = "1.0"
 spacetimedb-sdk = "2.1.0"
 starbridge-control-client = { path = "../starbridge-control-client" }
 starbridge-core = { path = "../starbridge-core" }
-tokio = { version = "1.48", features = ["rt", "sync"] }
+tokio = { version = "1.48", features = ["rt", "sync", "time", "process", "io-util"] }
 toml = { version = "0.8", optional = true }
+reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
 
 [features]
 default = []
-desktop-ui = ["dioxus/desktop", "dep:dioxus-desktop", "dep:arboard", "dep:toml"]
+desktop-ui = ["dioxus/desktop", "dep:dioxus-desktop", "dep:arboard", "dep:toml", "dep:reqwest"]
 
 [[bin]]
 name = "starbridge-dioxus-ui"
