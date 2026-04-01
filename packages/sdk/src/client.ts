@@ -111,13 +111,27 @@ export class StarbridgeControlClient {
   }
 
   public async sql(query: string): Promise<unknown> {
+    const raw = await this.request("POST", this.buildPath("sql"), query, {
+      "content-type": "text/plain; charset=utf-8"
+    });
+    // Automatically decode SpacetimeDB wire format into named row objects
+    // Falls back to raw if not a valid SQL result set
+    if (Array.isArray(raw)) {
+      return decodeSqlRows(raw);
+    }
+    return raw;
+  }
+
+  /** Raw SQL without decoding — returns SpacetimeDB wire format. */
+  public async sqlRaw(query: string): Promise<unknown> {
     return this.request("POST", this.buildPath("sql"), query, {
       "content-type": "text/plain; charset=utf-8"
     });
   }
 
   public async selectAll(tableName: string): Promise<Record<string, unknown>[]> {
-    return decodeSqlRows(await this.sql(`SELECT * FROM ${tableName}`));
+    const result = await this.sql(`SELECT * FROM ${tableName}`);
+    return Array.isArray(result) ? result : [];
   }
 
   public async registerAgent(manifest: AgentManifest): Promise<unknown> {
