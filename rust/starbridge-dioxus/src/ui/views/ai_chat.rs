@@ -1,296 +1,159 @@
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
 
-use crate::ui::shared::{CalloutBox, EmptyState};
+use crate::web_client::{WebClient, ChatMessage, ChatPart};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct ChatMessage {
-    id: String,
-    role: String,
-    content: String,
-    #[serde(default)]
-    tools_used: Vec<String>,
-}
+use super::chat_types::{
+    ChatMsg, MessageRole, ToolCallCard, ToolCallStatus,
+    derive_conversations, new_message_id, new_thread_id,
+};
+use super::chat_sidebar::ConversationSidebar;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct ChatRequest {
-    messages: Vec<ChatRequestMessage>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct ChatRequestMessage {
-    id: String,
-    role: String,
-    content: String,
-    parts: Vec<ChatPart>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct ChatPart {
-    r#type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<String>,
-}
-
-/// Read the session token from ~/.cadet/session.json
-fn read_session_token() -> Option<String> {
-    let home = std::env::var("HOME").ok()?;
-    let path = format!("{}/.cadet/session.json", home);
-    let content = std::fs::read_to_string(path).ok()?;
-    let json: serde_json::Value = serde_json::from_str(&content).ok()?;
-    json.get("token").and_then(|v| v.as_str()).map(|s| s.to_string())
-}
-
-/// Send a message to the Cadet AI chat and get the response
-async fn send_chat_message(
-    messages: Vec<ChatMessage>,
-    session_token: &str,
-) -> Result<String, String> {
-    let client = reqwest::Client::new();
-
-    let request_messages: Vec<ChatRequestMessage> = messages
-        .iter()
-        .map(|m| ChatRequestMessage {
-            id: m.id.clone(),
-            role: m.role.clone(),
-            content: m.content.clone(),
-            parts: vec![ChatPart {
-                r#type: "text".to_string(),
-                text: Some(m.content.clone()),
-            }],
-        })
-        .collect();
-
-    let body = ChatRequest {
-        messages: request_messages,
-    };
-
-    let response = client
-        .post("http://localhost:3001/api/chat")
-        .header("Content-Type", "application/json")
-        .header("Cookie", format!("cadet_session={}", session_token))
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {e}"))?;
-
-    if !response.status().is_success() {
-        return Err(format!("Chat API returned {}", response.status()));
-    }
-
-    // Read the SSE stream and extract text content
-    let body_text = response.text().await.map_err(|e| format!("Read failed: {e}"))?;
-
-    // Parse SSE lines — extract text from data lines
-    let mut result = String::new();
-    for line in body_text.lines() {
-        if let Some(data) = line.strip_prefix("d:") {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(data.trim()) {
-                if json.get("type").and_then(|t| t.as_str()) == Some("text") {
-                    if let Some(text) = json.get("value").and_then(|v| v.as_str()) {
-                        result.push_str(text);
-                    }
-                }
-            }
-        }
-    }
-
-    if result.is_empty() {
-        // Fallback: try to read as plain text
-        result = body_text.lines()
-            .filter(|l| !l.starts_with("d:") && !l.starts_with("e:") && !l.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
-    }
-
-    Ok(if result.is_empty() { "(No response)".to_string() } else { result })
+fn load_web_client() -> Option<WebClient> {
+    WebClient::from_session().ok()
 }
 
 #[component]
 pub fn AiChatView() -> Element {
-    let mut messages = use_signal(Vec::<ChatMessage>::new);
+    let mut messages = use_signal(Vec::<ChatMsg>::new);
+    let mut active_thread = use_signal(|| Some(new_thread_id()));
     let mut input_text = use_signal(String::new);
-    let mut is_loading = use_signal(|| false);
+    let mut is_streaming = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
-    let session_token = use_signal(|| read_session_token());
+    let web_client = use_signal(load_web_client);
 
-    let has_token = session_token().is_some();
+    let has_client = web_client().is_some();
+    let all_messages = messages();
+    let conversations = derive_conversations(&all_messages);
+    let current_thread = active_thread();
+
+    let thread_messages: Vec<ChatMsg> = current_thread
+        .as_ref()
+        .map(|tid| all_messages.iter().filter(|m| &m.thread_id == tid).cloned().collect())
+        .unwrap_or_default();
 
     rsx! {
-        div { class: "page-grid page-grid-chat",
-            // Main chat area (full width)
-            section { class: "panel", style: "grid-column: 1 / -1;",
-                // Header
-                div { class: "panel-head",
-                    p { class: "section-eyebrow", "CADET.AI" }
-                    h3 { class: "card-title", "Mission Control Chat" }
-                    p { class: "row-copy",
-                        if has_token {
-                            "Connected to Cadet AI. Type a message to begin."
-                        } else {
-                            "Not authenticated. Log in from the splash screen first."
-                        }
+        div { class: "chat-layout",
+            // Sidebar
+            ConversationSidebar {
+                conversations: conversations,
+                active_thread: current_thread.clone(),
+                on_select: move |tid: String| {
+                    active_thread.set(Some(tid));
+                    error.set(None);
+                },
+                on_new: move |_| {
+                    active_thread.set(Some(new_thread_id()));
+                    error.set(None);
+                },
+            }
+
+            // Main
+            div { class: "chat-main",
+                div { class: "chat-header",
+                    h3 { class: "card-title", "Cadet AI" }
+                    if is_streaming() {
+                        span { class: "pill pill-live", "Streaming" }
                     }
                 }
 
                 if let Some(err) = error() {
-                    div { class: "panel-body", style: "padding-bottom: 0;",
-                        CalloutBox {
-                            tone: "danger".to_string(),
-                            title: "Error".to_string(),
-                            body: err,
+                    div { class: "chat-error",
+                        p { style: "color: var(--primary); font-size: 12px;", "{err}" }
+                        button { class: "secondary-button", onclick: move |_| error.set(None), "Dismiss" }
+                    }
+                }
+
+                div { class: "chat-messages",
+                    if thread_messages.is_empty() && !is_streaming() {
+                        div { class: "chat-empty",
+                            p { class: "card-title", "Start a conversation" }
+                            p { class: "row-copy", "Ask Cadet to fix bugs, deploy code, search memory, manage agents." }
+                            div { class: "chat-suggestions",
+                                for s in ["Fix the login bug", "Deploy to production", "Summarize today's runs", "Search memory for auth"] {
+                                    button {
+                                        class: "chat-suggestion",
+                                        onclick: {
+                                            let text = s.to_string();
+                                            move |_| input_text.set(text.clone())
+                                        },
+                                        "{s}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    for msg in thread_messages.iter() {
+                        div {
+                            class: if msg.role == MessageRole::User { "chat-msg chat-msg-user" } else { "chat-msg chat-msg-assistant" },
+                            div { class: "chat-msg-head",
+                                span { class: "chat-msg-actor",
+                                    if msg.role == MessageRole::User { "You" } else { "Cadet" }
+                                }
+                            }
+                            div { class: "chat-msg-body",
+                                for line in msg.content.lines() {
+                                    if line.is_empty() {
+                                        br {}
+                                    } else {
+                                        p { class: "chat-text", "{line}" }
+                                    }
+                                }
+                            }
+                            for tc in msg.tool_calls.iter() {
+                                div { class: "chat-tool-card",
+                                    span { class: "pill", "{tc.tool_name}" }
+                                    span { class: "pill pill-subtle",
+                                        match tc.status {
+                                            ToolCallStatus::Running => "running",
+                                            ToolCallStatus::Complete => "done",
+                                            ToolCallStatus::Error => "error",
+                                        }
+                                    }
+                                    if !tc.output_summary.is_empty() {
+                                        p { class: "chat-tool-output", "{tc.output_summary}" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if is_streaming() {
+                        div { class: "chat-msg chat-msg-assistant",
+                            div { class: "chat-msg-head",
+                                span { class: "chat-msg-actor", "Cadet" }
+                            }
+                            div { class: "chat-msg-body",
+                                span { class: "pulse-text", "Thinking..." }
+                            }
                         }
                     }
                 }
 
-                // Messages
-                div { class: "chat-body",
-                    div { class: "message-stream",
-                        if messages().is_empty() && !is_loading() {
-                            EmptyState {
-                                title: "Start a conversation".to_string(),
-                                body: "Ask Cadet anything — fix bugs, deploy code, search memory, manage agents.".to_string(),
+                // Composer
+                div { class: "chat-composer",
+                    textarea {
+                        class: "chat-composer-input",
+                        value: input_text(),
+                        disabled: is_streaming() || !has_client,
+                        placeholder: if has_client { "Ask Cadet anything... (Enter to send)" } else { "Log in first" },
+                        oninput: move |e| input_text.set(e.value()),
+                        onkeydown: move |e| {
+                            if e.key() == Key::Enter && !e.modifiers().shift() {
+                                e.prevent_default();
+                                do_send(&web_client, &mut messages, &active_thread, &mut input_text, &mut is_streaming, &mut error);
                             }
-                        }
-
-                        for msg in messages().iter() {
-                            div {
-                                class: if msg.role == "user" { "message message-outbound" } else { "message message-inbound" },
-                                div { class: "message-head",
-                                    span { class: "message-actor",
-                                        if msg.role == "user" { "You" } else { "Cadet" }
-                                    }
-                                }
-                                div { class: "message-body",
-                                    p { "{msg.content}" }
-                                }
-                                if !msg.tools_used.is_empty() {
-                                    div { class: "chip-row", style: "margin-top: 6px;",
-                                        for tool in msg.tools_used.iter() {
-                                            span { class: "pill pill-subtle", "{tool}" }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if is_loading() {
-                            div { class: "message message-inbound",
-                                div { class: "message-head",
-                                    span { class: "message-actor", "Cadet" }
-                                }
-                                div { class: "message-body",
-                                    p { class: "pulse-text", "Thinking..." }
-                                }
-                            }
-                        }
+                        },
                     }
-
-                    // Composer
-                    div { class: "composer",
-                        textarea {
-                            class: "composer-input",
-                            value: input_text(),
-                            disabled: is_loading() || !has_token,
-                            oninput: move |event| input_text.set(event.value()),
-                            onkeydown: move |event| {
-                                if event.key() == Key::Enter && !event.modifiers().shift() {
-                                    event.prevent_default();
-                                    // Trigger send
-                                    let content = input_text();
-                                    if content.trim().is_empty() || is_loading() { return; }
-                                    if let Some(token) = session_token() {
-                                        let msg_id = format!("msg_{}", js_sys_now());
-                                        let user_msg = ChatMessage {
-                                            id: msg_id,
-                                            role: "user".to_string(),
-                                            content: content.clone(),
-                                            tools_used: vec![],
-                                        };
-                                        messages.write().push(user_msg);
-                                        input_text.set(String::new());
-                                        is_loading.set(true);
-                                        error.set(None);
-
-                                        let all_messages = messages();
-                                        spawn(async move {
-                                            match send_chat_message(all_messages, &token).await {
-                                                Ok(response) => {
-                                                    let assistant_msg = ChatMessage {
-                                                        id: format!("msg_{}", js_sys_now()),
-                                                        role: "assistant".to_string(),
-                                                        content: response,
-                                                        tools_used: vec![],
-                                                    };
-                                                    messages.write().push(assistant_msg);
-                                                }
-                                                Err(err) => {
-                                                    error.set(Some(err));
-                                                }
-                                            }
-                                            is_loading.set(false);
-                                        });
-                                    }
-                                }
+                    div { class: "chat-composer-bar",
+                        button { class: "secondary-button", onclick: move |_| input_text.set(String::new()), "Clear" }
+                        button {
+                            class: "primary-button",
+                            disabled: input_text().trim().is_empty() || is_streaming() || !has_client,
+                            onclick: move |_| {
+                                do_send(&web_client, &mut messages, &active_thread, &mut input_text, &mut is_streaming, &mut error);
                             },
-                            placeholder: if has_token {
-                                "Ask Cadet anything... (Enter to send, Shift+Enter for newline)"
-                            } else {
-                                "Log in first to chat with Cadet"
-                            }
-                        }
-                        div { class: "composer-actions",
-                            div { class: "chip-row",
-                                button {
-                                    class: "secondary-button",
-                                    onclick: move |_| {
-                                        messages.write().clear();
-                                        error.set(None);
-                                    },
-                                    "Clear"
-                                }
-                                button {
-                                    class: "primary-button",
-                                    disabled: input_text().trim().is_empty() || is_loading() || !has_token,
-                                    onclick: move |_| {
-                                        let content = input_text();
-                                        if content.trim().is_empty() || is_loading() { return; }
-                                        if let Some(token) = session_token() {
-                                            let msg_id = format!("msg_{}", js_sys_now());
-                                            let user_msg = ChatMessage {
-                                                id: msg_id,
-                                                role: "user".to_string(),
-                                                content: content.clone(),
-                                                tools_used: vec![],
-                                            };
-                                            messages.write().push(user_msg);
-                                            input_text.set(String::new());
-                                            is_loading.set(true);
-                                            error.set(None);
-
-                                            let all_messages = messages();
-                                            spawn(async move {
-                                                match send_chat_message(all_messages, &token).await {
-                                                    Ok(response) => {
-                                                        let assistant_msg = ChatMessage {
-                                                            id: format!("msg_{}", js_sys_now()),
-                                                            role: "assistant".to_string(),
-                                                            content: response,
-                                                            tools_used: vec![],
-                                                        };
-                                                        messages.write().push(assistant_msg);
-                                                    }
-                                                    Err(err) => {
-                                                        error.set(Some(err));
-                                                    }
-                                                }
-                                                is_loading.set(false);
-                                            });
-                                        }
-                                    },
-                                    if is_loading() { "Sending..." } else { "Send" }
-                                }
-                            }
+                            if is_streaming() { "Sending..." } else { "Send" }
                         }
                     }
                 }
@@ -299,7 +162,67 @@ pub fn AiChatView() -> Element {
     }
 }
 
-fn js_sys_now() -> u64 {
+fn do_send(
+    web_client: &Signal<Option<WebClient>>,
+    messages: &mut Signal<Vec<ChatMsg>>,
+    active_thread: &Signal<Option<String>>,
+    input_text: &mut Signal<String>,
+    is_streaming: &mut Signal<bool>,
+    error: &mut Signal<Option<String>>,
+) {
+    let content = input_text();
+    if content.trim().is_empty() { return; }
+    let Some(client) = web_client() else { return; };
+    let thread_id = active_thread().unwrap_or_else(new_thread_id);
+
+    let user_msg = ChatMsg {
+        id: new_message_id(),
+        thread_id: thread_id.clone(),
+        role: MessageRole::User,
+        content: content.clone(),
+        tool_calls: Vec::new(),
+        timestamp_ms: now_ms(),
+    };
+    messages.write().push(user_msg);
+    input_text.set(String::new());
+    is_streaming.set(true);
+    error.set(None);
+
+    let all = messages();
+    let request_msgs: Vec<ChatMessage> = all
+        .iter()
+        .filter(|m| m.thread_id == thread_id)
+        .map(|m| ChatMessage {
+            id: m.id.clone(),
+            role: match m.role { MessageRole::User => "user", MessageRole::Assistant => "assistant", MessageRole::System => "system" }.to_string(),
+            content: m.content.clone(),
+            parts: vec![ChatPart { r#type: "text".to_string(), text: Some(m.content.clone()) }],
+        })
+        .collect();
+
+    let mut messages = messages.clone();
+    let mut is_streaming = is_streaming.clone();
+    let mut error = error.clone();
+
+    spawn(async move {
+        match client.chat(request_msgs).await {
+            Ok(text) => {
+                messages.write().push(ChatMsg {
+                    id: new_message_id(),
+                    thread_id,
+                    role: MessageRole::Assistant,
+                    content: text,
+                    tool_calls: Vec::new(),
+                    timestamp_ms: now_ms(),
+                });
+            }
+            Err(e) => error.set(Some(format!("{e}"))),
+        }
+        is_streaming.set(false);
+    });
+}
+
+fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)

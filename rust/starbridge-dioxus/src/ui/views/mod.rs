@@ -1,4 +1,6 @@
 mod ai_chat;
+mod chat_types;
+mod chat_sidebar;
 mod catalog;
 mod chat;
 mod memory;
