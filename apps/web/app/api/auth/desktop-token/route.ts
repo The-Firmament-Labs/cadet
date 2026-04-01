@@ -19,13 +19,14 @@ export async function POST(request: Request) {
     if (!token) return apiError("token required", 400);
 
     const client = createControlClient();
+    // Args: document_id, agent_id, namespace, source_kind, title, content, metadata_json
     await client.callReducer("upsert_memory_document", [
       DOC_ID,
       "system",
       "desktop-auth",
+      "desktop-auth",
       "Desktop Auth Token",
       JSON.stringify({ token, createdAt: Date.now() }),
-      "desktop-auth",
       "{}",
     ]);
 
