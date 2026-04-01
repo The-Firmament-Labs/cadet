@@ -30,6 +30,7 @@ export { executeHooks, registerHook, listHooks, toggleHook, deleteHook, type Hoo
 export { searchSessions, type SearchResult } from "./session-search";
 export { parseRefs, resolveRefs, stripRefs, type ResolvedRef } from "./context-refs";
 export { assembleContext, buildHandoffContext, type AssembledContext } from "./context-assembly";
+export { storeUserPrompt, storeAgentResponse, storeAgentThinking, storeToolCall, storeHandoff, storeAgentResult, storeSystemEvent, getUserPrompts, getAgentResponses, getAgentThinking, getToolCalls, getHandoffs, getAgentResults, getRunTrace, buildDebugContext, buildFollowUpContext, type MessageKind, type StructuredMessage } from "./message-taxonomy";
 export { textToSpeech, speechToText, VOICE_PRESETS, DEFAULT_VOICE_CONFIG, type VoiceConfig } from "./voice";
 export { createBrowserSession, executeBrowserAction, screenshotUrl, type BrowserSession, type BrowserAction, type BrowserResult } from "./browser";
 export { submitBatch, getBatchStatus, type BatchJob, type BatchPrompt } from "./batch";

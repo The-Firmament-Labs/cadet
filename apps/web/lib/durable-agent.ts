@@ -20,7 +20,7 @@ async function routeStep(jobId: string, agentId: string) {
   return { job: jobs[0], stage: "route" };
 }
 
-async function planStep(runId: string, agentId: string, goal: string, gatheredContext: string) {
+async function planStep(runId: string, agentId: string, goal: string, gatheredContext: string, operatorId: string) {
   "use step";
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "plan"]);
@@ -35,7 +35,7 @@ async function planStep(runId: string, agentId: string, goal: string, gatheredCo
     });
     const planText = await planResult.text;
 
-    // Store the plan as a workflow step record
+    // Store the plan as both a workflow step and agent thinking
     await client.callReducer("record_tool_call", [
       `plan_${runId}`,
       runId,
@@ -45,6 +45,12 @@ async function planStep(runId: string, agentId: string, goal: string, gatheredCo
       "completed",
       Date.now(),
     ]);
+
+    // Store as agent_thinking for taxonomy-based context retrieval
+    try {
+      const { storeAgentThinking } = await import("./agent-runtime/message-taxonomy");
+      await storeAgentThinking(operatorId, `Plan for "${goal.slice(0, 50)}":\n${planText.slice(0, 500)}`, runId, agentId);
+    } catch { /* best-effort */ }
 
     return { stage: "plan", runId, agentId, goal, plan: planText };
   } catch {
@@ -248,23 +254,15 @@ async function summarizeStep(
 
   const summary = actSummary ?? `Run ${runId} completed.`;
 
-  // Deliver result — web gets a chat_message, platforms get a reply, system is silent
+  // Deliver result using message taxonomy — structured for context extraction
   if (channel === "system") {
     // System-triggered runs don't notify anyone
   } else if (channel === "web" || !channel) {
-    // Write completion message to chat_message table so the frontend can display it
     try {
-      const completionMsg = prUrl
-        ? `${summary}\n\nPR created: ${prUrl}`
-        : summary;
-      await client.callReducer("save_chat_message", [
-        `msg_${Date.now().toString(36)}`,
-        operatorId,
-        "default",
-        "assistant",
-        completionMsg,
-        JSON.stringify({ runId, source: "agent-completion", prUrl }),
-      ]);
+      const { storeAgentResult, storeSystemEvent } = await import("./agent-runtime/message-taxonomy");
+      const completionMsg = prUrl ? `${summary}\n\nPR created: ${prUrl}` : summary;
+      await storeAgentResult(operatorId, "agent", runId, completionMsg, prUrl);
+      await storeSystemEvent(operatorId, `Run ${runId} completed`, runId, { status: "completed", prUrl });
     } catch { /* best-effort */ }
   } else if (channelThreadId) {
     // Reply to the originating platform (Slack, Discord, etc.)
@@ -356,7 +354,7 @@ export async function agentWorkflow(params: {
   const fullContext = [conversationContext, gatherResult.contextContent].filter(Boolean).join("\n\n");
 
   // Stage 3: Plan — generate execution plan using gathered context
-  const planResult = await planStep(runId, agentId, goal, fullContext);
+  const planResult = await planStep(runId, agentId, goal, fullContext, operatorId);
 
   // Build rich instructions from gathered context + plan
   const instructions = [

@@ -20,6 +20,7 @@
 import { createControlClient } from "../server";
 import { sqlEscape } from "../sql";
 import { sanitizeContext, fenceContext } from "../sanitize";
+import type { MessageKind } from "./message-taxonomy";
 
 export interface AssembledContext {
   /** Fenced context blocks ready to inject into system prompt */
@@ -75,60 +76,107 @@ export async function assembleContext(opts: AssemblyOptions): Promise<AssembledC
   let tokensUsed = 0;
   const budget = config.tokenBudget;
 
-  // Priority 1: Recent chat history (highest value — direct conversation context)
+  // Priority 1: User prompts — what the user actually wants (grounding)
   if (config.includeChat && tokensUsed < budget) {
     try {
-      const rows = (await client.sql(
-        `SELECT role, content, metadata_json FROM chat_message WHERE operator_id = '${sqlEscape(config.operatorId)}' ORDER BY created_at_micros DESC LIMIT ${config.chatTurns}`,
+      const userRows = (await client.sql(
+        `SELECT content, metadata_json FROM chat_message WHERE operator_id = '${sqlEscape(config.operatorId)}' AND metadata_json LIKE '%"kind":"user_prompt"%' ORDER BY created_at_micros DESC LIMIT ${Math.ceil(config.chatTurns / 2)}`,
       )) as Record<string, unknown>[];
 
-      if (rows.length > 0) {
-        // Reverse to chronological order
-        const turns = rows.reverse().map((r) => {
-          const role = String(r.role ?? "user");
-          const content = sanitizeContext(String(r.content ?? ""), 300);
-          return `${role}: ${content}`;
-        });
+      if (userRows.length > 0) {
+        const promptBlock = userRows.reverse().map((r) =>
+          `> ${sanitizeContext(String(r.content ?? ""), 200)}`,
+        ).join("\n");
 
-        const chatBlock = turns.join("\n");
-        const chatTokens = estimateTokens(chatBlock);
-
-        if (tokensUsed + chatTokens <= budget) {
-          blocks.push(fenceContext("recent-conversation", chatBlock));
-          plainParts.push("Recent conversation:\n" + chatBlock);
-          tokensUsed += chatTokens;
-          sources.push(`chat (${rows.length} turns)`);
+        const promptTokens = estimateTokens(promptBlock);
+        if (tokensUsed + promptTokens <= budget) {
+          blocks.push(fenceContext("user-requests", promptBlock));
+          plainParts.push("User requests:\n" + promptBlock);
+          tokensUsed += promptTokens;
+          sources.push(`user-prompts (${userRows.length})`);
         }
       }
     } catch { /* best-effort */ }
   }
 
-  // Priority 2: Agent completion messages (results from handoffs)
-  if (config.includeRuns && tokensUsed < budget) {
+  // Priority 2: Agent responses — what agents actually did/said
+  if (config.includeChat && tokensUsed < budget) {
     try {
-      // Load recent agent completion messages (these are results from handoff_to_agent)
-      const completions = (await client.sql(
-        `SELECT content, metadata_json FROM chat_message WHERE operator_id = '${sqlEscape(config.operatorId)}' AND metadata_json LIKE '%agent-completion%' ORDER BY created_at_micros DESC LIMIT 3`,
+      const agentRows = (await client.sql(
+        `SELECT content, metadata_json FROM chat_message WHERE operator_id = '${sqlEscape(config.operatorId)}' AND metadata_json LIKE '%"kind":"agent_response"%' ORDER BY created_at_micros DESC LIMIT ${Math.ceil(config.chatTurns / 2)}`,
       )) as Record<string, unknown>[];
 
-      if (completions.length > 0) {
-        const completionBlock = completions.map((r) => {
+      if (agentRows.length > 0) {
+        const responseBlock = agentRows.reverse().map((r) => {
+          const content = sanitizeContext(String(r.content ?? ""), 200);
+          let toolInfo = "";
+          try {
+            const meta = JSON.parse(String(r.metadata_json ?? "{}")) as { toolsUsed?: string[] };
+            if (meta.toolsUsed?.length) toolInfo = ` [tools: ${meta.toolsUsed.join(", ")}]`;
+          } catch { /* */ }
+          return `Agent: ${content}${toolInfo}`;
+        }).join("\n");
+
+        const respTokens = estimateTokens(responseBlock);
+        if (tokensUsed + respTokens <= budget) {
+          blocks.push(fenceContext("agent-responses", responseBlock));
+          plainParts.push("Agent responses:\n" + responseBlock);
+          tokensUsed += respTokens;
+          sources.push(`agent-responses (${agentRows.length})`);
+        }
+      }
+    } catch { /* best-effort */ }
+  }
+
+  // Priority 3: A2A results — what delegated agents produced (handoff outcomes)
+  if (config.includeRuns && tokensUsed < budget) {
+    try {
+      const resultRows = (await client.sql(
+        `SELECT content, metadata_json FROM chat_message WHERE operator_id = '${sqlEscape(config.operatorId)}' AND (metadata_json LIKE '%"kind":"a2a_result"%' OR metadata_json LIKE '%agent-completion%') ORDER BY created_at_micros DESC LIMIT 3`,
+      )) as Record<string, unknown>[];
+
+      if (resultRows.length > 0) {
+        const resultBlock = resultRows.map((r) => {
           const content = sanitizeContext(String(r.content ?? ""), 200);
           let meta = "";
           try {
             const parsed = JSON.parse(String(r.metadata_json ?? "{}")) as Record<string, unknown>;
             if (parsed.runId) meta = ` (run: ${parsed.runId})`;
             if (parsed.prUrl) meta += ` PR: ${parsed.prUrl}`;
+            if (parsed.agentId) meta = ` [${parsed.agentId}]` + meta;
           } catch { /* */ }
-          return `Agent result${meta}: ${content}`;
+          return `Result${meta}: ${content}`;
         }).join("\n");
 
-        const compTokens = estimateTokens(completionBlock);
-        if (tokensUsed + compTokens <= budget) {
-          blocks.push(fenceContext("recent-agent-results", completionBlock));
-          plainParts.push(completionBlock);
-          tokensUsed += compTokens;
-          sources.push(`agent-results (${completions.length})`);
+        const resultTokens = estimateTokens(resultBlock);
+        if (tokensUsed + resultTokens <= budget) {
+          blocks.push(fenceContext("delegated-agent-results", resultBlock));
+          plainParts.push(resultBlock);
+          tokensUsed += resultTokens;
+          sources.push(`a2a-results (${resultRows.length})`);
+        }
+      }
+    } catch { /* best-effort */ }
+  }
+
+  // Priority 3b: Fallback — if no taxonomy messages exist yet, load raw chat history
+  if (config.includeChat && tokensUsed < budget && sources.length === 0) {
+    try {
+      const rows = (await client.sql(
+        `SELECT role, content FROM chat_message WHERE operator_id = '${sqlEscape(config.operatorId)}' ORDER BY created_at_micros DESC LIMIT ${config.chatTurns}`,
+      )) as Record<string, unknown>[];
+
+      if (rows.length > 0) {
+        const chatBlock = rows.reverse().map((r) =>
+          `${String(r.role ?? "user")}: ${sanitizeContext(String(r.content ?? ""), 200)}`,
+        ).join("\n");
+
+        const chatTokens = estimateTokens(chatBlock);
+        if (tokensUsed + chatTokens <= budget) {
+          blocks.push(fenceContext("recent-conversation", chatBlock));
+          plainParts.push("Conversation:\n" + chatBlock);
+          tokensUsed += chatTokens;
+          sources.push(`chat-fallback (${rows.length})`);
         }
       }
     } catch { /* best-effort */ }

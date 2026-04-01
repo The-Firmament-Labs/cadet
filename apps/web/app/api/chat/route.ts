@@ -84,19 +84,12 @@ export async function POST(request: Request) {
       });
     } catch { /* best-effort */ }
 
-    // --- Phase 5: Persist user message (background) ---
+    // --- Phase 5: Persist user message with taxonomy (background) ---
     if (lastUserMsg) {
       after(async () => {
         try {
-          const client = createControlClient();
-          await client.callReducer("save_chat_message", [
-            `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
-            session.operatorId,
-            "default",
-            "user",
-            userText || JSON.stringify(lastUserMsg.parts),
-            "{}",
-          ]);
+          const { storeUserPrompt } = await import("@/lib/agent-runtime/message-taxonomy");
+          await storeUserPrompt(session.operatorId, userText || JSON.stringify(lastUserMsg.parts));
         } catch { /* best-effort */ }
       });
     }
@@ -139,36 +132,48 @@ export async function POST(request: Request) {
       onFinish: async ({ text, toolCalls }) => {
         clearChatToolContext();
 
-        // Persist assistant response with tool metadata
+        const toolNames = toolCalls?.map((tc: { toolName: string }) => tc.toolName) ?? [];
+        const taxonomy = await import("@/lib/agent-runtime/message-taxonomy");
+
+        // Store agent response
         try {
-          const client = createControlClient();
-          const toolNames = toolCalls?.map((tc: { toolName: string }) => tc.toolName) ?? [];
-          await client.callReducer("save_chat_message", [
-            `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
-            session.operatorId,
-            "default",
-            "assistant",
-            text,
-            JSON.stringify({ tools: toolNames }),
-          ]);
+          await taxonomy.storeAgentResponse(session.operatorId, text, toolNames);
         } catch { /* best-effort */ }
+
+        // Store each tool call separately for granular querying
+        if (toolCalls && toolCalls.length > 0) {
+          for (const tc of toolCalls) {
+            try {
+              const typed = tc as { toolName: string; args: unknown };
+              await taxonomy.storeToolCall(session.operatorId, typed.toolName, typed.args, undefined);
+            } catch { /* best-effort */ }
+          }
+
+          // Check if any tool was a handoff — store the A2A context
+          const handoff = toolCalls.find((tc: { toolName: string }) => tc.toolName === "handoff_to_agent");
+          if (handoff) {
+            try {
+              const args = (handoff as { args: { agentId: string; goal: string } }).args;
+              await taxonomy.storeHandoff(
+                session.operatorId, "cadet", args.agentId, args.goal,
+                handoffSummary.slice(0, 500),
+                `run_${Date.now().toString(36)}`,
+              );
+            } catch { /* best-effort */ }
+          }
+        }
 
         // Fire post-prompt hooks
         try {
           const { executeHooks } = await import("@/lib/agent-runtime/hooks");
-          await executeHooks("prompt:after", {
-            event: "prompt:after",
-            operatorId: session.operatorId,
-            prompt: text.slice(0, 200),
-          });
+          await executeHooks("prompt:after", { event: "prompt:after", operatorId: session.operatorId, prompt: text.slice(0, 200) });
         } catch { /* best-effort */ }
 
-        // Auto-learn: log tool usage to Ship's Log
-        if (toolCalls && toolCalls.length > 0) {
+        // Log tool usage to Ship's Log
+        if (toolNames.length > 0) {
           try {
             const { addLogEntry } = await import("@/lib/agent-runtime/mission-journal");
-            const toolNames = toolCalls.map((tc: { toolName: string }) => tc.toolName).join(", ");
-            await addLogEntry(session.operatorId, `Used tools: ${toolNames}`);
+            await addLogEntry(session.operatorId, `Used tools: ${toolNames.join(", ")}`);
           } catch { /* best-effort */ }
         }
       },
