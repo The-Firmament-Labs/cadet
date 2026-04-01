@@ -29,6 +29,112 @@ use starbridge_core::{
 type SnapshotCallback = dyn Fn(MissionControlSnapshot, String) + Send + Sync + 'static;
 type ErrorCallback = dyn Fn(String) + Send + Sync + 'static;
 
+// ── Per-Table Signal Architecture ────────────────────────────────────
+// LiveState holds individual Dioxus signals per SpacetimeDB table.
+// Views read only the signals they need, so row changes in one table
+// don't re-render unrelated views.
+//
+// The SpacetimeDB subscription thread still produces MissionControlSnapshot,
+// but the desktop binary distributes it to individual signals.
+
+#[cfg(feature = "desktop-ui")]
+pub use live_state::*;
+
+#[cfg(feature = "desktop-ui")]
+mod live_state {
+    use dioxus::prelude::*;
+    use starbridge_core::{
+        ApprovalRequestRecord, BrowserTaskRecord, ChatThreadRecord, MemoryChunkRecord,
+        MemoryDocumentRecord, MemoryEmbeddingRecord, MessageEventRecord, MissionControlSnapshot,
+        RetrievalTraceRecord, WorkflowRunRecord, WorkflowStepRecord,
+    };
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum ConnectionStatus {
+        Connecting,
+        Connected,
+        Disconnected,
+        Error,
+    }
+
+    /// Per-table reactive state. Provided via use_context_provider in the app root.
+    /// Each signal updates independently — changing workflow_runs does NOT re-render
+    /// the Memory view.
+    #[derive(Clone, Copy)]
+    pub struct LiveState {
+        pub workflow_runs: Signal<Vec<WorkflowRunRecord>>,
+        pub workflow_steps: Signal<Vec<WorkflowStepRecord>>,
+        pub browser_tasks: Signal<Vec<BrowserTaskRecord>>,
+        pub memory_documents: Signal<Vec<MemoryDocumentRecord>>,
+        pub memory_chunks: Signal<Vec<MemoryChunkRecord>>,
+        pub memory_embeddings: Signal<Vec<MemoryEmbeddingRecord>>,
+        pub retrieval_traces: Signal<Vec<RetrievalTraceRecord>>,
+        pub approval_requests: Signal<Vec<ApprovalRequestRecord>>,
+        pub threads: Signal<Vec<ChatThreadRecord>>,
+        pub message_events: Signal<Vec<MessageEventRecord>>,
+        pub connection_status: Signal<ConnectionStatus>,
+        pub connection_error: Signal<Option<String>>,
+        pub source_label: Signal<String>,
+    }
+
+    impl LiveState {
+        pub fn new() -> Self {
+            Self {
+                workflow_runs: Signal::new(Vec::new()),
+                workflow_steps: Signal::new(Vec::new()),
+                browser_tasks: Signal::new(Vec::new()),
+                memory_documents: Signal::new(Vec::new()),
+                memory_chunks: Signal::new(Vec::new()),
+                memory_embeddings: Signal::new(Vec::new()),
+                retrieval_traces: Signal::new(Vec::new()),
+                approval_requests: Signal::new(Vec::new()),
+                threads: Signal::new(Vec::new()),
+                message_events: Signal::new(Vec::new()),
+                connection_status: Signal::new(ConnectionStatus::Connecting),
+                connection_error: Signal::new(None),
+                source_label: Signal::new("initializing".to_string()),
+            }
+        }
+
+        /// Distribute a MissionControlSnapshot to individual signals.
+        /// Called from the UI thread when a new snapshot arrives via the channel.
+        pub fn apply_snapshot(&mut self, snapshot: MissionControlSnapshot, label: String) {
+            self.workflow_runs.set(snapshot.workflow_runs);
+            self.workflow_steps.set(snapshot.workflow_steps);
+            self.browser_tasks.set(snapshot.browser_tasks);
+            self.memory_documents.set(snapshot.memory_documents);
+            self.memory_chunks.set(snapshot.memory_chunks);
+            self.memory_embeddings.set(snapshot.memory_embeddings);
+            self.retrieval_traces.set(snapshot.retrieval_traces);
+            self.approval_requests.set(snapshot.approval_requests);
+            self.threads.set(snapshot.threads);
+            self.message_events.set(snapshot.message_events);
+            self.connection_status.set(ConnectionStatus::Connected);
+            self.connection_error.set(None);
+            self.source_label.set(label);
+        }
+
+        /// Build a MissionControlSnapshot from current signal values.
+        /// Migration bridge for views not yet ported to read signals directly.
+        pub fn to_snapshot(&self) -> MissionControlSnapshot {
+            MissionControlSnapshot {
+                environment: String::new(),
+                generated_at: (self.source_label)(),
+                workflow_runs: (self.workflow_runs)(),
+                workflow_steps: (self.workflow_steps)(),
+                browser_tasks: (self.browser_tasks)(),
+                memory_documents: (self.memory_documents)(),
+                memory_chunks: (self.memory_chunks)(),
+                memory_embeddings: (self.memory_embeddings)(),
+                retrieval_traces: (self.retrieval_traces)(),
+                approval_requests: (self.approval_requests)(),
+                threads: (self.threads)(),
+                message_events: (self.message_events)(),
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LiveSnapshotOptions {
     pub base_url: String,
