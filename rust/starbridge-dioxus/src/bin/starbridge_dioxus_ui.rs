@@ -14,6 +14,7 @@ use dioxus_desktop::{
 use starbridge_core::MissionControlSnapshot;
 use starbridge_dioxus::{
     load_live_snapshot, sample_snapshot, subscribe_live_snapshots, CadetConfig, LiveSnapshotOptions,
+    LiveState, ConnectionStatus,
     MenuAction, MissionControlApp, OperatorRuntimeContext, WidgetBridge,
     auth_provider::AuthProviderRegistry,
     clipboard::ClipboardHistory,
@@ -689,6 +690,14 @@ fn app() -> Element {
     let mut snapshot = use_signal(|| bootstrap.snapshot.clone());
     let mut source_label = use_signal(|| bootstrap.source_label.clone());
     let mut load_error = use_signal(|| bootstrap.load_error.clone());
+
+    // Per-table signal state — provided as context for all views
+    let mut live_state = use_context_provider(LiveState::new);
+
+    // Initialize live state from bootstrap snapshot
+    if !bootstrap.snapshot.workflow_runs.is_empty() || !bootstrap.snapshot.threads.is_empty() {
+        live_state.apply_snapshot(bootstrap.snapshot.clone(), bootstrap.source_label.clone());
+    }
     let options = bootstrap.options.clone();
     let bridge = use_hook(|| {
         let (sender, receiver) = unbounded_channel();
@@ -728,11 +737,16 @@ fn app() -> Element {
 
                 match event {
                     Some(DesktopEvent::Snapshot(next_snapshot, label)) => {
+                        // Distribute to per-table signals
+                        live_state.apply_snapshot(next_snapshot.clone(), label.clone());
+                        // Keep legacy snapshot signal for backward compat
                         snapshot.set(next_snapshot);
                         source_label.set(label);
                         load_error.set(None);
                     }
                     Some(DesktopEvent::Error(error)) => {
+                        live_state.connection_status.set(ConnectionStatus::Error);
+                        live_state.connection_error.set(Some(error.clone()));
                         load_error.set(Some(error));
                     }
                     None => break,
