@@ -138,6 +138,7 @@ export async function storeAgentResult(
   runId: string,
   summary: string,
   prUrl?: string,
+  extra?: { branch?: string; filesChanged?: string[] },
 ): Promise<string> {
   return storeMessage({
     operatorId,
@@ -145,7 +146,7 @@ export async function storeAgentResult(
     kind: "a2a_result",
     actor: agentId,
     content: summary,
-    metadata: { agentId, runId, prUrl, source: "agent-completion" },
+    metadata: { agentId, runId, prUrl, branch: extra?.branch, filesChanged: extra?.filesChanged, source: "agent-completion" },
   });
 }
 

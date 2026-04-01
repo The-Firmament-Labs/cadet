@@ -64,31 +64,59 @@ async function gatherStep(runId: string, agentId: string, goal: string, operator
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "gather"]);
 
-  // Use the centralized context assembly to pull from ALL SpacetimeDB sources
+  const goalLower = goal.toLowerCase();
+  const parts: string[] = [];
+  const sources: string[] = [];
+
+  // Detect follow-up / debug intent and use specialized context builders
+  const isFollowUp = /\b(what you just|that fix|that change|what was just|deploy what|test what|for that)\b/i.test(goal);
+  const isDebug = /\b(debug|what went wrong|why did.*fail|what happened|error|broke)\b/i.test(goal);
+
+  if (isFollowUp) {
+    try {
+      const { buildFollowUpContext } = await import("./agent-runtime/message-taxonomy");
+      const followUp = await buildFollowUpContext(operatorId);
+      if (followUp) { parts.push(followUp); sources.push("follow-up-context"); }
+    } catch { /* best-effort */ }
+  }
+
+  if (isDebug) {
+    try {
+      // Find the most recent failed run to debug
+      const failedRuns = (await client.sql(
+        `SELECT run_id FROM workflow_run WHERE status = 'failed' ORDER BY updated_at_micros DESC LIMIT 1`,
+      )) as Record<string, unknown>[];
+      const debugRunId = failedRuns.length > 0 ? String(failedRuns[0]!.run_id) : undefined;
+
+      const { buildDebugContext } = await import("./agent-runtime/message-taxonomy");
+      const debug = await buildDebugContext(operatorId, debugRunId);
+      if (debug) { parts.push(debug); sources.push("debug-context"); }
+    } catch { /* best-effort */ }
+  }
+
+  // Always also run the general context assembly
   try {
     const { assembleContext } = await import("./agent-runtime/context-assembly");
     const assembled = await assembleContext({
       operatorId,
       goal,
-      tokenBudget: 3000,
-      includeChat: true,       // past conversation turns
-      includeRuns: true,       // what agents did recently
-      includeMemory: true,     // relevant stored knowledge
-      includeLearnings: true,  // learnings from past runs
-      includeSessions: true,   // active sandbox sessions
+      tokenBudget: isFollowUp || isDebug ? 2000 : 3000, // less budget if specialized context already loaded
+      includeChat: true,
+      includeRuns: true,
+      includeMemory: true,
+      includeLearnings: true,
+      includeSessions: true,
       chatTurns: 6,
     });
+    if (assembled.plainSummary) { parts.push(assembled.plainSummary); sources.push(...assembled.sources); }
+  } catch { /* best-effort */ }
 
-    return {
-      stage: "gather",
-      contextItems: assembled.sources.length,
-      contextContent: assembled.plainSummary,
-      sources: assembled.sources,
-    };
-  } catch {
-    // Fallback: minimal context
-    return { stage: "gather", contextItems: 0, contextContent: "", sources: [] };
-  }
+  return {
+    stage: "gather",
+    contextItems: sources.length,
+    contextContent: parts.join("\n\n"),
+    sources,
+  };
 }
 
 async function actStep(
@@ -243,10 +271,12 @@ async function verifyStep(
 async function summarizeStep(
   runId: string,
   operatorId: string,
+  agentId: string,
   channel?: string,
   channelThreadId?: string,
   actSummary?: string,
   prUrl?: string,
+  branch?: string,
 ) {
   "use step";
   const client = createControlClient();
@@ -261,8 +291,8 @@ async function summarizeStep(
     try {
       const { storeAgentResult, storeSystemEvent } = await import("./agent-runtime/message-taxonomy");
       const completionMsg = prUrl ? `${summary}\n\nPR created: ${prUrl}` : summary;
-      await storeAgentResult(operatorId, "agent", runId, completionMsg, prUrl);
-      await storeSystemEvent(operatorId, `Run ${runId} completed`, runId, { status: "completed", prUrl });
+      await storeAgentResult(operatorId, agentId, runId, completionMsg, prUrl, { branch });
+      await storeSystemEvent(operatorId, `Run ${runId} completed`, runId, { status: "completed", prUrl, branch });
     } catch { /* best-effort */ }
   } else if (channelThreadId) {
     // Reply to the originating platform (Slack, Discord, etc.)
@@ -379,8 +409,10 @@ export async function agentWorkflow(params: {
   // Stage 6: Summarize — deliver result back to user (web AND platforms)
   const actSummary = `Completed: ${goal}${(actResult as Record<string, unknown>).prUrl ? `\nPR: ${(actResult as Record<string, unknown>).prUrl}` : ""}`;
   const summarizeResult = await summarizeStep(
-    runId, operatorId, channel ?? "web", channelThreadId,
-    actSummary, (actResult as Record<string, unknown>).prUrl as string | undefined,
+    runId, operatorId, agentId, channel ?? "web", channelThreadId,
+    actSummary,
+    (actResult as Record<string, unknown>).prUrl as string | undefined,
+    sandboxContext?.branch,
   );
 
   // Stage 7: Learn — extract and store learnings
