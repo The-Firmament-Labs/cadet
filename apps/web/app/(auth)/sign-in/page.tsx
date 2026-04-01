@@ -98,7 +98,8 @@ export default function SignInPage() {
         throw new Error(err.error || "Verification failed")
       }
 
-      window.location.href = "/dashboard"
+      const isDesktop = new URLSearchParams(window.location.search).get("desktop") === "true"
+      window.location.href = isDesktop ? "/desktop-callback" : "/dashboard"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed")
     } finally {
