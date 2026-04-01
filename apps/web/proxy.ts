@@ -5,6 +5,7 @@ const PUBLIC_PATHS = new Set([
   "/",
   "/sign-in",
   "/sign-up",
+  "/desktop-callback",
   "/docs",
   "/api/health",
   "/api/auth/register",
@@ -23,6 +24,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/github/")) return true;
   if (pathname.startsWith("/api/slack/")) return true;
   if (pathname.startsWith("/api/auth/vercel/")) return true;
+  if (pathname.startsWith("/api/auth/desktop-token")) return true;
   if (pathname.startsWith("/api/queues/")) return true;
   if (pathname.startsWith("/api/workflows/")) return true;
   return false;

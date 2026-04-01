@@ -1,24 +1,29 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 export function DesktopCallbackClient({ token }: { token: string | null }) {
-  const [returned, setReturned] = useState(false)
+  const [status, setStatus] = useState<"sending" | "done" | "error">(token ? "sending" : "error")
 
-  async function handleReturn() {
+  // Auto-send token to desktop on mount — no button needed
+  useEffect(() => {
     if (!token) return
-    setReturned(true)
 
-    try {
-      await fetch("/api/auth/desktop-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      })
-    } catch { /* best-effort */ }
+    async function sendToken() {
+      try {
+        const res = await fetch("/api/auth/desktop-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        })
+        setStatus(res.ok ? "done" : "error")
+      } catch {
+        setStatus("error")
+      }
+    }
 
-    setTimeout(() => window.close(), 1000)
-  }
+    sendToken()
+  }, [token])
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "#c8d1c0" }}>
@@ -26,37 +31,28 @@ export function DesktopCallbackClient({ token }: { token: string | null }) {
         <div className="flex flex-col items-center mb-8 gap-3">
           <img src="/visuals/retro-astro.png" alt="Cadet" className="w-12 h-12" />
           <span className="text-lg font-semibold tracking-wide" style={{ color: "#1C1B1B" }}>
-            Authentication Complete
+            {status === "done" ? "Authentication Complete" : status === "sending" ? "Authenticating..." : "Authentication Failed"}
           </span>
         </div>
 
         <div className="p-6" style={{ background: "#F7F5F4", boxShadow: "0 4px 12px rgba(28,27,27,0.06)" }}>
-          {token ? (
-            <>
-              <p className="text-sm mb-4" style={{ color: "#58413C" }}>
-                {returned
-                  ? "Returning to the desktop app..."
-                  : "You've been authenticated. Click below to return to the desktop app."}
-              </p>
-              <button
-                onClick={handleReturn}
-                disabled={returned}
-                className="w-full py-2.5 px-4 text-sm font-semibold text-white cursor-pointer border-none"
-                style={{ background: returned ? "#5F5E5E" : "#AA3618" }}
-              >
-                {returned ? "Returning..." : "Return to Cadet Desktop"}
-              </button>
-            </>
-          ) : (
+          {status === "done" && (
+            <p className="text-sm" style={{ color: "#526258" }}>
+              Your session has been sent to the desktop app.<br />
+              <strong style={{ color: "#1C1B1B" }}>You can close this tab now.</strong>
+            </p>
+          )}
+          {status === "sending" && (
             <p className="text-sm" style={{ color: "#58413C" }}>
-              No session found. Please sign in first.
+              Sending session to desktop app...
+            </p>
+          )}
+          {status === "error" && (
+            <p className="text-sm" style={{ color: "#AA3618" }}>
+              {token ? "Failed to send session. Try signing in again." : "No session found. Please sign in first."}
             </p>
           )}
         </div>
-
-        <p className="mt-4 text-xs" style={{ color: "#58413C", opacity: 0.5 }}>
-          This window will close automatically.
-        </p>
       </div>
     </div>
   )
