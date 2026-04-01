@@ -67,13 +67,25 @@ export async function executeAgentPrompt(opts: {
     const lsResult = await sandbox.runCommand("ls", [workdir]);
     if (lsResult.exitCode !== 0) {
       await sandbox.runCommand("git", [
-        "clone", "--branch", opts.branch ?? "main", "--depth", "1",
+        "clone", "--branch", opts.branch ?? "main",
         opts.repoUrl, workdir,
       ]);
     }
   } else {
     await sandbox.runCommand("mkdir", ["-p", workdir]);
   }
+
+  // Find previous run for context continuity
+  let previousRunId: string | undefined;
+  try {
+    const { createControlClient } = await import("../server");
+    const { sqlEscape } = await import("../sql");
+    const client = createControlClient();
+    const prevRuns = (await client.sql(
+      `SELECT run_id FROM workflow_run WHERE agent_id = '${sqlEscape(opts.agentId)}' AND status = 'completed' ORDER BY updated_at_micros DESC LIMIT 1`,
+    )) as Record<string, unknown>[];
+    if (prevRuns.length > 0) previousRunId = String(prevRuns[0]!.run_id);
+  } catch { /* best-effort */ }
 
   // Generate and write mission brief
   const brief = await generateMissionBrief({
@@ -82,6 +94,7 @@ export async function executeAgentPrompt(opts: {
     operatorId: opts.operatorId ?? "operator",
     repoUrl: opts.repoUrl,
     branch: opts.branch,
+    previousRunId,
   });
   await writeMissionBrief(sandbox, brief, workdir);
 

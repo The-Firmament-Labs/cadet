@@ -77,6 +77,69 @@ export const chatTools = {
     },
   }),
 
+  chain_tasks: tool({
+    description: "Execute multiple agent tasks in sequence. The second task waits for the first to complete. Use when the user says 'fix AND deploy', 'refactor then test', or any compound instruction requiring ordered execution.",
+    inputSchema: z.object({
+      steps: z.array(z.object({
+        agentId: z.enum(["voyager", "saturn"]).describe("Agent for this step"),
+        goal: z.string().describe("Goal for this step"),
+      })).describe("Tasks to execute in order (max 3)"),
+    }),
+    execute: async ({ steps }) => {
+      if (steps.length === 0) return { success: false, message: "No steps provided." };
+      if (steps.length > 3) return { success: false, message: "Maximum 3 chained steps." };
+
+      try {
+        // Store the chain plan in SpacetimeDB
+        const client = createControlClient();
+        const chainId = `chain_${Date.now().toString(36)}`;
+        await client.callReducer("upsert_memory_document", [
+          chainId,
+          getToolCtx().operatorId,
+          "task_chains",
+          `Chain: ${steps.map((s) => s.goal.slice(0, 30)).join(" → ")}`,
+          JSON.stringify({
+            steps: steps.map((s, i) => ({ ...s, index: i, status: i === 0 ? "dispatching" : "waiting" })),
+            createdAt: Date.now(),
+          }),
+          "chain",
+          "{}",
+        ]);
+
+        // Dispatch the first step immediately
+        const first = steps[0]!;
+        const result = await dispatchJobFromPayload({
+          agentId: first.agentId,
+          goal: first.goal,
+          context: {
+            operatorId: getToolCtx().operatorId,
+            chainId,
+            chainStep: 0,
+            nextSteps: steps.slice(1).map((s) => `${s.agentId}: ${s.goal}`),
+            conversationContext: getToolCtx().conversationSummary?.slice(0, 500),
+          },
+        });
+
+        const runId = (result as Record<string, unknown>).workflow &&
+          typeof (result as Record<string, unknown>).workflow === "object"
+            ? ((result as Record<string, unknown>).workflow as Record<string, unknown>).runId
+            : (result as Record<string, unknown>).workflowRunId;
+
+        const stepSummary = steps.map((s, i) => `${i + 1}. ${s.agentId}: ${s.goal}`).join("\n");
+        return {
+          success: true,
+          chainId,
+          totalSteps: steps.length,
+          currentStep: 1,
+          runId: runId ?? "unknown",
+          message: `Task chain started (${steps.length} steps):\n${stepSummary}\n\nStep 1 dispatched to ${first.agentId}. Remaining steps will execute when each completes.`,
+        };
+      } catch (error) {
+        return { success: false, message: error instanceof Error ? error.message : "Chain dispatch failed" };
+      }
+    },
+  }),
+
   search_memory: tool({
     description:
       "Search stored facts, preferences, and ingested knowledge in the knowledge base. Use for 'what do you know about X', 'search memory for X', or recalling saved information. This searches the knowledge base, NOT chat history — use search_history for past conversations.",

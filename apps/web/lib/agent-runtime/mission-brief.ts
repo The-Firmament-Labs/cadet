@@ -89,6 +89,40 @@ export async function generateMissionBrief(opts: MissionContext): Promise<Missio
     sections.push("");
   }
 
+  // Previous run output (for follow-up tasks)
+  if (opts.previousRunId) {
+    try {
+      const prevResult = (await client.sql(
+        `SELECT content, metadata_json FROM chat_message WHERE conversation_id = '${sqlEscape(opts.previousRunId)}' AND metadata_json LIKE '%a2a_result%' ORDER BY created_at_micros DESC LIMIT 1`,
+      )) as Record<string, unknown>[];
+      if (prevResult.length > 0) {
+        const content = sanitizeContext(String(prevResult[0]!.content), 500);
+        let meta = "";
+        try {
+          const parsed = JSON.parse(String(prevResult[0]!.metadata_json ?? "{}")) as Record<string, unknown>;
+          if (parsed.prUrl) meta += `\nPR: ${parsed.prUrl}`;
+          if (parsed.branch) meta += `\nBranch: ${parsed.branch}`;
+        } catch { /* */ }
+        sections.push(`## Previous Run Output (${opts.previousRunId})`);
+        sections.push(content + meta);
+        sections.push("");
+      }
+    } catch { /* best-effort */ }
+  }
+
+  // Standing orders from Mission Journal
+  try {
+    const { loadMissionJournal } = await import("./mission-journal");
+    const journal = await loadMissionJournal(opts.operatorId);
+    if (journal.standingOrders.length > 0) {
+      sections.push("## Standing Orders");
+      for (const order of journal.standingOrders) {
+        sections.push(`- ${sanitizeContext(order, 100)}`);
+      }
+      sections.push("");
+    }
+  } catch { /* best-effort */ }
+
   // Operator preferences
   const prefs = await loadOperatorPreferences(opts.operatorId);
   if (prefs.length > 0) {
