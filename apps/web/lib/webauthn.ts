@@ -48,8 +48,9 @@ export async function generateRegistration(
     })),
     authenticatorSelection: {
       authenticatorAttachment: "platform",
-      residentKey: "preferred",
-      userVerification: "preferred",
+      residentKey: "required",
+      requireResidentKey: true,
+      userVerification: "required",
     },
   });
 }
@@ -78,7 +79,7 @@ export async function generateAuthentication(
       id: cred.id,
       transports: cred.transports,
     })),
-    userVerification: "preferred",
+    userVerification: "required",
   });
 }
 
