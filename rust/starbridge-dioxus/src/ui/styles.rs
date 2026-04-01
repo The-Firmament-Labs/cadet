@@ -230,7 +230,7 @@ pub const APP_STYLES: &str = r#"
         border: none;
         border-radius: 0;
         background: transparent;
-        color: rgba(255, 255, 255, 0.50);
+        color: var(--tertiary-container);
         text-align: left;
         cursor: pointer;
         transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
@@ -309,13 +309,13 @@ pub const APP_STYLES: &str = r#"
         transition: opacity 150ms ease;
         font-size: 12px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.50);
+        color: var(--tertiary-container);
         font-family: var(--sans);
     }
 
     .sidebar.sidebar-expanded .nav-label { opacity: 1; }
 
-    .nav-button:hover .nav-label { color: rgba(255, 255, 255, 0.90); }
+    .nav-button:hover .nav-label { color: #E8F5EC; }
     .nav-button-active .nav-label { color: #EF6745; }
 
     /* Nav count badge */
