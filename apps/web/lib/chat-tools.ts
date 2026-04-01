@@ -589,4 +589,47 @@ export const chatTools = {
       }
     },
   }),
+
+  // ── Internet access tools (Agent Reach pattern) ───────────────────
+
+  fetch_url: tool({
+    description: "Fetch and read a web page, YouTube video, GitHub repo/issue, or RSS feed. Auto-detects the type from the URL. Use when the user shares a link or asks to read something from the internet.",
+    inputSchema: z.object({
+      url: z.string().describe("URL to fetch, or search query for web search"),
+    }),
+    execute: async ({ url }) => {
+      try {
+        const { fetchFromChannel } = await import("./agent-runtime/internet-channels");
+        const result = await fetchFromChannel(url);
+        return { success: result.success, channel: result.channel, content: result.content.slice(0, 3000), metadata: result.metadata };
+      } catch (error) {
+        return { success: false, content: error instanceof Error ? error.message : "Fetch failed" };
+      }
+    },
+  }),
+
+  search_web: tool({
+    description: "Search the web for current information. Use when the user asks about something you don't know, recent events, or needs live data.",
+    inputSchema: z.object({
+      query: z.string().describe("Search query"),
+    }),
+    execute: async ({ query }) => {
+      try {
+        const { searchWeb } = await import("./agent-runtime/internet-channels");
+        const result = await searchWeb(query);
+        return { success: result.success, content: result.content, resultCount: result.metadata.resultCount };
+      } catch (error) {
+        return { success: false, content: error instanceof Error ? error.message : "Search failed" };
+      }
+    },
+  }),
+
+  check_channels: tool({
+    description: "Check which internet channels are available. Shows web, search, YouTube, GitHub, RSS status.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      const { checkChannelStatus } = await import("./agent-runtime/internet-channels");
+      return { channels: await checkChannelStatus() };
+    },
+  }),
 };

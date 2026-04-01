@@ -35,3 +35,4 @@ export { textToSpeech, speechToText, VOICE_PRESETS, DEFAULT_VOICE_CONFIG, type V
 export { createBrowserSession, executeBrowserAction, screenshotUrl, type BrowserSession, type BrowserAction, type BrowserResult } from "./browser";
 export { submitBatch, getBatchStatus, type BatchJob, type BatchPrompt } from "./batch";
 export { loadMissionJournal, saveMissionJournal, addLogEntry, addStandingOrder, awardMissionPatch, updateFlightPlan, customizeCrewMember, renderJournalForPrompt, type MissionJournal } from "./mission-journal";
+export { fetchWebPage, searchWeb, fetchYouTubeInfo, fetchGitHubData, fetchRssFeed, fetchFromChannel, checkChannelStatus, type ChannelResult, type ChannelStatus } from "./internet-channels";
