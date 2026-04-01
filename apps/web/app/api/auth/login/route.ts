@@ -25,13 +25,23 @@ export async function POST(request: Request) {
 
 async function handleOptions(request: Request) {
   try {
-    const body = (await request.json()) as { email?: string };
+    const url = new URL(request.url);
+    const conditionalUI = url.searchParams.get("conditional") === "true";
+    const body = (await request.json().catch(() => ({}))) as { email?: string };
     const email = body.email?.trim().toLowerCase();
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    // Conditional UI mode: return options with empty allowCredentials
+    // so the browser discovers passkeys from its own store (no QR code)
+    if (conditionalUI || !email) {
+      const options = await generateAuthentication([], true);
+      challenges.set(options.challenge, {
+        challenge: options.challenge,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      });
+      return NextResponse.json(options);
     }
 
+    // Modal mode: look up specific credentials for this email
     const operator = await findOperatorByEmail(email);
     if (!operator) {
       return NextResponse.json({ error: "No operator found with this email" }, { status: 404 });

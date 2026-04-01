@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { startAuthentication } from "@simplewebauthn/browser"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -11,7 +11,57 @@ export default function SignInPage() {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
+  // Path A: Conditional UI — passkey autofill on page load
+  // This shows the passkey in the browser's autofill dropdown (no modal, no QR code)
+  useEffect(() => {
+    let cancelled = false
+
+    async function setupConditionalUI() {
+      // Check if the browser supports conditional mediation
+      if (!window.PublicKeyCredential?.isConditionalMediationAvailable) return
+      const available = await PublicKeyCredential.isConditionalMediationAvailable()
+      if (!available || cancelled) return
+
+      try {
+        // Get options with empty allowCredentials for conditional UI
+        const res = await fetch("/api/auth/login?step=options&conditional=true", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        })
+        if (!res.ok || cancelled) return
+        const options = await res.json()
+
+        // Start authentication in autofill mode — no modal, just a dropdown
+        const credential = await startAuthentication({
+          optionsJSON: options,
+          useBrowserAutofill: true,
+        })
+
+        if (cancelled) return
+
+        // Auto-verify and redirect
+        const verifyRes = await fetch("/api/auth/login?step=verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(credential),
+        })
+        if (verifyRes.ok) {
+          window.location.href = "/dashboard"
+        }
+      } catch {
+        // User dismissed autofill or browser doesn't support it — fine,
+        // they can use the button (Path B)
+      }
+    }
+
+    setupConditionalUI()
+    return () => { cancelled = true }
+  }, [])
+
+  // Path B: Button click — modal fallback for explicit sign-in
   async function handlePasskeySignIn() {
     if (!email.trim()) {
       setError("Enter your email to find your passkey")
@@ -20,8 +70,10 @@ export default function SignInPage() {
     setLoading(true)
     setError(null)
 
+    // Cancel any pending conditional UI request
+    abortRef.current?.abort()
+
     try {
-      // Step 1: Get authentication options from server
       const optionsRes = await fetch("/api/auth/login?step=options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -33,10 +85,8 @@ export default function SignInPage() {
       }
       const options = await optionsRes.json()
 
-      // Step 2: Start WebAuthn authentication (Touch ID) — v13 API
       const credential = await startAuthentication({ optionsJSON: options })
 
-      // Step 3: Verify credential with server
       const verifyRes = await fetch("/api/auth/login?step=verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,7 +97,6 @@ export default function SignInPage() {
         throw new Error(err.error || "Verification failed")
       }
 
-      // Success — redirect to dashboard
       window.location.href = "/dashboard"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed")
@@ -83,12 +132,15 @@ export default function SignInPage() {
               </p>
             )}
 
+            {/* autocomplete="username webauthn" enables conditional UI autofill */}
             <input
               type="email"
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handlePasskeySignIn()}
+              autoComplete="username webauthn"
+              autoFocus
               className="w-full px-3 py-2 text-xs bg-secondary-foreground/5 border border-secondary-foreground/10 rounded-md text-secondary-foreground placeholder:text-secondary-foreground/30 outline-none focus:border-primary/50"
             />
 

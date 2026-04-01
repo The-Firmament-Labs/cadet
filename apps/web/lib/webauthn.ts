@@ -72,10 +72,14 @@ export async function generateAuthentication(
     id: string;
     transports: AuthenticatorTransportFuture[];
   }>,
+  conditionalUI: boolean = false,
 ) {
   return generateAuthenticationOptions({
     rpID: getRpId(),
-    allowCredentials: credentialIds.map((cred) => ({
+    // For conditional UI (autofill): empty allowCredentials lets the browser
+    // discover passkeys from its own store. This avoids the QR code modal.
+    // For modal mode (button click): specific credentials narrow the search.
+    allowCredentials: conditionalUI ? [] : credentialIds.map((cred) => ({
       id: cred.id,
       transports: cred.transports,
     })),
