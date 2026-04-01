@@ -116,71 +116,63 @@ export async function POST(request: Request) {
     } catch { /* fall back to default */ }
 
     // --- Phase 8: Stream response (scoped tool context for concurrency safety) ---
-    return withToolContext(toolCtx, () => {
+    const modelMessages = await convertToModelMessages(messages);
     const systemPrompt = [
       cadetAgent.system,
       journalPrompt,
-      dbContext,   // SpacetimeDB assembled context (chat history, runs, memories, learnings)
-      refContext,  // @ reference resolved content
+      dbContext,
+      refContext,
     ].filter(Boolean).join("\n\n");
 
-    const result = streamText({
-      model: modelId,
-      system: systemPrompt,
-      messages: await convertToModelMessages(messages),
-      tools: chatTools,
-      stopWhen: stepCountIs(5),
-      onFinish: async ({ text, toolCalls }) => {
+    // Capture operatorId for onFinish (which runs outside withToolContext scope)
+    const opId = session.operatorId;
 
+    const result = withToolContext(toolCtx, () =>
+      streamText({
+        model: modelId,
+        system: systemPrompt,
+        messages: modelMessages,
+        tools: chatTools,
+        stopWhen: stepCountIs(5),
+      }),
+    );
+
+    // Post-stream processing runs in background via after()
+    after(async () => {
+      try {
+        const text = await result.text;
+        const toolCalls = await result.toolCalls;
         const toolNames = toolCalls?.map((tc: { toolName: string }) => tc.toolName) ?? [];
         const taxonomy = await import("@/lib/agent-runtime/message-taxonomy");
 
-        // Store agent response
-        try {
-          await taxonomy.storeAgentResponse(session.operatorId, text, toolNames);
-        } catch { /* best-effort */ }
+        await taxonomy.storeAgentResponse(opId, text, toolNames).catch(() => {});
 
-        // Store each tool call separately for granular querying
         if (toolCalls && toolCalls.length > 0) {
           for (const tc of toolCalls) {
-            try {
-              const typed = tc as { toolName: string; args: unknown };
-              await taxonomy.storeToolCall(session.operatorId, typed.toolName, typed.args, undefined);
-            } catch { /* best-effort */ }
+            const tcObj = tc as Record<string, unknown>;
+            await taxonomy.storeToolCall(opId, String(tcObj.toolName ?? ""), tcObj.args, undefined).catch(() => {});
           }
 
-          // Check if any tool was a handoff — store the A2A context
-          const handoff = toolCalls.find((tc: { toolName: string }) => tc.toolName === "handoff_to_agent");
+          const handoff = toolCalls.find((tc: Record<string, unknown>) => tc.toolName === "handoff_to_agent");
           if (handoff) {
-            try {
-              const args = (handoff as { args: { agentId: string; goal: string } }).args;
-              await taxonomy.storeHandoff(
-                session.operatorId, "cadet", args.agentId, args.goal,
-                handoffSummary.slice(0, 500),
-                `run_${Date.now().toString(36)}`,
-              );
-            } catch { /* best-effort */ }
+            const hArgs = (handoff as Record<string, unknown>).args as Record<string, string> | undefined;
+            if (hArgs) {
+              await taxonomy.storeHandoff(opId, "cadet", hArgs.agentId ?? "", hArgs.goal ?? "", handoffSummary.slice(0, 500), `run_${Date.now().toString(36)}`).catch(() => {});
+            }
           }
         }
 
-        // Fire post-prompt hooks
-        try {
-          const { executeHooks } = await import("@/lib/agent-runtime/hooks");
-          await executeHooks("prompt:after", { event: "prompt:after", operatorId: session.operatorId, prompt: text.slice(0, 200) });
-        } catch { /* best-effort */ }
+        const { executeHooks } = await import("@/lib/agent-runtime/hooks");
+        await executeHooks("prompt:after", { event: "prompt:after", operatorId: opId, prompt: text.slice(0, 200) }).catch(() => {});
 
-        // Log tool usage to Ship's Log
         if (toolNames.length > 0) {
-          try {
-            const { addLogEntry } = await import("@/lib/agent-runtime/mission-journal");
-            await addLogEntry(session.operatorId, `Used tools: ${toolNames.join(", ")}`);
-          } catch { /* best-effort */ }
+          const { addLogEntry } = await import("@/lib/agent-runtime/mission-journal");
+          await addLogEntry(opId, `Used tools: ${toolNames.join(", ")}`).catch(() => {});
         }
-      },
+      } catch { /* all post-stream work is best-effort */ }
     });
 
     return result.toUIMessageStreamResponse();
-    }); // end withToolContext
   } catch (error) {
     return apiError(error, 500);
   }

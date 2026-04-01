@@ -1,0 +1,87 @@
+{
+  "version": "1.0.0",
+  "steps": {
+    "node_modules/.bun/workflow@4.2.0-beta.73+68269c80e9d3a48e/node_modules/workflow/dist/internal/builtins.js": {
+      "__builtin_response_array_buffer": {
+        "stepId": "__builtin_response_array_buffer"
+      },
+      "__builtin_response_json": {
+        "stepId": "__builtin_response_json"
+      },
+      "__builtin_response_text": {
+        "stepId": "__builtin_response_text"
+      }
+    },
+    "lib/durable-agent.ts": {
+      "actStep": {
+        "stepId": "step//./lib/durable-agent//actStep"
+      },
+      "gatherStep": {
+        "stepId": "step//./lib/durable-agent//gatherStep"
+      },
+      "learnStep": {
+        "stepId": "step//./lib/durable-agent//learnStep"
+      },
+      "planStep": {
+        "stepId": "step//./lib/durable-agent//planStep"
+      },
+      "routeStep": {
+        "stepId": "step//./lib/durable-agent//routeStep"
+      },
+      "summarizeStep": {
+        "stepId": "step//./lib/durable-agent//summarizeStep"
+      },
+      "verifyStep": {
+        "stepId": "step//./lib/durable-agent//verifyStep"
+      }
+    }
+  },
+  "workflows": {
+    "lib/durable-agent.ts": {
+      "agentWorkflow": {
+        "workflowId": "workflow//./lib/durable-agent//agentWorkflow",
+        "graph": {
+          "nodes": [
+            {
+              "id": "start",
+              "type": "workflowStart",
+              "data": {
+                "label": "Start: agentWorkflow",
+                "nodeKind": "workflow_start"
+              }
+            },
+            {
+              "id": "end",
+              "type": "workflowEnd",
+              "data": {
+                "label": "Return",
+                "nodeKind": "workflow_end"
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e_start_end",
+              "source": "start",
+              "target": "end",
+              "type": "default"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "classes": {
+    "node_modules/.bun/chat@4.23.0/node_modules/chat/dist/index.js": {
+      "ChannelImpl": {
+        "classId": "class//chat@4.23.0//ChannelImpl"
+      },
+      "Message": {
+        "classId": "class//chat@4.23.0//Message"
+      },
+      "ThreadImpl": {
+        "classId": "class//chat@4.23.0//ThreadImpl"
+      }
+    }
+  }
+}

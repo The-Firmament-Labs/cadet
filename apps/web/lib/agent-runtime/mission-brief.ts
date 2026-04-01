@@ -92,7 +92,8 @@ export async function generateMissionBrief(opts: MissionContext): Promise<Missio
   // Previous run output (for follow-up tasks)
   if (opts.previousRunId) {
     try {
-      const prevResult = (await client.sql(
+      const prevClient = createControlClient();
+      const prevResult = (await prevClient.sql(
         `SELECT content, metadata_json FROM chat_message WHERE conversation_id = '${sqlEscape(opts.previousRunId)}' AND metadata_json LIKE '%a2a_result%' ORDER BY created_at_micros DESC LIMIT 1`,
       )) as Record<string, unknown>[];
       if (prevResult.length > 0) {

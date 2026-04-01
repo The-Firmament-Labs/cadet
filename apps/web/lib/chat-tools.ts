@@ -818,7 +818,7 @@ export const chatTools = {
     execute: async ({ approvalId, decision, note }) => {
       try {
         const { resolveApprovalRecord } = await import("./durable-approval");
-        await resolveApprovalRecord(approvalId, decision, note ?? "");
+        await resolveApprovalRecord(approvalId, { status: decision, comment: note ?? "" } as never);
 
         // Resume any suspended workflow hook
         try {
