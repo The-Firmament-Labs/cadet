@@ -781,9 +781,49 @@ fn app() -> Element {
                     button {
                         class: "splash-launch",
                         onclick: move |_| {
+                            // Open sign-in in system browser with desktop flag
                             let _ = std::process::Command::new("open")
-                                .arg("http://localhost:3001/sign-in")
+                                .arg("http://localhost:3001/sign-in?desktop=true")
                                 .spawn();
+
+                            // Poll for the auth token written by the browser callback
+                            let mut splash = show_splash;
+                            spawn(async move {
+                                // Wait 3s for user to start auth, then poll every 2s
+                                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+                                for _ in 0..150 {
+                                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+                                    // Poll the token exchange endpoint via curl
+                                    let output = std::process::Command::new("curl")
+                                        .args(["-s", "http://localhost:3001/api/auth/desktop-token"])
+                                        .output();
+
+                                    if let Ok(out) = output {
+                                        if let Ok(body) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
+                                            if body.get("ok").and_then(|v| v.as_bool()) == Some(true) {
+                                                if let Some(token) = body.get("token").and_then(|v| v.as_str()) {
+                                                    // Save token to ~/.cadet/session.json
+                                                    let home = std::env::var("HOME").unwrap_or_default();
+                                                    let dir = format!("{}/.cadet", home);
+                                                    let _ = std::fs::create_dir_all(&dir);
+                                                    let _ = std::fs::write(
+                                                        format!("{}/session.json", dir),
+                                                        serde_json::json!({
+                                                            "token": token,
+                                                        }).to_string(),
+                                                    );
+
+                                                    // Auth succeeded — dismiss splash
+                                                    splash.set(false);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
                         },
                         "LOG IN"
                     }

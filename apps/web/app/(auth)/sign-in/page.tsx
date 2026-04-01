@@ -49,7 +49,8 @@ export default function SignInPage() {
           body: JSON.stringify(credential),
         })
         if (verifyRes.ok) {
-          window.location.href = "/dashboard"
+          const isDesktop = new URLSearchParams(window.location.search).get("desktop") === "true"
+          window.location.href = isDesktop ? "/desktop-callback" : "/dashboard"
         }
       } catch {
         // User dismissed autofill or browser doesn't support it — fine,

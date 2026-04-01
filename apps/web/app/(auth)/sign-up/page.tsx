@@ -66,8 +66,9 @@ export default function SignUpPage() {
         // SSH key generation is optional — don't block sign-up
       }
 
-      // Success — redirect to dashboard
-      window.location.href = "/dashboard"
+      // Redirect: desktop callback or web dashboard
+      const isDesktop = new URLSearchParams(window.location.search).get("desktop") === "true"
+      window.location.href = isDesktop ? "/desktop-callback" : "/dashboard"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed")
     } finally {
