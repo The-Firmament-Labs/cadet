@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { streamText, stepCountIs, type UIMessage, convertToModelMessages } from "ai";
 import { parseSessionFromRequest } from "@/lib/auth";
-import { chatTools, setChatToolContext, clearChatToolContext } from "@/lib/chat-tools";
+import { chatTools, withToolContext } from "@/lib/chat-tools";
 import { cloudAgentCatalog } from "@/lib/cloud-agents";
 import { createControlClient } from "@/lib/server";
 import { sqlEscape } from "@/lib/sql";
@@ -101,11 +101,11 @@ export async function POST(request: Request) {
       handoffSummary = await buildHandoffContext(session.operatorId, userText);
     } catch { /* best-effort */ }
 
-    setChatToolContext({
+    const toolCtx = {
       operatorId: session.operatorId,
       conversationSummary: handoffSummary,
       refContext: refContext.slice(0, 1000),
-    });
+    };
 
     // --- Phase 7: Select model ---
     let modelId: string = cadetAgent.model;
@@ -115,7 +115,8 @@ export async function POST(request: Request) {
       modelId = selectModel(prefs);
     } catch { /* fall back to default */ }
 
-    // --- Phase 8: Stream response ---
+    // --- Phase 8: Stream response (scoped tool context for concurrency safety) ---
+    return withToolContext(toolCtx, () => {
     const systemPrompt = [
       cadetAgent.system,
       journalPrompt,
@@ -130,7 +131,6 @@ export async function POST(request: Request) {
       tools: chatTools,
       stopWhen: stepCountIs(5),
       onFinish: async ({ text, toolCalls }) => {
-        clearChatToolContext();
 
         const toolNames = toolCalls?.map((tc: { toolName: string }) => tc.toolName) ?? [];
         const taxonomy = await import("@/lib/agent-runtime/message-taxonomy");
@@ -180,6 +180,7 @@ export async function POST(request: Request) {
     });
 
     return result.toUIMessageStreamResponse();
+    }); // end withToolContext
   } catch (error) {
     return apiError(error, 500);
   }

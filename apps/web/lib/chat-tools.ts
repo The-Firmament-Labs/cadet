@@ -15,14 +15,26 @@ export interface ChatToolContext {
 /** Default context for backward compatibility. */
 const defaultCtx: ChatToolContext = { operatorId: "operator" };
 
-/** Mutable context — set by the chat route before streaming. */
-let _toolCtx: ChatToolContext = defaultCtx;
+/**
+ * Request-scoped context using AsyncLocalStorage.
+ * Each request gets its own isolated context — no race conditions.
+ */
+import { AsyncLocalStorage } from "node:async_hooks";
+const toolCtxStore = new AsyncLocalStorage<ChatToolContext>();
 
-/** Set the tool context for the current request. Call before streamText. */
-export function setChatToolContext(ctx: ChatToolContext) { _toolCtx = ctx; }
+/** Get current request's tool context (falls back to default). */
+function getToolCtx(): ChatToolContext {
+  return toolCtxStore.getStore() ?? defaultCtx;
+}
 
-/** Reset after request completes. */
-export function clearChatToolContext() { _toolCtx = defaultCtx; }
+/** Run a callback with tool context scoped to this request. */
+export function withToolContext<T>(ctx: ChatToolContext, fn: () => T): T {
+  return toolCtxStore.run(ctx, fn);
+}
+
+/** @deprecated Use withToolContext instead. Kept for backward compat. */
+export function setChatToolContext(_ctx: ChatToolContext) { /* no-op — use withToolContext */ }
+export function clearChatToolContext() { /* no-op */ }
 
 export const chatTools = {
   handoff_to_agent: tool({
@@ -38,9 +50,9 @@ export const chatTools = {
           agentId,
           goal,
           context: {
-            operatorId: _toolCtx.operatorId,
-            conversationContext: _toolCtx.conversationSummary?.slice(0, 1000),
-            refContext: _toolCtx.refContext?.slice(0, 1000),
+            operatorId: getToolCtx().operatorId,
+            conversationContext: getToolCtx().conversationSummary?.slice(0, 1000),
+            refContext: getToolCtx().refContext?.slice(0, 1000),
             channel: "web",
           },
         });
@@ -415,9 +427,11 @@ export const chatTools = {
     description: "List available agent skills. Skills are on-demand knowledge documents that provide context for specific tasks.",
     inputSchema: z.object({}),
     execute: async () => {
-      const { listSkills } = await import("./agent-runtime/skills");
-      const skills = await listSkills();
-      return { count: skills.length, skills: skills.map((s) => ({ id: s.id, name: s.name, description: s.description, category: s.category })) };
+      try {
+        const { listSkills } = await import("./agent-runtime/skills");
+        const skills = await listSkills();
+        return { count: skills.length, skills: skills.map((s) => ({ id: s.id, name: s.name, description: s.description, category: s.category })) };
+      } catch { return { count: 0, skills: [] }; }
     },
   }),
 
@@ -425,10 +439,12 @@ export const chatTools = {
     description: "Load a specific skill's full content. Use after list_skills to get detailed guidance on a topic.",
     inputSchema: z.object({ skillId: z.string().describe("Skill ID to load") }),
     execute: async ({ skillId }) => {
-      const { viewSkill } = await import("./agent-runtime/skills");
-      const skill = await viewSkill(skillId);
-      if (!skill) return { found: false, message: `Skill '${skillId}' not found` };
-      return { found: true, name: skill.name, content: skill.content };
+      try {
+        const { viewSkill } = await import("./agent-runtime/skills");
+        const skill = await viewSkill(skillId);
+        if (!skill) return { found: false, message: `Skill '${skillId}' not found` };
+        return { found: true, name: skill.name, content: skill.content };
+      } catch { return { found: false, message: "Failed to load skill" }; }
     },
   }),
 
@@ -498,7 +514,7 @@ export const chatTools = {
     execute: async ({ strategy }) => {
       try {
         const { saveOperatorRouting } = await import("./agent-runtime/provider-routing");
-        await saveOperatorRouting(_toolCtx.operatorId, { strategy });
+        await saveOperatorRouting(getToolCtx().operatorId, { strategy });
         return { set: true, message: `Routing strategy set to '${strategy}'` };
       } catch {
         return { set: false, message: "Could not save routing preference" };
@@ -628,8 +644,10 @@ export const chatTools = {
     description: "Check which internet channels are available. Shows web, search, YouTube, GitHub, RSS status.",
     inputSchema: z.object({}),
     execute: async () => {
-      const { checkChannelStatus } = await import("./agent-runtime/internet-channels");
-      return { channels: await checkChannelStatus() };
+      try {
+        const { checkChannelStatus } = await import("./agent-runtime/internet-channels");
+        return { channels: await checkChannelStatus() };
+      } catch { return { channels: [] }; }
     },
   }),
 };
