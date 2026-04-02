@@ -396,3 +396,268 @@ pub fn message_class(direction: &str) -> &'static str {
         _ => "message-bubble message-bubble-inbound",
     }
 }
+
+// ════════════════════════════════════════════════════════════════════
+// NEW SHARED COMPONENTS
+// ════════════════════════════════════════════════════════════════════
+
+/// Dismissible error banner with coral accent.
+#[component]
+pub fn ErrorBanner(message: String, on_dismiss: EventHandler<()>) -> Element {
+    rsx! {
+        div { class: "error-banner",
+            p { class: "error-banner-text", "{message}" }
+            button {
+                class: "error-banner-dismiss",
+                onclick: move |_| on_dismiss.call(()),
+                "Dismiss"
+            }
+        }
+    }
+}
+
+/// Small colored dot indicating status.
+#[component]
+pub fn StatusDot(
+    #[props(default = "active".to_string())] status: String,
+) -> Element {
+    let class = match status.as_str() {
+        "active" | "running" => "status-dot status-dot-active",
+        "scheduled" | "queued" => "status-dot status-dot-scheduled",
+        "complete" | "completed" => "status-dot status-dot-complete",
+        "failed" | "error" => "status-dot status-dot-failed",
+        _ => "status-dot",
+    };
+    rsx! { span { class: "{class}" } }
+}
+
+/// Styled agent name badge.
+#[component]
+pub fn AgentBadge(agent: String) -> Element {
+    rsx! {
+        span { class: "agent-badge", "{agent}" }
+    }
+}
+
+/// Horizontal 7-stage pipeline visualization.
+#[component]
+pub fn StagePipeline(current_stage: String, is_complete: bool) -> Element {
+    let stages = ["route", "plan", "gather", "act", "verify", "summarize", "learn"];
+    let current_idx = stages.iter().position(|s| *s == current_stage.as_str()).unwrap_or(0);
+
+    rsx! {
+        div { class: "stage-pipeline",
+            for (i, stage) in stages.iter().enumerate() {
+                {
+                    let class = if is_complete || i < current_idx {
+                        "stage-pip stage-pip-done"
+                    } else if i == current_idx && !is_complete {
+                        "stage-pip stage-pip-active"
+                    } else {
+                        "stage-pip"
+                    };
+                    rsx! {
+                        div { class: "{class}",
+                            span { class: "stage-pip-label", "{stage}" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Compact run display card.
+#[component]
+pub fn RunCard(
+    run: WorkflowRunRecord,
+    #[props(default = false)] active: bool,
+    onclick: EventHandler<MouseEvent>,
+) -> Element {
+    let status_class = match run.status.as_str() {
+        "running" | "queued" => "active",
+        "completed" => "complete",
+        "failed" | "cancelled" => "failed",
+        _ => "scheduled",
+    };
+    rsx! {
+        button {
+            class: if active { "run-card run-card-active" } else { "run-card" },
+            onclick: move |e| onclick.call(e),
+            StatusDot { status: status_class.to_string() }
+            div { class: "run-card-body",
+                p { class: "run-card-goal", "{run.goal}" }
+                p { class: "run-card-meta", "{run.agent_id} · {run.trigger_source}" }
+            }
+            div { class: "run-card-right",
+                span { class: "run-card-stage", "{run.current_stage}" }
+            }
+        }
+    }
+}
+
+/// Inline approval card with approve/reject buttons.
+#[component]
+pub fn ApprovalCard(
+    approval_id: String,
+    title: String,
+    detail: String,
+    status: String,
+    run_id: String,
+    step_id: String,
+    on_approve: EventHandler<String>,
+    on_reject: EventHandler<String>,
+) -> Element {
+    let is_pending = status == "pending";
+    rsx! {
+        div { class: "approval-card",
+            div { class: "approval-card-head",
+                span { class: "approval-card-title", "{title}" }
+                span { class: status_badge_class(&status), "{status}" }
+            }
+            p { class: "approval-card-meta", "Run {run_id} · Step {step_id}" }
+            if !detail.is_empty() {
+                p { class: "approval-card-detail", "{detail}" }
+            }
+            if is_pending {
+                div { class: "approval-card-actions",
+                    button {
+                        class: "primary-button",
+                        onclick: {
+                            let aid = approval_id.clone();
+                            move |_| on_approve.call(aid.clone())
+                        },
+                        "Approve"
+                    }
+                    button {
+                        class: "danger-button",
+                        onclick: {
+                            let aid = approval_id.clone();
+                            move |_| on_reject.call(aid.clone())
+                        },
+                        "Reject"
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Collapsible tool call card.
+#[component]
+pub fn ToolCallCard(
+    tool_name: String,
+    status: String,
+    summary: String,
+) -> Element {
+    let mut expanded = use_signal(|| false);
+    let status_class = match status.as_str() {
+        "running" => "pill pill-live",
+        "complete" | "done" => "pill pill-success",
+        "error" | "failed" => "pill pill-danger",
+        _ => "pill pill-subtle",
+    };
+    rsx! {
+        div { class: "tool-call-card",
+            button {
+                class: "tool-call-card-head",
+                onclick: move |_| expanded.set(!expanded()),
+                span { class: "tool-call-card-name", "{tool_name}" }
+                span { class: "{status_class}", "{status}" }
+                span { class: "tool-call-card-chevron", if expanded() { "v" } else { ">" } }
+            }
+            if expanded() && !summary.is_empty() {
+                div { class: "tool-call-card-body",
+                    p { class: "tool-call-card-output", "{summary}" }
+                }
+            }
+        }
+    }
+}
+
+/// Simple markdown renderer. Converts basic markdown to RSX.
+/// Handles paragraphs, headings, bold, code blocks, inline code, lists.
+pub fn render_markdown(content: &str) -> Element {
+    use pulldown_cmark::{Parser, Event, Tag, TagEnd};
+
+    let parser = Parser::new(content);
+    let mut html = String::new();
+    let mut in_code_block = false;
+
+    for event in parser {
+        match event {
+            Event::Start(tag) => match tag {
+                Tag::Paragraph => html.push_str("<p class=\"md-p\">"),
+                Tag::Heading { level, .. } => {
+                    let tag = match level {
+                        pulldown_cmark::HeadingLevel::H1 => "h1",
+                        pulldown_cmark::HeadingLevel::H2 => "h2",
+                        pulldown_cmark::HeadingLevel::H3 => "h3",
+                        _ => "h4",
+                    };
+                    html.push_str(&format!("<{} class=\"md-heading\">", tag));
+                }
+                Tag::CodeBlock(_) => {
+                    in_code_block = true;
+                    html.push_str("<pre class=\"md-code-block\"><code>");
+                }
+                Tag::List(Some(_)) => html.push_str("<ol class=\"md-list\">"),
+                Tag::List(None) => html.push_str("<ul class=\"md-list\">"),
+                Tag::Item => html.push_str("<li>"),
+                Tag::Strong => html.push_str("<strong>"),
+                Tag::Emphasis => html.push_str("<em>"),
+                Tag::BlockQuote(_) => html.push_str("<blockquote class=\"md-blockquote\">"),
+                _ => {}
+            },
+            Event::End(tag) => match tag {
+                TagEnd::Paragraph => html.push_str("</p>"),
+                TagEnd::Heading(level) => {
+                    let tag = match level {
+                        pulldown_cmark::HeadingLevel::H1 => "h1",
+                        pulldown_cmark::HeadingLevel::H2 => "h2",
+                        pulldown_cmark::HeadingLevel::H3 => "h3",
+                        _ => "h4",
+                    };
+                    html.push_str(&format!("</{}>", tag));
+                }
+                TagEnd::CodeBlock => {
+                    in_code_block = false;
+                    html.push_str("</code></pre>");
+                }
+                TagEnd::List(true) => html.push_str("</ol>"),
+                TagEnd::List(false) => html.push_str("</ul>"),
+                TagEnd::Item => html.push_str("</li>"),
+                TagEnd::Strong => html.push_str("</strong>"),
+                TagEnd::Emphasis => html.push_str("</em>"),
+                TagEnd::BlockQuote(_) => html.push_str("</blockquote>"),
+                _ => {}
+            },
+            Event::Text(text) => {
+                if in_code_block {
+                    html.push_str(&html_escape(&text));
+                } else {
+                    html.push_str(&html_escape(&text));
+                }
+            }
+            Event::Code(code) => {
+                html.push_str(&format!("<code class=\"md-inline-code\">{}</code>", html_escape(&code)));
+            }
+            Event::SoftBreak | Event::HardBreak => html.push_str("<br>"),
+            _ => {}
+        }
+    }
+
+    rsx! {
+        div {
+            class: "markdown-body",
+            dangerous_inner_html: "{html}",
+        }
+    }
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}

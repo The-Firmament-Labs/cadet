@@ -189,6 +189,7 @@ impl WebClient {
         Self::check(resp).await
     }
 
+    #[allow(dead_code)]
     async fn post_raw(&self, path: &str, body: &str) -> Result<Response, WebClientError> {
         let resp = self
             .client

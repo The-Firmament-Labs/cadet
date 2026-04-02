@@ -3,39 +3,161 @@ use std::collections::BTreeSet;
 use serde::Deserialize;
 use starbridge_core::{MissionControlSnapshot, WorkflowStepRecord};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum WorkspacePage {
-    Chat,
-    Overview,
-    Conversations,
-    Workflow,
-    Catalog,
-    Memory,
+// ── Agent Modes (top-level tabs, like Claude Desktop's Chat/Cowork/Code) ──
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AgentMode {
+    Cadet,   // Chat — direct AI conversation
+    Voyager, // Code — task management, code execution
+    Saturn,  // Ops — runs, approvals, monitoring
 }
 
-impl WorkspacePage {
+impl AgentMode {
     pub fn label(self) -> &'static str {
         match self {
-            WorkspacePage::Chat => "Chat",
-            WorkspacePage::Overview => "Overview",
-            WorkspacePage::Conversations => "Threads",
-            WorkspacePage::Workflow => "Runs",
-            WorkspacePage::Catalog => "Agents",
-            WorkspacePage::Memory => "Memory",
+            Self::Cadet => "Cadet",
+            Self::Voyager => "Voyager",
+            Self::Saturn => "Saturn",
         }
     }
 
-    pub fn description(self) -> &'static str {
+    pub fn subtitle(self) -> &'static str {
         match self {
-            WorkspacePage::Chat => "Talk to Cadet AI. Dispatch tasks, search memory, manage agents.",
-            WorkspacePage::Overview => "Live run queue, browser work, and approval state.",
-            WorkspacePage::Conversations => "Channel threads and message history.",
-            WorkspacePage::Workflow => "Workflow stages and step movement.",
-            WorkspacePage::Catalog => "Agents, tools, and integrations.",
-            WorkspacePage::Memory => "Memory documents, embeddings, and retrieval traces.",
+            Self::Cadet => "Chat",
+            Self::Voyager => "Code",
+            Self::Saturn => "Ops",
+        }
+    }
+
+    pub fn all() -> [AgentMode; 3] {
+        [Self::Cadet, Self::Voyager, Self::Saturn]
+    }
+}
+
+// ── Content Views (what's shown in the main area) ──
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ContentView {
+    // Cadet mode
+    Chat,
+
+    // Voyager mode
+    TaskHome,
+    TaskDetail { task_id: String },
+    TaskExecution { task_id: String },
+
+    // Saturn mode
+    OpsHome,
+    RunDetail { run_id: String },
+    Approvals,
+    Memory,
+    Agents,
+}
+
+impl ContentView {
+    pub fn default_for(mode: AgentMode) -> Self {
+        match mode {
+            AgentMode::Cadet => Self::Chat,
+            AgentMode::Voyager => Self::TaskHome,
+            AgentMode::Saturn => Self::OpsHome,
         }
     }
 }
+
+
+// ── Composer types ──
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ComposerMode {
+    Chat,         // Agent selector, @-references
+    TaskDispatch, // Agent selector, project, model
+    Reply,        // Minimal: textarea + send
+}
+
+#[derive(Clone, Debug)]
+pub struct ComposerSubmission {
+    pub text: String,
+    pub agent_id: Option<String>,
+    pub model: Option<String>,
+    pub project: Option<String>,
+}
+
+// ── Agent definitions ──
+
+pub const AGENTS: &[(&str, &str)] = &[
+    ("voyager", "Voyager"),
+    ("saturn", "Saturn"),
+    ("apollo", "Apollo"),
+    ("mercury", "Mercury"),
+    ("atlas", "Atlas"),
+    ("titan", "Titan"),
+];
+
+pub const MODELS: &[(&str, &str)] = &[
+    ("claude-sonnet-4", "Sonnet 4"),
+    ("claude-opus-4", "Opus 4"),
+    ("claude-haiku-4", "Haiku 4"),
+];
+
+// ── Task data (for Voyager mode) ──
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct TaskItem {
+    pub id: String,
+    pub title: String,
+    pub description: String,
+    pub instructions: String,
+    pub status: TaskStatus,
+    pub agent: String,
+    pub created_at_ms: u64,
+    pub scheduled_at_ms: Option<u64>,
+    pub repeat_schedule: Option<String>,
+    pub project: Option<String>,
+    pub tool_log: Vec<ToolLogEntry>,
+    pub progress: Vec<ProgressItem>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TaskStatus {
+    Scheduled,
+    Active,
+    Complete,
+    Failed,
+}
+
+impl TaskStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Scheduled => "Scheduled",
+            Self::Active => "Active",
+            Self::Complete => "Complete",
+            Self::Failed => "Failed",
+        }
+    }
+
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct ToolLogEntry {
+    pub tool_name: String,
+    pub summary: String,
+    pub status: ToolLogStatus,
+    pub timestamp_ms: u64,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ToolLogStatus {
+    Running,
+    Complete,
+    Error,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct ProgressItem {
+    pub label: String,
+    pub done: bool,
+}
+
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum OverviewTab {

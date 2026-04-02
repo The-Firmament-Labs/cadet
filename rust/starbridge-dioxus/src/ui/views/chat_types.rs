@@ -84,6 +84,45 @@ pub fn derive_conversations(messages: &[ChatMsg]) -> Vec<Conversation> {
     convos
 }
 
+// ── Date classification for sidebar grouping ──
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum DateGroup {
+    Today,
+    Yesterday,
+    Previous7,
+    Older,
+}
+
+impl DateGroup {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Today => "Today",
+            Self::Yesterday => "Yesterday",
+            Self::Previous7 => "Previous 7 Days",
+            Self::Older => "Older",
+        }
+    }
+}
+
+pub fn classify_date(timestamp_ms: u64) -> DateGroup {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let age_ms = now_ms.saturating_sub(timestamp_ms);
+    let day_ms: u64 = 86_400_000;
+    if age_ms < day_ms {
+        DateGroup::Today
+    } else if age_ms < 2 * day_ms {
+        DateGroup::Yesterday
+    } else if age_ms < 7 * day_ms {
+        DateGroup::Previous7
+    } else {
+        DateGroup::Older
+    }
+}
+
 /// Convert SpacetimeDB chat_message rows to our ChatMsg type.
 pub fn from_spacetimedb_messages(rows: &[starbridge_core::MessageEventRecord]) -> Vec<ChatMsg> {
     rows.iter()
@@ -151,7 +190,7 @@ mod tests {
         let convos = derive_conversations(&msgs);
         assert_eq!(convos.len(), 2);
         assert_eq!(convos[0].thread_id, "t2"); // most recent first
-        assert_eq!(convos[0].title, "fix the bug in authentication mo...");
+        assert_eq!(convos[0].title, "fix the bug in authentication module ...");
         assert_eq!(convos[1].message_count, 2);
     }
 

@@ -15,6 +15,7 @@ starbridge-control-client = { path = "../starbridge-control-client" }
 starbridge-core = { path = "../starbridge-core" }
 tokio = { version = "1.48", features = ["rt", "sync", "time", "process", "io-util"] }
 toml = { version = "0.8", optional = true }
+pulldown-cmark = "0.12"
 reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
 
 [features]
