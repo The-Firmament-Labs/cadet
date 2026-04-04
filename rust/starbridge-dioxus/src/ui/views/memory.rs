@@ -146,9 +146,104 @@ pub fn MemoryView(snapshot: MissionControlSnapshot) -> Element {
         .map(|embedding| l2_norm(&embedding.vector))
         .unwrap_or(0.0);
 
+    // User memories — filtered from documents with agent_id starting with "user_"
+    let mut memory_tab = use_signal(|| "documents");
+    let user_memories: Vec<_> = documents.iter()
+        .filter(|d| d.agent_id.starts_with("user_"))
+        .collect();
+    let user_ids: Vec<String> = {
+        let mut ids: Vec<String> = user_memories.iter()
+            .map(|d| d.agent_id.replace("user_", ""))
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        ids.sort();
+        ids
+    };
+    let mut selected_user = use_signal(|| None::<String>);
+
     rsx! {
         div { class: "page-grid page-grid-memory",
             div { class: "panel-stack",
+                // Tab bar: Documents / Users
+                div { class: "memory-tabs",
+                    button {
+                        class: if memory_tab() == "documents" { "memory-tab memory-tab-active" } else { "memory-tab" },
+                        onclick: move |_| memory_tab.set("documents"),
+                        "Documents ({documents.len()})"
+                    }
+                    button {
+                        class: if memory_tab() == "users" { "memory-tab memory-tab-active" } else { "memory-tab" },
+                        onclick: move |_| memory_tab.set("users"),
+                        "Users ({user_ids.len()}) · {user_memories.len()} memories"
+                    }
+                }
+
+                if memory_tab() == "users" {
+                    // ── User Memory Panel ──
+                    section { class: "panel",
+                        div { class: "panel-head",
+                            p { class: "section-eyebrow", "Per-user knowledge" }
+                            h3 { class: "card-title", "User Memories" }
+                            p { class: "row-copy", "{user_memories.len()} memories across {user_ids.len()} users" }
+                        }
+                        div { class: "panel-body list-stack",
+                            if user_ids.is_empty() {
+                                EmptyState {
+                                    title: "No user memories yet".to_string(),
+                                    body: "User memories are created from conversations via keyword extraction and agent learnings.".to_string(),
+                                }
+                            }
+                            // User list
+                            for uid in user_ids.iter() {
+                                {
+                                    let uid_c = uid.clone();
+                                    let is_selected = selected_user().as_ref() == Some(uid);
+                                    let user_mem_count = user_memories.iter().filter(|d| d.agent_id == format!("user_{uid}")).count();
+                                    rsx! {
+                                        button {
+                                            class: if is_selected { "list-item list-item-active" } else { "list-item" },
+                                            onclick: move |_| selected_user.set(Some(uid_c.clone())),
+                                            div { class: "list-item-head",
+                                                strong { class: "list-item-title", "{uid}" }
+                                                span { class: "pill pill-subtle", "{user_mem_count} memories" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Selected user's memories
+                    section { class: "panel",
+                        div { class: "panel-head",
+                            h3 { class: "card-title",
+                                if let Some(uid) = selected_user() { "Memories for {uid}" } else { "Select a user" }
+                            }
+                        }
+                        div { class: "panel-body list-stack",
+                            if let Some(uid) = selected_user() {
+                                {
+                                    let agent_key = format!("user_{uid}");
+                                    let mems: Vec<_> = user_memories.iter().filter(|d| d.agent_id == agent_key).collect();
+                                    rsx! {
+                                        for mem in mems.iter() {
+                                            div { class: "user-memory-card",
+                                                div { class: "user-memory-head",
+                                                    span { class: "pill pill-subtle", "{mem.source_kind}" }
+                                                    strong { "{mem.title}" }
+                                                }
+                                                p { class: "user-memory-content", "{mem.content}" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                // ── Documents Panel (original) ──
                 section { class: "panel",
                     div { class: "panel-head",
                         p { class: "section-eyebrow", "Memory atlas" }
@@ -416,6 +511,7 @@ pub fn MemoryView(snapshot: MissionControlSnapshot) -> Element {
                 }
             }
         }
+        } // close else (documents tab)
     }
 }
 

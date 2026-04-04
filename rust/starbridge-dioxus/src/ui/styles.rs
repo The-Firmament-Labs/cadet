@@ -3146,6 +3146,17 @@ pub const APP_STYLES: &str = r#"
 /* Chat message actor line */
 .chat-actor { font-size: 11px; font-weight: 600; color: var(--on-surface-variant); margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
 .chat-user-id { font-size: 10px; font-weight: 400; color: var(--on-surface-faint); }
+
+/* Memory tab bar */
+.memory-tabs { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--outline-variant); }
+.memory-tab { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--on-surface-variant); background: transparent; border: none; cursor: pointer; transition: all 0.15s; }
+.memory-tab:hover { background: var(--surface-container-high); }
+.memory-tab-active { background: var(--tertiary-container); color: var(--on-tertiary-container); font-weight: 600; }
+
+/* User memory cards */
+.user-memory-card { padding: 10px 12px; border-radius: 8px; background: var(--surface-container-low); margin-bottom: 6px; }
+.user-memory-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; }
+.user-memory-content { font-size: 13px; color: var(--on-surface); margin: 0; line-height: 1.5; }
 "#;
 
 

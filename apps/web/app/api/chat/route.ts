@@ -104,6 +104,16 @@ export async function POST(request: Request) {
           const { storeUserPrompt } = await import("@/lib/agent-runtime/message-taxonomy");
           await storeUserPrompt(session.operatorId, userText || JSON.stringify(lastUserMsg.parts));
         } catch { /* best-effort */ }
+
+        // Keyword-triggered memory extraction (no LLM, regex-only)
+        try {
+          const { processKeywordMemories } = await import("@/lib/keyword-memory");
+          await processKeywordMemories({
+            userId: session.operatorId,
+            platform: platform ?? "web",
+            text: userText,
+          });
+        } catch { /* best-effort */ }
       });
     }
 

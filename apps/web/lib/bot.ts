@@ -244,6 +244,17 @@ export async function createCadetBot() {
         "",                                   // sentiment (to be computed later)
       ]);
     } catch { /* best-effort */ }
+
+    // Keyword-triggered memory extraction (no LLM, regex-only)
+    try {
+      const { processKeywordMemories } = await import("./keyword-memory");
+      await processKeywordMemories({
+        userId,
+        platform: thread.adapter.name,
+        text,
+        threadId: thread.id,
+      });
+    } catch { /* best-effort */ }
   });
 
   // ── Reaction handler ────────────────────────────────────────────────────────
@@ -325,6 +336,17 @@ export async function createCadetBot() {
         "",                                   // run_id (not yet assigned)
         "",                                   // sentiment (to be computed later)
       ]);
+    } catch { /* best-effort */ }
+
+    // Keyword-triggered memory extraction
+    try {
+      const { processKeywordMemories } = await import("./keyword-memory");
+      await processKeywordMemories({
+        userId,
+        platform: thread.adapter.name,
+        text,
+        threadId: thread.id,
+      });
     } catch { /* best-effort */ }
   });
 
