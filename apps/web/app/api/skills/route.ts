@@ -1,5 +1,6 @@
 import { requireOperatorApiSession } from "@/lib/auth";
 import { listSkills, viewSkill, installSkill, removeSkill } from "@/lib/agent-runtime/skills";
+import { listSkillDirectories, listFilesystemSkills, readSkillContent } from "@/lib/agent-runtime/skill-directories";
 import { apiError, apiUnauthorized, apiNotFound } from "@/lib/api-response";
 
 export async function GET(request: Request) {
@@ -8,8 +9,32 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const skillId = searchParams.get("id");
+  const source = searchParams.get("source");
 
   try {
+    // Filesystem skill directories
+    if (source === "directories") {
+      const dirs = await listSkillDirectories();
+      return Response.json({ ok: true, directories: dirs });
+    }
+
+    // Filesystem skills (from ~/.claude, ~/.codex, ~/.agents, ~/.cadet)
+    if (source === "filesystem") {
+      const enabledDirs = searchParams.get("dirs")?.split(",").filter(Boolean);
+      const skills = await listFilesystemSkills(enabledDirs ?? undefined);
+      return Response.json({ ok: true, skills });
+    }
+
+    // Read a specific filesystem skill
+    if (skillId?.includes(":")) {
+      // Try filesystem first (format: "dirId:skillName")
+      const content = await readSkillContent(skillId);
+      if (content) {
+        return Response.json({ ok: true, skill: { id: skillId, content } });
+      }
+      // Fall through to database
+    }
+
     if (skillId) {
       const skill = await viewSkill(skillId);
       if (!skill) return apiNotFound(`Skill '${skillId}' not found`);

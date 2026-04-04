@@ -403,6 +403,35 @@ impl WebClient {
         })).await?;
         resp.json().await.map_err(|e| WebClientError::Parse(e.to_string()))
     }
+
+    // ── Quick Memory (# prefix) ────────────────────────��────────────
+
+    pub async fn store_quick_memory(&self, content: &str, user_id: &str) -> Result<serde_json::Value, WebClientError> {
+        let resp = self.post("/api/memory", &serde_json::json!({
+            "action": "quick_memory",
+            "content": content,
+            "userId": user_id,
+        })).await?;
+        resp.json().await.map_err(|e| WebClientError::Parse(e.to_string()))
+    }
+
+    // ── Filesystem Skills (/ prefix) ─────────────────────────────────
+
+    pub async fn list_skill_directories(&self) -> Result<serde_json::Value, WebClientError> {
+        let resp = self.get("/api/skills?source=directories").await?;
+        resp.json().await.map_err(|e| WebClientError::Parse(e.to_string()))
+    }
+
+    pub async fn list_filesystem_skills(&self, enabled_dirs: &[&str]) -> Result<serde_json::Value, WebClientError> {
+        let dirs = enabled_dirs.join(",");
+        let resp = self.get(&format!("/api/skills?source=filesystem&dirs={dirs}")).await?;
+        resp.json().await.map_err(|e| WebClientError::Parse(e.to_string()))
+    }
+
+    pub async fn read_skill_content(&self, skill_id: &str) -> Result<serde_json::Value, WebClientError> {
+        let resp = self.get(&format!("/api/skills?id={skill_id}")).await?;
+        resp.json().await.map_err(|e| WebClientError::Parse(e.to_string()))
+    }
 }
 
 // ── SSE Parser ───────────────────────────────────────────────────────

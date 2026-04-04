@@ -182,7 +182,7 @@ pub fn AiChatView(snapshot: MissionControlSnapshot) -> Element {
                 }
                 div { class: "chat-composer-bar",
                     div { class: "chat-composer-left",
-                        span { class: "chat-composer-hint", "Enter to send · Shift+Enter for newline" }
+                        span { class: "chat-composer-hint", "# to remember · / for skills · Enter to send" }
                     }
                     button {
                         class: "primary-button",
@@ -210,6 +210,136 @@ fn do_send(
     if content.trim().is_empty() { return; }
     let Some(client) = web_client() else { return; };
     let thread_id = active_thread().unwrap_or_else(new_thread_id);
+
+    // ── # prefix → quick memory ──────────────────────────────────────
+    if content.starts_with('#') {
+        let memory_text = content[1..].trim().to_string();
+        if !memory_text.is_empty() {
+            let mem_clone = memory_text.clone();
+            let client_c = client.clone();
+            messages.write().push(ChatMsg {
+                id: new_message_id(),
+                thread_id: thread_id.clone(),
+                role: MessageRole::User,
+                content: format!("📌 {mem_clone}"),
+                tool_calls: Vec::new(),
+                timestamp_ms: now_ms(),
+                channel: "web".to_string(),
+                user_id: "operator".to_string(),
+                actor: String::new(),
+            });
+            input_text.set(String::new());
+
+            let mut messages_c = messages.clone();
+            let tid = thread_id.clone();
+            spawn(async move {
+                match client_c.store_quick_memory(&mem_clone, "operator").await {
+                    Ok(_) => {
+                        messages_c.write().push(ChatMsg {
+                            id: new_message_id(),
+                            thread_id: tid,
+                            role: MessageRole::System,
+                            content: format!("Remembered: \"{mem_clone}\""),
+                            tool_calls: Vec::new(),
+                            timestamp_ms: now_ms(),
+                            channel: "web".to_string(),
+                            user_id: "cadet".to_string(),
+                            actor: "Cadet".to_string(),
+                        });
+                    }
+                    Err(e) => {
+                        messages_c.write().push(ChatMsg {
+                            id: new_message_id(),
+                            thread_id: tid,
+                            role: MessageRole::System,
+                            content: format!("Failed to save memory: {e}"),
+                            tool_calls: Vec::new(),
+                            timestamp_ms: now_ms(),
+                            channel: "web".to_string(),
+                            user_id: "cadet".to_string(),
+                            actor: "Cadet".to_string(),
+                        });
+                    }
+                }
+            });
+        }
+        return;
+    }
+
+    // ── / prefix → skill invocation ──────────────────────────────────
+    if content.starts_with('/') {
+        let skill_query = content[1..].trim().to_string();
+        if !skill_query.is_empty() {
+            let client_c = client.clone();
+            let mut messages_c = messages.clone();
+            let mut is_streaming_c = is_streaming.clone();
+            let mut error_c = error.clone();
+            let tid = thread_id.clone();
+
+            messages.write().push(ChatMsg {
+                id: new_message_id(),
+                thread_id: thread_id.clone(),
+                role: MessageRole::User,
+                content: format!("/{skill_query}"),
+                tool_calls: Vec::new(),
+                timestamp_ms: now_ms(),
+                channel: "web".to_string(),
+                user_id: "operator".to_string(),
+                actor: String::new(),
+            });
+            input_text.set(String::new());
+            is_streaming.set(true);
+
+            spawn(async move {
+                // Try to load skill content from filesystem
+                match client_c.read_skill_content(&skill_query).await {
+                    Ok(json) => {
+                        let skill_content = json.get("skill")
+                            .and_then(|s| s.get("content"))
+                            .and_then(|c| c.as_str())
+                            .unwrap_or("Skill not found")
+                            .to_string();
+
+                        if skill_content == "Skill not found" {
+                            // Skill not found — send as regular chat with skill context request
+                            let request_msgs = vec![ChatMessage {
+                                id: new_message_id(),
+                                role: "user".to_string(),
+                                content: format!("Load and apply the skill: {skill_query}"),
+                                parts: vec![ChatPart { r#type: "text".to_string(), text: Some(format!("Load and apply the skill: {skill_query}")) }],
+                            }];
+                            match client_c.chat(request_msgs).await {
+                                Ok(text) => {
+                                    messages_c.write().push(ChatMsg {
+                                        id: new_message_id(), thread_id: tid, role: MessageRole::Assistant,
+                                        content: text, tool_calls: Vec::new(), timestamp_ms: now_ms(),
+                                        channel: "web".to_string(), user_id: "cadet".to_string(), actor: "Cadet".to_string(),
+                                    });
+                                }
+                                Err(e) => error_c.set(Some(format!("{e}"))),
+                            }
+                        } else {
+                            // Show skill content as system message
+                            let preview = if skill_content.len() > 500 {
+                                format!("{}...\n\n*({} chars loaded into context)*", &skill_content[..500], skill_content.len())
+                            } else {
+                                skill_content.clone()
+                            };
+                            messages_c.write().push(ChatMsg {
+                                id: new_message_id(), thread_id: tid.clone(), role: MessageRole::System,
+                                content: format!("📖 Loaded skill **{skill_query}**:\n\n{preview}"),
+                                tool_calls: Vec::new(), timestamp_ms: now_ms(),
+                                channel: "web".to_string(), user_id: "cadet".to_string(), actor: "Cadet".to_string(),
+                            });
+                        }
+                    }
+                    Err(e) => error_c.set(Some(format!("Skill load failed: {e}"))),
+                }
+                is_streaming_c.set(false);
+            });
+        }
+        return;
+    }
 
     let user_msg = ChatMsg {
         id: new_message_id(),
