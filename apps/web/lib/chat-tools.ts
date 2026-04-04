@@ -41,9 +41,9 @@ export function clearChatToolContext() { /* no-op */ }
 export const chatTools = {
   handoff_to_agent: tool({
     description:
-      "Delegate a task to a specialist agent for sustained execution. Use 'voyager' for coding tasks (write code, fix bugs, debug, refactor, create tests). Use 'saturn' for operations tasks (run deployments, rollback production, incident triage, infrastructure changes). Only delegate when the task requires agent execution — use other tools for quick lookups.",
+      "Delegate a task to a specialist agent for sustained execution. Use 'voyager' for coding tasks (write code, fix bugs, debug, refactor, create tests). Use 'saturn' for operations tasks (run deployments, rollback production, incident triage, infrastructure changes). Use 'eliza-crypto' for crypto/DeFi tasks (check wallet, swap tokens, portfolio, on-chain actions). Only delegate when the task requires agent execution — use other tools for quick lookups.",
     inputSchema: z.object({
-      agentId: z.enum(["voyager", "saturn"]).describe("'voyager' for coding, 'saturn' for operations"),
+      agentId: z.enum(["voyager", "saturn", "eliza-crypto"]).describe("'voyager' for coding, 'saturn' for operations, 'eliza-crypto' for crypto/DeFi"),
       goal: z.string().describe("Full task description including file names, error details, and context"),
     }),
     execute: async ({ agentId, goal }) => {

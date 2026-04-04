@@ -236,6 +236,7 @@ string_enum!(
         RustCore => "rust-core",
         BunSidecar => "bun-sidecar",
         EdgeFunction => "edge-function",
+        ElizaOs => "elizaos",
     }
 );
 

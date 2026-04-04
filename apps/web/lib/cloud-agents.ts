@@ -78,6 +78,12 @@ APPROVALS: When the user mentions approvals, use list_approvals first, then reso
         whenGoalIncludes: ["deploy", "rollback", "incident", "infrastructure", "monitoring", "ci/cd", "pipeline", "release"],
         to: "vercel-edge",
         reason: "Operations tasks require edge execution with deployment access."
+      },
+      {
+        id: "crypto-to-elizaos",
+        whenGoalIncludes: ["wallet", "swap", "trade", "token", "portfolio", "defi", "solana", "ethereum", "jupiter", "uniswap", "stake", "liquidity", "crypto", "balance", "nft"],
+        to: "elizaos-cloud",
+        reason: "Crypto/DeFi tasks require ElizaOS runtime with wallet and DEX access."
       }
     ],
     learningPolicy: {
@@ -249,6 +255,82 @@ APPROVALS: When the user mentions approvals, use list_approvals first, then reso
       summarizeEveryRuns: 4,
       embedMemory: true,
       maxRetrievedChunks: 12
+    },
+    schedules: []
+  },
+  {
+    id: "eliza-crypto",
+    name: "Eliza Crypto",
+    description: "DeFi and crypto operations agent powered by ElizaOS. Manages wallets, trades on Jupiter/Uniswap, tracks portfolios, and executes on-chain actions.",
+    prompts: {
+      system: "system/core.md",
+      personality: "agents/eliza-crypto.md",
+      stages: {
+        route: "system/autonomy.md",
+        summarize: "system/user-experience.md",
+        learn: "workflows/autonomous-loop.md",
+      },
+    },
+    system:
+      `You are Eliza Crypto, a DeFi operations agent. You manage wallets, execute trades, track portfolios, and perform on-chain actions across Solana and EVM chains.
+
+CAPABILITIES:
+- Wallet management: check balances, send tokens, manage keypairs
+- DEX trading: Jupiter (Solana), Uniswap (EVM), swap quotes and execution
+- Portfolio tracking: token holdings, PnL, historical performance
+- On-chain actions: stake, unstake, provide liquidity, claim rewards
+- Market data: token prices, trending pairs, volume analysis
+
+SAFETY: Always confirm high-value transactions (>$100) with the operator before executing. Never expose private keys. Log every trade for trajectory scoring.
+
+STYLE: Report results with token symbols, amounts, and USD values. Include transaction hashes for verification.`,
+    model: "google/gemini-2.5-flash",
+    runtime: "elizaos",
+    deployment: {
+      controlPlane: "cloud",
+      execution: "elizaos-cloud",
+      workflow: "crypto"
+    },
+    tags: ["crypto", "defi", "trading", "wallet", "solana", "evm"],
+    tools: {
+      allowExec: false,
+      allowBrowser: false,
+      allowNetwork: true,
+      allowMcp: true,
+      browser: {
+        enabled: false,
+        allowedDomains: [],
+        blockedDomains: [],
+        maxConcurrentSessions: 0,
+        allowDownloads: false,
+        defaultMode: "read",
+        requiresApprovalFor: []
+      }
+    },
+    memory: {
+      namespace: "crypto",
+      maxNotes: 500,
+      summarizeAfter: 10
+    },
+    workflowTemplates: [
+      {
+        id: "crypto-default",
+        description: "ElizaOS-backed crypto execution with trajectory scoring.",
+        stages: ["route", "plan", "act", "verify", "summarize", "learn"]
+      }
+    ],
+    toolProfiles: [
+      {
+        id: "crypto-tools",
+        description: "DeFi tools: Jupiter portfolio, DEX search, token prices, swap execution."
+      }
+    ],
+    handoffRules: [],
+    learningPolicy: {
+      enabled: true,
+      summarizeEveryRuns: 3,
+      embedMemory: true,
+      maxRetrievedChunks: 8
     },
     schedules: []
   }

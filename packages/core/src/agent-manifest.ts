@@ -14,8 +14,9 @@ export type ExecutionTarget =
   | "vercel-edge"
   | "vercel-sandbox"
   | "container-runner"
-  | "maincloud-runner";
-export type AgentRuntime = "rust-core" | "bun-sidecar" | "edge-function" | "sandbox" | "docker" | "claude-code";
+  | "maincloud-runner"
+  | "elizaos-cloud";
+export type AgentRuntime = "rust-core" | "bun-sidecar" | "edge-function" | "sandbox" | "docker" | "claude-code" | "elizaos";
 
 export type SandboxRuntime = "node24" | "node22" | "bun" | "python3" | "custom";
 

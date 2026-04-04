@@ -212,6 +212,31 @@ async function actStep(
     return { stage: "act", model, goal, responseLength: JSON.stringify(result).length, toolCallCount: 0, output: JSON.stringify(result).slice(0, 2000) };
   }
 
+  // ElizaOS Cloud execution (crypto/DeFi agents)
+  if (execution === "elizaos-cloud") {
+    try {
+      const { executeAndTrackElizaos } = await import("./agent-runtime/elizaos-executor");
+      // Get ElizaOS access token from env or operator token store
+      const elizaosToken = process.env.ELIZAOS_API_KEY ?? "";
+      if (!elizaosToken) {
+        return { stage: "act", model: model ?? "elizaos", goal, responseLength: 0, toolCallCount: 0, output: "ElizaOS not configured — set ELIZAOS_API_KEY or sign in with ElizaOS" };
+      }
+
+      const elizaResult = await executeAndTrackElizaos({
+        runId,
+        agentId: runId.replace("run_", ""),
+        goal,
+        accessToken: elizaosToken,
+        model: model ?? "google/gemini-2.5-flash",
+        systemPrompt: instructions,
+        affiliateCode: process.env.ELIZAOS_AFFILIATE_CODE,
+      });
+      return elizaResult;
+    } catch (error) {
+      return { stage: "act", model: model ?? "elizaos", goal, responseLength: 0, toolCallCount: 0, output: `ElizaOS execution failed: ${error instanceof Error ? error.message : "unknown"}` };
+    }
+  }
+
   // Default: AI SDK streamText (edge/cloud agents)
   const result = await streamText({
     model,
