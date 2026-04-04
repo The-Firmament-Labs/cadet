@@ -1373,6 +1373,50 @@ pub fn start_workflow_run(
     Ok(())
 }
 
+/// Update only the current_stage of a workflow run (called by durable-agent steps).
+#[reducer]
+pub fn update_run_stage(
+    ctx: &ReducerContext,
+    run_id: String,
+    stage: String,
+) -> Result<(), String> {
+    let Some(run) = ctx.db.workflow_run().run_id().find(run_id.clone()) else {
+        return Err(format!("workflow run {run_id} not found"));
+    };
+    ctx.db.workflow_run().run_id().update(WorkflowRun {
+        current_stage: stage,
+        updated_at_micros: now_micros(ctx),
+        ..run
+    });
+    Ok(())
+}
+
+/// Update the status of a workflow run (called when run completes, fails, or is cancelled).
+#[reducer]
+pub fn update_run_status(
+    ctx: &ReducerContext,
+    run_id: String,
+    status: String,
+) -> Result<(), String> {
+    let status = validate_workflow_run_status(status)?;
+    let Some(run) = ctx.db.workflow_run().run_id().find(run_id.clone()) else {
+        return Err(format!("workflow run {run_id} not found"));
+    };
+    let now = now_micros(ctx);
+    let completed_at = if status == WORKFLOW_RUN_STATUS_COMPLETED || status == WORKFLOW_RUN_STATUS_FAILED {
+        Some(now)
+    } else {
+        run.completed_at_micros
+    };
+    ctx.db.workflow_run().run_id().update(WorkflowRun {
+        status,
+        updated_at_micros: now,
+        completed_at_micros: completed_at,
+        ..run
+    });
+    Ok(())
+}
+
 #[reducer]
 pub fn enqueue_workflow_step(
     ctx: &ReducerContext,

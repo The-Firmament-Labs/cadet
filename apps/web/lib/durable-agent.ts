@@ -37,13 +37,14 @@ async function planStep(runId: string, agentId: string, goal: string, gatheredCo
 
     // Store the plan as both a workflow step and agent thinking
     await client.callReducer("record_tool_call", [
-      `plan_${runId}`,
-      runId,
-      "plan_generation",
-      JSON.stringify({ goal }),
-      planText.slice(0, 2000),
-      "completed",
-      Date.now(),
+      `plan_${runId}`,       // tool_call_id
+      runId,                  // run_id
+      `step_plan_${runId}`,   // step_id
+      agentId,                // agent_id
+      "plan_generation",      // tool_name
+      "completed",            // status
+      JSON.stringify({ goal }), // input_json
+      planText.slice(0, 2000),  // output_json
     ]);
 
     // Store as agent_thinking for taxonomy-based context retrieval
@@ -224,13 +225,14 @@ async function actStep(
 
   for (const tc of toolCalls) {
     await client.callReducer("record_tool_call", [
-      `tc_${runId}_${Date.now().toString(36)}`,
-      runId,
-      (tc as Record<string, unknown>).toolName ?? "unknown",
-      JSON.stringify((tc as Record<string, unknown>).args ?? {}),
-      "",
-      "completed",
-      Date.now(),
+      `tc_${runId}_${Date.now().toString(36)}`, // tool_call_id
+      runId,                                      // run_id
+      `step_act_${runId}`,                        // step_id
+      "voyager",                                  // agent_id
+      String((tc as Record<string, unknown>).toolName ?? "unknown"), // tool_name
+      "completed",                                // status
+      JSON.stringify((tc as Record<string, unknown>).args ?? {}),    // input_json
+      "",                                         // output_json
     ]);
   }
 

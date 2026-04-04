@@ -253,7 +253,8 @@ describe("actStep – default streamText path (via agentWorkflow)", () => {
     const tcCalls = mockClient.callReducer.mock.calls.filter((call) => call[0] === "record_tool_call");
     // Tool calls are recorded from actStep (and potentially planStep/learnStep mock returns them too)
     expect(tcCalls.length).toBeGreaterThanOrEqual(1);
-    expect(tcCalls.some((call) => (call[1] as unknown[])?.[2] === "read_file")).toBe(true);
+    // args: [tool_call_id, run_id, step_id, agent_id, tool_name, status, input_json, output_json]
+    expect(tcCalls.some((call) => (call[1] as unknown[])?.[4] === "read_file")).toBe(true);
   });
 
   it("returns act stage with responseLength and toolCallCount", async () => {
