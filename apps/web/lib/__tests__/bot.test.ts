@@ -23,9 +23,16 @@ vi.mock("chat", () => {
   const Chat = vi.fn().mockImplementation(function (this: Record<string, unknown>, opts: unknown) {
     this._opts = opts;
     this.onNewMention = vi.fn();
+    this.onSubscribedMessage = vi.fn();
+    this.onReaction = vi.fn();
+    this.onAction = vi.fn();
     this.registerSingleton = vi.fn();
   });
-  return { Chat };
+  const emoji = {
+    thumbs_up: "👍", thumbs_down: "👎", check: "✅", x: "❌",
+    party: "🎉", rocket: "🚀", heart: "❤️",
+  };
+  return { Chat, emoji };
 });
 
 vi.mock("@chat-adapter/slack", () => ({
@@ -42,6 +49,29 @@ vi.mock("@chat-adapter/telegram", () => ({
 
 vi.mock("@/lib/env", () => ({
   getServerEnv: vi.fn().mockReturnValue({ controlPlaneUrl: "http://localhost:3001" }),
+}));
+
+vi.mock("@/lib/server", () => ({
+  createControlClient: vi.fn().mockReturnValue({
+    sql: vi.fn().mockResolvedValue([]),
+    callReducer: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
+vi.mock("@/lib/bot-state", () => ({
+  SpacetimeStateAdapter: vi.fn().mockImplementation(() => ({
+    connect: vi.fn(), disconnect: vi.fn(),
+    get: vi.fn().mockResolvedValue(null), set: vi.fn().mockResolvedValue(undefined),
+    setIfNotExists: vi.fn().mockResolvedValue(true), delete: vi.fn().mockResolvedValue(undefined),
+    getList: vi.fn().mockResolvedValue([]), appendToList: vi.fn().mockResolvedValue(undefined),
+    acquireLock: vi.fn().mockResolvedValue({ threadId: "t", token: "tok", expiresAt: 0 }),
+    releaseLock: vi.fn().mockResolvedValue(undefined), extendLock: vi.fn().mockResolvedValue(true),
+    forceReleaseLock: vi.fn().mockResolvedValue(undefined),
+    enqueue: vi.fn().mockResolvedValue(1), dequeue: vi.fn().mockResolvedValue(null),
+    queueDepth: vi.fn().mockResolvedValue(0),
+    subscribe: vi.fn().mockResolvedValue(undefined), unsubscribe: vi.fn().mockResolvedValue(undefined),
+    isSubscribed: vi.fn().mockResolvedValue(false),
+  })),
 }));
 
 // ---------------------------------------------------------------------------

@@ -266,9 +266,10 @@ describe("chatTools.remember — success", () => {
     expect(mockClient.callReducer).toHaveBeenCalledOnce();
     const [reducerName, args] = mockClient.callReducer.mock.calls[0] as [string, unknown[]];
     expect(reducerName).toBe("upsert_memory_document");
-    // args[3] is the title, args[4] is the content
-    expect(args[3]).toBe("User prefers dark mode");
-    expect(args[4]).toBe("Always use dark theme in UI");
+    // args: [docId, agentId, namespace, source_kind, title, content, metadata]
+    expect(args[3]).toBe("conversation");  // source_kind
+    expect(args[4]).toBe("User prefers dark mode");  // title
+    expect(args[5]).toBe("Always use dark theme in UI");  // content
   });
 });
 

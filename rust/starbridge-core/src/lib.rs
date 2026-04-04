@@ -1359,6 +1359,14 @@ mod tests {
             MessageChannel::Github
         );
         assert_eq!(
+            MessageChannel::from_str("discord").expect("valid channel"),
+            MessageChannel::Discord
+        );
+        assert_eq!(
+            MessageChannel::from_str("telegram").expect("valid channel"),
+            MessageChannel::Telegram
+        );
+        assert_eq!(
             MessageDirection::from_str("system").expect("valid direction"),
             MessageDirection::System
         );
@@ -1491,6 +1499,44 @@ mod tests {
             actions_text.contains("browser"),
             "browserRequired=true should use browser evidence actions, got: {actions_text}"
         );
+    }
+
+    // ── MessageChannel roundtrips ───────────────────────────────────
+
+    #[test]
+    fn message_channel_discord_roundtrip() {
+        assert_eq!(MessageChannel::from_str("discord").unwrap(), MessageChannel::Discord);
+        assert_eq!(MessageChannel::Discord.to_string(), "discord");
+    }
+
+    #[test]
+    fn message_channel_telegram_roundtrip() {
+        assert_eq!(MessageChannel::from_str("telegram").unwrap(), MessageChannel::Telegram);
+        assert_eq!(MessageChannel::Telegram.to_string(), "telegram");
+    }
+
+    #[test]
+    fn message_channel_all_variants_roundtrip() {
+        let variants = [
+            ("web", MessageChannel::Web),
+            ("slack", MessageChannel::Slack),
+            ("discord", MessageChannel::Discord),
+            ("telegram", MessageChannel::Telegram),
+            ("github", MessageChannel::Github),
+            ("system", MessageChannel::System),
+        ];
+        for (s, expected) in variants {
+            let parsed = MessageChannel::from_str(s)
+                .unwrap_or_else(|e| panic!("MessageChannel::from_str({s:?}) failed: {e}"));
+            assert_eq!(parsed, expected, "from_str mismatch for {s:?}");
+            assert_eq!(parsed.to_string(), s, "to_string mismatch for {s:?}");
+        }
+    }
+
+    #[test]
+    fn message_channel_invalid_str_returns_err() {
+        let result = MessageChannel::from_str("carrier-pigeon");
+        assert!(result.is_err(), "unknown channel should return Err");
     }
 
     // ── WorkflowStage::ALL completeness ────────────────────────────

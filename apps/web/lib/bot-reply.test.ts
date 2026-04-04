@@ -17,6 +17,14 @@ vi.mock("./bot", () => ({
   getBot: vi.fn(async () => mockBot),
 }));
 
+// Mock ThreadImpl — the new delivery path
+const mockPost = vi.fn().mockResolvedValue(undefined);
+vi.mock("chat", () => ({
+  ThreadImpl: vi.fn().mockImplementation(() => ({
+    post: mockPost,
+  })),
+}));
+
 // ---------------------------------------------------------------------------
 // Mock: createControlClient (dynamic import inside replyToOrigin)
 // ---------------------------------------------------------------------------
@@ -102,7 +110,7 @@ describe("replyToOrigin – slack channel", () => {
     expect(call.direction).toBe("outbound");
     expect(call.actor).toBe("cadet");
     expect(call.title).toBe("Agent Reply");
-    expect(call.metadata).toEqual({ replyChannel: "slack" });
+    expect(call.metadata.replyChannel).toBe("slack");
   });
 
   it("splits channelThreadId on underscore to derive threadId", async () => {
@@ -153,7 +161,7 @@ describe("replyToOrigin – discord channel", () => {
 
     expect(mockIngestMessage).toHaveBeenCalledTimes(1);
     const call = mockIngestMessage.mock.calls[0]![0];
-    expect(call.metadata).toEqual({ replyChannel: "discord" });
+    expect(call.metadata.replyChannel).toBe("discord");
   });
 });
 
