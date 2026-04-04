@@ -7,8 +7,17 @@ import { createControlClient } from "@/lib/server";
 import { sqlEscape } from "@/lib/sql";
 import { apiError, apiUnauthorized } from "@/lib/api-response";
 import { fenceContext } from "@/lib/sanitize";
+import { openai } from "@ai-sdk/openai";
 
 const cadetAgent = cloudAgentCatalog.find((a) => a.id === "cadet")!;
+
+// Dev: use OpenAI directly when AI Gateway isn't available
+function getDevModel() {
+  if (process.env.NODE_ENV === "development" && process.env.OPENAI_API_KEY) {
+    return openai("gpt-4o-mini");
+  }
+  return undefined;
+}
 
 export async function GET(request: Request) {
   const session = parseSessionFromRequest(request);
@@ -129,7 +138,7 @@ export async function POST(request: Request) {
 
     const result = withToolContext(toolCtx, () =>
       streamText({
-        model: modelId,
+        model: getDevModel() ?? modelId,
         system: systemPrompt,
         messages: modelMessages,
         tools: chatTools,
@@ -169,6 +178,44 @@ export async function POST(request: Request) {
           const { addLogEntry } = await import("@/lib/agent-runtime/mission-journal");
           await addLogEntry(opId, `Used tools: ${toolNames.join(", ")}`).catch(() => {});
         }
+
+        // --- RLVR signal emission for chat-path responses ---
+        try {
+          const client = createControlClient();
+          const hasOutput = text.length > 0;
+          const rlvrSignals = {
+            compile_success: null,
+            tests_passed: null,
+            deploy_success: null,
+            user_feedback: null,
+            task_completed: hasOutput,
+            exit_code: hasOutput ? 0 : 1,
+          };
+          const signals = [rlvrSignals.task_completed].filter((s): s is boolean => s !== null);
+          const composite = signals.length > 0
+            ? signals.reduce((sum, s) => sum + (s ? 1.0 : 0.0), 0) / signals.length
+            : 0.5;
+          const scoreId = `rlvr_chat_${Date.now().toString(36)}`;
+          const trajId = `traj_chat_${Date.now().toString(36)}`;
+
+          // Log trajectory
+          await client.callReducer("log_trajectory", [
+            trajId, `run_chat_${Date.now().toString(36)}`, "step_chat",
+            "cadet", "act", userText.slice(0, 500),
+            "", // context_toon — chat path doesn't use TOON
+            text.slice(0, 2000), JSON.stringify(toolNames),
+            hasOutput, 0,
+          ]).catch(() => {});
+
+          // Record RLVR score
+          await client.callReducer("record_trajectory_score", [
+            scoreId, trajId, `run_chat_${Date.now().toString(36)}`,
+            composite, composite, composite, composite, composite,
+            1.0, // surprise = cold start
+            "rlvr", "", `RLVR chat: task_completed=${hasOutput}`,
+            JSON.stringify(rlvrSignals),
+          ]).catch(() => {});
+        } catch { /* RLVR is best-effort */ }
       } catch { /* all post-stream work is best-effort */ }
     });
 

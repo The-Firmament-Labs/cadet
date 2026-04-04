@@ -37,6 +37,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Dev bypass: skip auth in development
+  if (process.env.NODE_ENV === "development") {
+    return NextResponse.next();
+  }
+
   // Check for session cookie on dashboard routes
   const session = request.cookies.get("cadet_session");
   if (!session?.value) {

@@ -202,6 +202,14 @@ export async function findCredentialById(credentialId: string): Promise<{
  * Shared by all API route auth guards to avoid duplicating the regex.
  */
 export function parseSessionFromRequest(request: Request): OperatorSession | null {
+  // Dev bypass: skip auth in development when no cookie present
+  if (process.env.NODE_ENV === "development") {
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const match = cookieHeader.match(/cadet_session=([^;]+)/);
+    if (match) return decodeSession(match[1] ?? "");
+    // No cookie in dev — return default operator session
+    return { operatorId: "operator", displayName: "Operator", email: "dev@cadet.local", role: "admin" };
+  }
   const cookieHeader = request.headers.get("cookie") ?? "";
   const match = cookieHeader.match(/cadet_session=([^;]+)/);
   if (!match) return null;
