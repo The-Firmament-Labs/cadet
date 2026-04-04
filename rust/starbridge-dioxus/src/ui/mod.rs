@@ -291,6 +291,16 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                                 active_runs: metrics.active_runs,
                                 pending_approvals: metrics.pending_approvals,
                                 memory_namespaces: namespaces.len(),
+                                recent_learnings: {
+                                    let mut learnings: Vec<(String, String)> = snap.memory_documents
+                                        .iter()
+                                        .filter(|d| d.source_kind == "agent-learning")
+                                        .map(|d| (d.agent_id.clone(), d.content.clone()))
+                                        .collect();
+                                    learnings.reverse();
+                                    learnings.truncate(5);
+                                    learnings
+                                },
                                 current_view: view(),
                                 on_navigate: move |target: ContentView| {
                                     view.set(target);

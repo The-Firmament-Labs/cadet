@@ -393,6 +393,16 @@ impl WebClient {
         let resp = self.get("/api/hooks").await?;
         resp.json().await.map_err(|e| WebClientError::Parse(e.to_string()))
     }
+
+    // ── Feedback ─────────────────────────────────────────────────────
+
+    pub async fn submit_feedback(&self, message_id: &str, is_positive: bool) -> Result<serde_json::Value, WebClientError> {
+        let resp = self.post("/api/feedback", &serde_json::json!({
+            "messageId": message_id,
+            "isPositive": is_positive,
+        })).await?;
+        resp.json().await.map_err(|e| WebClientError::Parse(e.to_string()))
+    }
 }
 
 // ── SSE Parser ───────────────────────────────────────────────────────

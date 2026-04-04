@@ -327,9 +327,9 @@ async function learnStep(runId: string, agentId: string, goal: string, actOutput
           `learn_${runId}`,
           agentId,
           "learnings",
-          `Learnings from run ${runId}: ${goal.slice(0, 50)}`,
-          sanitizeContext(learnings, 500),
-          "agent-learning",
+          "agent-learning",                                    // source_kind
+          `Learnings from run ${runId}: ${goal.slice(0, 50)}`, // title
+          sanitizeContext(learnings, 500),                      // content
           JSON.stringify({ runId, agentId }),
         ]);
       }

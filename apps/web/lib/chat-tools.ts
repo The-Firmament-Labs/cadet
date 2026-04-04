@@ -97,12 +97,12 @@ export const chatTools = {
           chainId,
           getToolCtx().operatorId,
           "task_chains",
-          `Chain: ${steps.map((s) => s.goal.slice(0, 30)).join(" → ")}`,
-          JSON.stringify({
+          "chain",  // source_kind
+          `Chain: ${steps.map((s) => s.goal.slice(0, 30)).join(" → ")}`,  // title
+          JSON.stringify({  // content
             steps: steps.map((s, i) => ({ ...s, index: i, status: i === 0 ? "dispatching" : "waiting" })),
             createdAt: Date.now(),
           }),
-          "chain",
           "{}",
         ]);
 
@@ -248,9 +248,9 @@ export const chatTools = {
           `mem_${Date.now().toString(36)}`,
           "cadet",
           "assistant",
-          title,
-          content,
-          "conversation",
+          "conversation",  // source_kind
+          title,           // title
+          content,         // content
           "{}",
         ]);
         return { stored: true, message: `Remembered: "${title}"` };
@@ -286,9 +286,9 @@ export const chatTools = {
           `url_${Date.now().toString(36)}`,
           "cadet",
           "knowledge",
-          title,
-          text,
-          "url_ingest",
+          "url_ingest",  // source_kind
+          title,         // title
+          text,          // content
           JSON.stringify({ url }),
         ]);
         return { stored: true, message: `Stored "${title}" (${text.length} chars from ${url})` };
@@ -315,9 +315,9 @@ export const chatTools = {
           `reminder_${Date.now().toString(36)}`,
           "cadet",
           "reminders",
-          title,
-          JSON.stringify({ triggerAt, title, delivered: false }),
-          "reminder",
+          "reminder",  // source_kind
+          title,       // title
+          JSON.stringify({ triggerAt, title, delivered: false }),  // content
           "{}",
         ]);
         const when = minutesFromNow < 60

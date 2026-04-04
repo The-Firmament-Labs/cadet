@@ -3063,6 +3063,25 @@ pub const APP_STYLES: &str = r#"
         background: var(--primary);
         letter-spacing: 0.02em;
     }
+
+    .sidebar-learning {
+        padding: 8px 12px;
+        border-left: 2px solid var(--primary);
+        margin: 4px 0;
+    }
+
+    .sidebar-learning-agent {
+        font: 600 10px/1 var(--mono);
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .sidebar-learning-text {
+        font: 400 11px/1.4 var(--sans);
+        color: var(--on-surface-dim);
+        margin: 4px 0 0;
+    }
 "#;
 
 

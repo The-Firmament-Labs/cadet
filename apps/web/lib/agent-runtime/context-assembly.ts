@@ -255,7 +255,29 @@ export async function assembleContext(opts: AssemblyOptions): Promise<AssembledC
     } catch { /* best-effort */ }
   }
 
-  // Priority 6: Active sessions (what's currently running)
+  // Priority 6: Repo conventions (from first-run scan)
+  if (tokensUsed < budget) {
+    try {
+      const repoScans = (await client.sql(
+        `SELECT title, content FROM memory_document WHERE source_kind = 'repo-scan' LIMIT 10`,
+      )) as Record<string, unknown>[];
+
+      if (repoScans.length > 0) {
+        const scanBlock = repoScans.map((r) =>
+          `[${r.title}]\n${r.content}`,
+        ).join("\n\n");
+
+        const scanTokens = estimateTokens(scanBlock);
+        if (tokensUsed + scanTokens <= budget) {
+          blocks.push(fenceContext("repo-conventions", scanBlock));
+          tokensUsed += scanTokens;
+          sources.push(`repo-scan (${repoScans.length})`);
+        }
+      }
+    } catch { /* best-effort */ }
+  }
+
+  // Priority 7: Active sessions (what's currently running)
   if (config.includeSessions && tokensUsed < budget) {
     try {
       const sessions = (await client.sql(

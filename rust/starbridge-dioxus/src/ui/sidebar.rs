@@ -211,6 +211,7 @@ pub fn SaturnSidebarContent(
     active_runs: usize,
     pending_approvals: usize,
     memory_namespaces: usize,
+    recent_learnings: Vec<(String, String)>,
     current_view: ContentView,
     on_navigate: EventHandler<ContentView>,
 ) -> Element {
@@ -258,6 +259,19 @@ pub fn SaturnSidebarContent(
                     span { class: "sidebar-nav-label", "Memory" }
                     if memory_namespaces > 0 {
                         span { class: "sidebar-badge", "{memory_namespaces}" }
+                    }
+                }
+            }
+
+            // Recent learnings feed
+            if !recent_learnings.is_empty() {
+                div { class: "sidebar-group",
+                    p { class: "sidebar-group-label", "Recent Learnings" }
+                    for (agent, learning) in recent_learnings.iter().take(5) {
+                        div { class: "sidebar-learning",
+                            span { class: "sidebar-learning-agent", "{agent}" }
+                            p { class: "sidebar-learning-text", "{learning}" }
+                        }
                     }
                 }
             }

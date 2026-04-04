@@ -101,8 +101,13 @@ pub fn AiChatView() -> Element {
                                 message_id: msg.id.clone(),
                                 current_feedback: feedback_state().get(&msg.id).copied(),
                                 on_feedback: move |(msg_id, is_positive): (String, bool)| {
-                                    feedback_state.write().insert(msg_id, is_positive);
-                                    // TODO: call record_trajectory_score reducer via WebClient
+                                    feedback_state.write().insert(msg_id.clone(), is_positive);
+                                    if let Some(client) = web_client() {
+                                        let mid = msg_id.clone();
+                                        spawn(async move {
+                                            let _ = client.submit_feedback(&mid, is_positive).await;
+                                        });
+                                    }
                                 },
                             }
                         }
