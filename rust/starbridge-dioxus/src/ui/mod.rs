@@ -22,7 +22,7 @@ use sidebar::{ChatSidebarContent, VoyagerSidebarContent, SaturnSidebarContent};
 use styles::APP_STYLES;
 use views::{
     AiChatView, CatalogView, ChatView, MemoryView, OpsHomeView, OverviewView,
-    RlDashboardView, TaskDetailView, TaskExecView, TaskHomeView, WorkflowStudioView,
+    RlDashboardView, TaskDetailView, TaskExecView, TaskHomeView, WalletView, WorkflowStudioView,
 };
 use views::chat_types::{ChatMsg, new_thread_id, from_spacetimedb_messages};
 
@@ -189,6 +189,10 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                     "view-rl" | "view-rl-dashboard" => {
                         mode.set(AgentMode::Saturn);
                         view.set(ContentView::RlDashboard);
+                    }
+                    "view-wallet" | "view-billing" => {
+                        mode.set(AgentMode::Saturn);
+                        view.set(ContentView::Wallet);
                     }
                     "toggle-palette" => show_command_palette.set(!show_command_palette()),
                     "toggle-sidebar" => {}
@@ -454,6 +458,9 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                             ContentView::RlDashboard => rsx! {
                                 RlDashboardView { snapshot: snap.clone() }
                             },
+                            ContentView::Wallet => rsx! {
+                                WalletView { snapshot: snap.clone() }
+                            },
                         }
                     }
                 }
@@ -480,6 +487,7 @@ fn CommandPalette(
         (ContentView::Threads,     "Chat Threads"),
         (ContentView::Workflow,    "Workflow Studio"),
         (ContentView::RlDashboard, "RL Dashboard"),
+        (ContentView::Wallet,      "Wallet & Billing"),
     ];
 
     let q = query().to_lowercase();

@@ -40,6 +40,29 @@ function decrypt(encoded: string): string {
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * Generic provider token store. Keyed by `${provider}_${operatorId}` so
+ * multiple providers (vercel, elizaos, …) can coexist without collisions.
+ */
+export async function storeProviderTokens(
+  operatorId: string,
+  provider: string,
+  accessToken: string,
+  refreshToken: string,
+  expiresAtMs: number,
+): Promise<void> {
+  const client = createControlClient();
+  // Composite key: provider_operatorId (both parts are alphanumeric-safe)
+  const tokenKey = `${provider}_${operatorId}`;
+  await client.callReducer("upsert_operator_token", [
+    tokenKey,
+    provider,
+    encrypt(accessToken),
+    encrypt(refreshToken),
+    expiresAtMs * 1000, // store as micros
+  ]);
+}
+
 export async function storeVercelTokens(
   operatorId: string,
   accessToken: string,

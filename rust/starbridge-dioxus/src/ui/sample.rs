@@ -285,5 +285,6 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
         ],
         trajectory_scores: vec![],
         training_buffer: vec![],
+        operator_credits: vec![],
     }
 }

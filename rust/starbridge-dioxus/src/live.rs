@@ -142,6 +142,7 @@ mod live_state {
                 message_events: (self.message_events)(),
                 trajectory_scores: (self.trajectory_scores)(),
                 training_buffer: (self.training_buffer)(),
+                operator_credits: vec![],
             }
         }
     }
@@ -684,6 +685,7 @@ fn snapshot_from_context(
         message_events,
         trajectory_scores,
         training_buffer,
+        operator_credits: vec![],
     }
 }
 

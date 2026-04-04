@@ -906,6 +906,17 @@ pub struct MessageEventRecord {
     pub created_at_micros: i64,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct OperatorCreditsRecord {
+    pub operator_id: String,
+    pub provider: String,
+    pub credits_balance: f64,
+    pub credits_used: f64,
+    pub affiliate_earnings: f64,
+    pub wallet_address: String,
+    pub last_synced_at_micros: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MissionControlSnapshot {
@@ -935,6 +946,8 @@ pub struct MissionControlSnapshot {
     pub trajectory_scores: Vec<TrajectoryScoreRecord>,
     #[serde(default)]
     pub training_buffer: Vec<TrainingBufferRecord>,
+    #[serde(default)]
+    pub operator_credits: Vec<OperatorCreditsRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

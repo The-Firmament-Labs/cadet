@@ -3157,6 +3157,30 @@ pub const APP_STYLES: &str = r#"
 .user-memory-card { padding: 10px 12px; border-radius: 8px; background: var(--surface-container-low); margin-bottom: 6px; }
 .user-memory-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; }
 .user-memory-content { font-size: 13px; color: var(--on-surface); margin: 0; line-height: 1.5; }
+
+/* Wallet view */
+.wallet-view { padding: 16px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; height: 100%; }
+.wallet-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.wallet-card { background: var(--surface-container); border-radius: 12px; padding: 16px 20px; }
+.wallet-card-primary { background: var(--primary); color: var(--on-primary); }
+.wallet-card-primary .wallet-card-label { color: rgba(255,255,255,0.7); }
+.wallet-card-primary .wallet-card-sub { color: rgba(255,255,255,0.6); }
+.wallet-card-earnings { border: 2px solid var(--tertiary); }
+.wallet-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--on-surface-variant); margin-bottom: 4px; }
+.wallet-card-value { font-size: 28px; font-weight: 700; margin: 4px 0; }
+.wallet-value-positive { color: var(--tertiary); }
+.wallet-card-sub { font-size: 12px; color: var(--on-surface-variant); }
+.wallet-section { background: var(--surface-container); border-radius: 12px; padding: 16px; }
+.wallet-section-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.wallet-address-card { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--surface-container-low); border-radius: 8px; }
+.wallet-address-label { font-size: 11px; color: var(--on-surface-variant); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+.wallet-address-value { font-family: 'JetBrains Mono', monospace; font-size: 12px; word-break: break-all; }
+.wallet-empty { font-size: 13px; color: var(--on-surface-variant); }
+.wallet-usage-list { display: flex; flex-direction: column; gap: 4px; }
+.wallet-usage-row { display: flex; gap: 12px; padding: 6px 8px; border-radius: 6px; font-size: 12px; }
+.wallet-usage-row:hover { background: var(--surface-container-high); }
+.wallet-usage-actor { font-weight: 500; min-width: 80px; color: var(--on-surface-variant); }
+.wallet-usage-content { flex: 1; color: var(--on-surface); }
 "#;
 
 

@@ -297,6 +297,13 @@ pub fn SaturnSidebarContent(
                     span { class: "sidebar-nav-icon", "🔀" }
                     span { class: "sidebar-nav-label", "Workflow" }
                 }
+
+                button {
+                    class: if matches!(current_view, ContentView::Wallet) { "sidebar-nav-btn sidebar-nav-btn-active" } else { "sidebar-nav-btn" },
+                    onclick: move |_| on_navigate.call(ContentView::Wallet),
+                    span { class: "sidebar-nav-icon", "💰" }
+                    span { class: "sidebar-nav-label", "Wallet" }
+                }
             }
 
             // Recent learnings feed

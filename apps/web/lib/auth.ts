@@ -14,6 +14,10 @@ export interface OperatorSession {
   vercelRefreshToken?: string;
   vercelTokenExpiresAt?: number;
   vercelUserId?: string;
+  elizaosToken?: string;
+  elizaosRefreshToken?: string;
+  elizaosTokenExpiresAt?: number;
+  elizaosUserId?: string;
 }
 
 const SESSION_COOKIE = "cadet_session";
@@ -71,7 +75,7 @@ export function decodeSession(value: string): OperatorSession | null {
     ) {
       return null;
     }
-    // Validate optional Vercel fields are correct types if present
+    // Validate optional Vercel and ElizaOS fields are correct types if present
     const session: OperatorSession = {
       operatorId: parsed.operatorId,
       displayName: parsed.displayName,
@@ -82,6 +86,10 @@ export function decodeSession(value: string): OperatorSession | null {
       vercelRefreshToken: typeof parsed.vercelRefreshToken === "string" ? parsed.vercelRefreshToken : undefined,
       vercelTokenExpiresAt: typeof parsed.vercelTokenExpiresAt === "number" ? parsed.vercelTokenExpiresAt : undefined,
       vercelUserId: typeof parsed.vercelUserId === "string" ? parsed.vercelUserId : undefined,
+      elizaosToken: typeof parsed.elizaosToken === "string" ? parsed.elizaosToken : undefined,
+      elizaosRefreshToken: typeof parsed.elizaosRefreshToken === "string" ? parsed.elizaosRefreshToken : undefined,
+      elizaosTokenExpiresAt: typeof parsed.elizaosTokenExpiresAt === "number" ? parsed.elizaosTokenExpiresAt : undefined,
+      elizaosUserId: typeof parsed.elizaosUserId === "string" ? parsed.elizaosUserId : undefined,
     };
     return session;
   } catch {

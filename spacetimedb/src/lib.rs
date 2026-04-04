@@ -694,6 +694,21 @@ pub struct UserAgentConfig {
     updated_at_micros: i64,
 }
 
+// ── Operator Credits (billing integration) ───────────────────────────
+
+/// Operator credit balance and usage tracking for billing integration.
+#[table(accessor = operator_credits, public)]
+pub struct OperatorCredits {
+    #[primary_key]
+    operator_id: String,
+    provider: String,           // "elizaos" | "vercel" | etc.
+    credits_balance: f64,
+    credits_used: f64,
+    affiliate_earnings: f64,
+    wallet_address: String,     // EVM or Solana address for withdrawals
+    last_synced_at_micros: i64,
+}
+
 // ── Operator Token Store ─────────────────────────────────────────────
 
 #[table(accessor = operator_token, public)]
@@ -3380,6 +3395,43 @@ pub fn delete_operator_token(ctx: &ReducerContext, operator_id: String) -> Resul
             .operator_token()
             .operator_id()
             .delete(existing.operator_id);
+    }
+    Ok(())
+}
+
+// ── Operator Credits reducers ─────────────────────────────────────────
+
+#[reducer]
+pub fn upsert_operator_credits(
+    ctx: &ReducerContext,
+    operator_id: String,
+    provider: String,
+    credits_balance: f64,
+    credits_used: f64,
+    affiliate_earnings: f64,
+    wallet_address: String,
+) -> Result<(), String> {
+    let now = now_micros(ctx);
+    if ctx.db.operator_credits().operator_id().find(&operator_id).is_some() {
+        ctx.db.operator_credits().operator_id().update(OperatorCredits {
+            operator_id,
+            provider,
+            credits_balance,
+            credits_used,
+            affiliate_earnings,
+            wallet_address,
+            last_synced_at_micros: now,
+        });
+    } else {
+        ctx.db.operator_credits().insert(OperatorCredits {
+            operator_id,
+            provider,
+            credits_balance,
+            credits_used,
+            affiliate_earnings,
+            wallet_address,
+            last_synced_at_micros: now,
+        });
     }
     Ok(())
 }
