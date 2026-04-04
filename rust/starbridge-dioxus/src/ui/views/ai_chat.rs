@@ -6,18 +6,20 @@ use crate::ui::shared::FeedbackButtons;
 
 use super::chat_types::{
     ChatMsg, MessageRole, ToolCallStatus,
-    new_message_id, new_thread_id,
+    new_message_id, new_thread_id, from_spacetimedb_messages,
 };
+use starbridge_core::MissionControlSnapshot;
 
 fn load_web_client() -> Option<WebClient> {
     WebClient::from_session().ok()
 }
 
-/// Single-column chat view. No embedded sidebar — thread switching is
-/// handled by the global sidebar's ChatSidebarContent.
+/// Single-column chat view. Merges local messages with SpacetimeDB
+/// message events from all platforms (Slack, Discord, Telegram, GitHub, web).
+/// Thread switching is handled by the global sidebar's ChatSidebarContent.
 #[component]
-pub fn AiChatView() -> Element {
-    let mut messages = use_signal(Vec::<ChatMsg>::new);
+pub fn AiChatView(snapshot: MissionControlSnapshot) -> Element {
+    let mut local_messages = use_signal(Vec::<ChatMsg>::new);
     let active_thread = use_signal(|| Some(new_thread_id()));
     let mut input_text = use_signal(String::new);
     let mut is_streaming = use_signal(|| false);
@@ -26,7 +28,14 @@ pub fn AiChatView() -> Element {
     let mut feedback_state = use_signal(HashMap::<String, bool>::new);
 
     let has_client = web_client().is_some();
-    let all_messages = messages();
+
+    // Merge local messages with SpacetimeDB messages from all channels
+    let stdb_messages = from_spacetimedb_messages(&snapshot.message_events);
+    let mut all_messages = local_messages();
+    all_messages.extend(stdb_messages);
+    all_messages.sort_by_key(|m| m.timestamp_ms);
+    all_messages.dedup_by(|a, b| a.id == b.id);
+
     let current_thread = active_thread();
 
     let thread_messages: Vec<ChatMsg> = current_thread
@@ -58,11 +67,27 @@ pub fn AiChatView() -> Element {
                 }
 
                 for msg in thread_messages.iter() {
+                    {
+                        let actor_name = if msg.role == MessageRole::User {
+                            if msg.actor.is_empty() || msg.actor == "operator" { "You".to_string() } else { msg.actor.clone() }
+                        } else if msg.actor.is_empty() {
+                            "Cadet".to_string()
+                        } else {
+                            msg.actor.clone()
+                        };
+                        let show_channel = msg.channel != "web" && !msg.channel.is_empty();
+                        let channel_badge_class = format!("chat-channel-badge channel-{}", msg.channel);
+                        let show_user_id = !msg.user_id.is_empty() && msg.user_id != "operator" && msg.user_id != "cadet";
+                        rsx! {
                     div {
                         class: if msg.role == MessageRole::User { "chat-msg chat-msg-user" } else { "chat-msg chat-msg-assistant" },
                         div { class: "chat-msg-head",
-                            span { class: "chat-msg-actor",
-                                if msg.role == MessageRole::User { "You" } else { "Cadet" }
+                            span { class: "chat-actor", "{actor_name}" }
+                            if show_channel {
+                                span { class: "{channel_badge_class}", "{msg.channel}" }
+                            }
+                            if show_user_id {
+                                span { class: "chat-user-id", "{msg.user_id}" }
                             }
                         }
                         div { class: "chat-msg-body",
@@ -111,8 +136,10 @@ pub fn AiChatView() -> Element {
                                 },
                             }
                         }
-                    }
-                }
+                    } // close rsx! div for this message
+                        } // close rsx! macro
+                    } // close block
+                } // close for loop
 
                 if is_streaming() {
                     div { class: "chat-msg chat-msg-assistant",
@@ -149,7 +176,7 @@ pub fn AiChatView() -> Element {
                     onkeydown: move |e| {
                         if e.key() == Key::Enter && !e.modifiers().shift() {
                             e.prevent_default();
-                            do_send(&web_client, &mut messages, &active_thread, &mut input_text, &mut is_streaming, &mut error);
+                            do_send(&web_client, &mut local_messages, &active_thread, &mut input_text, &mut is_streaming, &mut error);
                         }
                     },
                 }
@@ -161,7 +188,7 @@ pub fn AiChatView() -> Element {
                         class: "primary-button",
                         disabled: input_text().trim().is_empty() || is_streaming() || !has_client,
                         onclick: move |_| {
-                            do_send(&web_client, &mut messages, &active_thread, &mut input_text, &mut is_streaming, &mut error);
+                            do_send(&web_client, &mut local_messages, &active_thread, &mut input_text, &mut is_streaming, &mut error);
                         },
                         if is_streaming() { "Sending..." } else { "Send" }
                     }
@@ -191,6 +218,9 @@ fn do_send(
         content: content.clone(),
         tool_calls: Vec::new(),
         timestamp_ms: now_ms(),
+        channel: "web".to_string(),
+        user_id: "operator".to_string(),
+        actor: String::new(),
     };
     messages.write().push(user_msg);
     input_text.set(String::new());
@@ -223,6 +253,9 @@ fn do_send(
                     content: text,
                     tool_calls: Vec::new(),
                     timestamp_ms: now_ms(),
+                    channel: "web".to_string(),
+                    user_id: "cadet".to_string(),
+                    actor: "Cadet".to_string(),
                 });
             }
             Err(e) => error.set(Some(format!("{e}"))),

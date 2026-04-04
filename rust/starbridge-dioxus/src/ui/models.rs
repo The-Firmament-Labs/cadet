@@ -52,6 +52,11 @@ pub enum ContentView {
     Approvals,
     Memory,
     Agents,
+
+    // Saturn mode (continued)
+    Threads,       // SpacetimeDB chat threads viewer
+    Workflow,      // Pipeline Kanban board
+    RlDashboard,   // RL trajectory scores + training buffer
 }
 
 impl ContentView {

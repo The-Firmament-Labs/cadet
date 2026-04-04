@@ -525,6 +525,20 @@ pub struct TrainingRun {
     created_at_micros: i64,
 }
 
+// ── Chat Bot State (SpacetimeDB-backed Chat SDK state) ──────────────
+
+/// Generic KV store for Chat SDK state adapter.
+/// Stores subscriptions, locks, dedup entries, thread state, and queue entries.
+#[table(accessor = chat_bot_state, public)]
+pub struct ChatBotState {
+    #[primary_key]
+    key: String,
+    value_json: String,
+    kind: String,            // "kv" | "lock" | "subscription" | "queue"
+    expires_at_micros: i64,  // 0 = no expiry
+    created_at_micros: i64,
+}
+
 // ── Vercel Sandbox tables ────────────────────────────────────────────
 
 #[table(accessor = sandbox_instance, public)]
@@ -639,6 +653,24 @@ pub struct ChatMessage {
     role: String,      // user | assistant
     content: String,
     metadata_json: String,
+    created_at_micros: i64,
+}
+
+/// Per-user interaction log — tracks messages, preferences, and context per user.
+#[table(accessor = user_interaction, public)]
+pub struct UserInteraction {
+    #[primary_key]
+    interaction_id: String,
+    #[index(btree)]
+    user_id: String,           // platform user ID (e.g., "slack:U123", "discord:456")
+    #[index(btree)]
+    operator_id: String,       // FK → OperatorAccount (resolved via MessageEntity)
+    platform: String,          // "slack" | "discord" | "telegram" | "github" | "web"
+    direction: String,         // "inbound" | "outbound"
+    content_preview: String,   // first 200 chars of message
+    thread_id: String,
+    run_id: String,
+    sentiment: String,         // "" | "positive" | "negative" | "neutral"
     created_at_micros: i64,
 }
 
@@ -1973,6 +2005,35 @@ pub fn upsert_memory_document(
 }
 
 #[reducer]
+pub fn record_user_interaction(
+    ctx: &ReducerContext,
+    interaction_id: String,
+    user_id: String,
+    operator_id: String,
+    platform: String,
+    direction: String,
+    content_preview: String,
+    thread_id: String,
+    run_id: String,
+    sentiment: String,
+) -> Result<(), String> {
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+    ctx.db.user_interaction().insert(UserInteraction {
+        interaction_id,
+        user_id,
+        operator_id,
+        platform,
+        direction,
+        content_preview,
+        thread_id,
+        run_id,
+        sentiment,
+        created_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
 pub fn upsert_memory_chunk(
     ctx: &ReducerContext,
     chunk_id: String,
@@ -2745,6 +2806,48 @@ pub fn update_training_run_status(
     }
 }
 
+// ── Chat Bot State reducers ─────────────────────────────────────────
+
+#[reducer]
+pub fn upsert_chat_bot_state(
+    ctx: &ReducerContext,
+    key: String,
+    value_json: String,
+    kind: String,
+    expires_at_micros: i64,
+) -> Result<(), String> {
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+    if let Some(_existing) = ctx.db.chat_bot_state().key().find(&key) {
+        ctx.db.chat_bot_state().key().update(ChatBotState {
+            key,
+            value_json,
+            kind,
+            expires_at_micros,
+            created_at_micros: now,
+        });
+    } else {
+        ctx.db.chat_bot_state().insert(ChatBotState {
+            key,
+            value_json,
+            kind,
+            expires_at_micros,
+            created_at_micros: now,
+        });
+    }
+    Ok(())
+}
+
+#[reducer]
+pub fn delete_chat_bot_state(
+    ctx: &ReducerContext,
+    key: String,
+) -> Result<(), String> {
+    if let Some(entry) = ctx.db.chat_bot_state().key().find(&key) {
+        ctx.db.chat_bot_state().key().delete(&entry.key);
+    }
+    Ok(())
+}
+
 // ── Vercel Sandbox reducers ──────────────────────────────────────────
 
 fn validate_sandbox_status(value: String) -> Result<String, String> {
@@ -3445,8 +3548,18 @@ mod tests {
     }
 
     #[test]
+    fn channel_discord_is_ok() {
+        assert_eq!(validate_channel("discord".to_string()).unwrap(), "discord");
+    }
+
+    #[test]
+    fn channel_telegram_is_ok() {
+        assert_eq!(validate_channel("telegram".to_string()).unwrap(), "telegram");
+    }
+
+    #[test]
     fn channel_invalid_is_err() {
-        assert!(validate_channel("discord".to_string()).is_err());
+        assert!(validate_channel("carrier-pigeon".to_string()).is_err());
     }
 
     // -------------------------------------------------------------------------

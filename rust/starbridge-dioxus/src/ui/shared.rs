@@ -480,6 +480,7 @@ pub fn RunCard(
         "failed" | "cancelled" => "failed",
         _ => "scheduled",
     };
+    let platform_prefix = run.trigger_source.split(':').next().unwrap_or(&run.trigger_source).to_string();
     rsx! {
         button {
             class: if active { "run-card run-card-active" } else { "run-card" },
@@ -487,7 +488,12 @@ pub fn RunCard(
             StatusDot { status: status_class.to_string() }
             div { class: "run-card-body",
                 p { class: "run-card-goal", "{run.goal}" }
-                p { class: "run-card-meta", "{run.agent_id} · {run.trigger_source}" }
+                p { class: "run-card-meta",
+                    "{run.agent_id} · {run.trigger_source}"
+                    if run.trigger_source.contains("slack") || run.trigger_source.contains("discord") || run.trigger_source.contains("telegram") {
+                        span { class: "rl-platform-badge", "{platform_prefix}" }
+                    }
+                }
             }
             div { class: "run-card-right",
                 span { class: "run-card-stage", "{run.current_stage}" }

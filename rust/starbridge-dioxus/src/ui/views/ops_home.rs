@@ -60,6 +60,34 @@ pub fn OpsHomeView(snapshot: MissionControlSnapshot) -> Element {
                 }
             }
 
+            // Platform connector indicators
+            div { class: "ops-connectors",
+                h4 { class: "ops-section-label", "Connectors" }
+                div { class: "connector-grid",
+                    {
+                        let platforms: Vec<(&str, usize, &str)> = vec![
+                            ("slack", snapshot.message_events.iter().filter(|e| e.channel == "slack").count(), "🟢"),
+                            ("discord", snapshot.message_events.iter().filter(|e| e.channel == "discord").count(), "🔵"),
+                            ("telegram", snapshot.message_events.iter().filter(|e| e.channel == "telegram").count(), "🟣"),
+                            ("github", snapshot.message_events.iter().filter(|e| e.channel == "github").count(), "⚫"),
+                            ("web", snapshot.message_events.iter().filter(|e| e.channel == "web").count(), "🌐"),
+                        ];
+                        rsx! {
+                            for (name, count, icon) in platforms.iter() {
+                                div {
+                                    class: if *count > 0 { "connector-chip connector-active" } else { "connector-chip" },
+                                    span { class: "connector-icon", "{icon}" }
+                                    span { class: "connector-name", "{name}" }
+                                    if *count > 0 {
+                                        span { class: "connector-count", "{count}" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Grid: runs + approvals
             div { class: "ops-grid",
                 // Runs panel

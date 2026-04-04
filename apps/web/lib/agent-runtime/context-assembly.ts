@@ -277,7 +277,26 @@ export async function assembleContext(opts: AssemblyOptions): Promise<AssembledC
     } catch { /* best-effort */ }
   }
 
-  // Priority 7: Active sessions (what's currently running)
+  // Priority 7: User-specific memories
+  if (config.operatorId && tokensUsed < budget) {
+    try {
+      const userMems = (await client.sql(
+        `SELECT title, content FROM memory_document WHERE agent_id = 'user_${sqlEscape(config.operatorId)}' AND namespace = 'user-memory' ORDER BY updated_at_micros DESC LIMIT 5`,
+      )) as Array<{ title: string; content: string }>;
+      if (userMems.length > 0) {
+        const userContext = userMems.map((m) => `- ${m.title}: ${m.content}`).join("\n");
+        const userTokens = estimateTokens(userContext);
+        if (tokensUsed + userTokens <= budget) {
+          blocks.push(fenceContext("user-preferences", userContext));
+          plainParts.push("User preferences:\n" + userContext);
+          tokensUsed += userTokens;
+          sources.push("user-memories");
+        }
+      }
+    } catch { /* best-effort */ }
+  }
+
+  // Priority 8: Active sessions (what's currently running)
   if (config.includeSessions && tokensUsed < budget) {
     try {
       const sessions = (await client.sql(

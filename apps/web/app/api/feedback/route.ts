@@ -7,21 +7,23 @@ export async function POST(request: Request) {
   if (!session) return apiUnauthorized();
 
   try {
-    const { messageId, isPositive } = await request.json();
+    const { messageId, isPositive, platform, runId } = await request.json();
     const client = createControlClient();
-    const scoreId = `feedback_${messageId}_${Date.now().toString(36)}`;
+    const platformTag = platform ?? "web";
+    const scoreId = `feedback_${platformTag}_${messageId}_${Date.now().toString(36)}`;
     const composite = isPositive ? 1.0 : 0.0;
+    const effectiveRunId = runId ?? `run_chat_${messageId}`;
 
     await client.callReducer("record_trajectory_score", [
       scoreId,
       `traj_${messageId}`,
-      `run_chat_${messageId}`,
+      effectiveRunId,
       composite, composite, composite, composite, composite,
       1.0, // surprise = 1.0 (operator feedback is always novel)
       "operator-feedback",
       "",
-      isPositive ? "Operator thumbs up" : "Operator thumbs down",
-      JSON.stringify({ user_feedback: isPositive }),
+      `${platformTag}: ${isPositive ? "thumbs up" : "thumbs down"}`,
+      JSON.stringify({ user_feedback: isPositive, platform: platformTag }),
     ]);
 
     return Response.json({ ok: true, scoreId });

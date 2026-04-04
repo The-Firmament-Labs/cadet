@@ -123,7 +123,7 @@ describe("routeStep (via agentWorkflow)", () => {
     expect(sqlCalls[0]![0]).toContain("job_001");
 
     const reducerCalls = mockClient.callReducer.mock.calls;
-    const routeCall = reducerCalls.find(([name, args]) => name === "update_run_stage" && args[1] === "route");
+    const routeCall = reducerCalls.find((call) => call[0] === "update_run_stage" && (call[1] as string[])?.[1] === "route");
     expect(routeCall).toBeDefined();
   });
 
@@ -154,7 +154,7 @@ describe("planStep (via agentWorkflow)", () => {
     await agentWorkflow(BASE_PARAMS);
 
     const planCall = mockClient.callReducer.mock.calls.find(
-      ([name, args]) => name === "update_run_stage" && args[1] === "plan"
+      (call) => call[0] === "update_run_stage" && (call[1] as string[])?.[1] === "plan"
     );
     expect(planCall).toBeDefined();
     expect(planCall![1][0]).toBe("run_001");
@@ -180,8 +180,7 @@ describe("gatherStep (via agentWorkflow)", () => {
     const result = await agentWorkflow(BASE_PARAMS);
 
     const gatherCall = mockClient.callReducer.mock.calls.find(
-      // @ts-expect-error -- mock call typing
-    ([name, args]) => name === "update_run_stage" && args[1] === "gather"
+      (call) => call[0] === "update_run_stage" && (call[1] as string[])?.[1] === "gather"
     );
     expect(gatherCall).toBeDefined();
 
@@ -236,7 +235,7 @@ describe("actStep – default streamText path (via agentWorkflow)", () => {
     await agentWorkflow(BASE_PARAMS);
 
     const actCall = mockClient.callReducer.mock.calls.find(
-      ([name, args]) => name === "update_run_stage" && args[1] === "act"
+      (call) => call[0] === "update_run_stage" && (call[1] as string[])?.[1] === "act"
     );
     expect(actCall).toBeDefined();
   });
@@ -251,10 +250,10 @@ describe("actStep – default streamText path (via agentWorkflow)", () => {
 
     await agentWorkflow(BASE_PARAMS);
 
-    const tcCalls = mockClient.callReducer.mock.calls.filter(([name]: [string]) => name === "record_tool_call");
+    const tcCalls = mockClient.callReducer.mock.calls.filter((call) => call[0] === "record_tool_call");
     // Tool calls are recorded from actStep (and potentially planStep/learnStep mock returns them too)
     expect(tcCalls.length).toBeGreaterThanOrEqual(1);
-    expect(tcCalls.some(([, args]: [string, unknown[]]) => args[2] === "read_file")).toBe(true);
+    expect(tcCalls.some((call) => (call[1] as unknown[])?.[2] === "read_file")).toBe(true);
   });
 
   it("returns act stage with responseLength and toolCallCount", async () => {
@@ -379,7 +378,7 @@ describe("verifyStep (via agentWorkflow)", () => {
     await agentWorkflow(BASE_PARAMS);
 
     const verifyCall = mockClient.callReducer.mock.calls.find(
-      ([name, args]) => name === "update_run_stage" && args[1] === "verify"
+      (call) => call[0] === "update_run_stage" && (call[1] as string[])?.[1] === "verify"
     );
     expect(verifyCall).toBeDefined();
   });
@@ -421,7 +420,7 @@ describe("summarizeStep (via agentWorkflow)", () => {
     await agentWorkflow(BASE_PARAMS);
 
     const sumCall = mockClient.callReducer.mock.calls.find(
-      ([name, args]) => name === "update_run_stage" && args[1] === "summarize"
+      (call) => call[0] === "update_run_stage" && (call[1] as string[])?.[1] === "summarize"
     );
     expect(sumCall).toBeDefined();
   });
@@ -486,7 +485,7 @@ describe("learnStep (via agentWorkflow)", () => {
     await agentWorkflow(BASE_PARAMS);
 
     const learnStageCall = mockClient.callReducer.mock.calls.find(
-      ([name, args]) => name === "update_run_stage" && args[1] === "learn"
+      (call) => call[0] === "update_run_stage" && (call[1] as string[])?.[1] === "learn"
     );
     expect(learnStageCall).toBeDefined();
   });
@@ -494,9 +493,9 @@ describe("learnStep (via agentWorkflow)", () => {
   it("calls update_run_status with 'completed'", async () => {
     await agentWorkflow(BASE_PARAMS);
 
-    const statusCall = mockClient.callReducer.mock.calls.find(([name]) => name === "update_run_status");
+    const statusCall = mockClient.callReducer.mock.calls.find((call) => call[0] === "update_run_status");
     expect(statusCall).toBeDefined();
-    expect(statusCall![1][1]).toBe("completed");
+    expect((statusCall![1] as string[])[1]).toBe("completed");
   });
 
   it("returns completed=true", async () => {

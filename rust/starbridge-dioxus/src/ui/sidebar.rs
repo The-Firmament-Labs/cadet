@@ -8,6 +8,19 @@ use super::icons::*;
 use super::models::{ContentView, TaskItem, TaskStatus};
 use super::views::chat_types::{ChatMsg, Conversation, derive_conversations, classify_date, DateGroup};
 
+/// Map channel name to a CSS class for the colored dot indicator.
+/// Colors match the orbital theme palette.
+fn channel_dot_class(channel: &str) -> &'static str {
+    match channel {
+        "web" => "channel-web",
+        "slack" => "channel-slack",
+        "discord" => "channel-discord",
+        "telegram" => "channel-telegram",
+        "github" => "channel-github",
+        _ => "channel-web",
+    }
+}
+
 // ── Chat Sidebar (Cadet mode) ───────────────────────────────────────
 
 #[component]
@@ -86,10 +99,12 @@ pub fn ChatSidebarContent(
                                 let tid = convo.thread_id.clone();
                                 let is_active = active_thread.as_ref().map(|a| a == &convo.thread_id).unwrap_or(false);
                                 let title = if convo.title.is_empty() { "New conversation".to_string() } else { convo.title.clone() };
+                                let channel_class = channel_dot_class(&convo.channel);
                                 rsx! {
                                     button {
                                         class: if is_active { "sidebar-item sidebar-item-active" } else { "sidebar-item" },
                                         onclick: move |_| on_select_thread.call(tid.clone()),
+                                        span { class: "channel-dot {channel_class}" }
                                         span { class: "sidebar-item-text", "{title}" }
                                     }
                                 }
@@ -260,6 +275,27 @@ pub fn SaturnSidebarContent(
                     if memory_namespaces > 0 {
                         span { class: "sidebar-badge", "{memory_namespaces}" }
                     }
+                }
+
+                button {
+                    class: if matches!(current_view, ContentView::Threads) { "sidebar-nav-btn sidebar-nav-btn-active" } else { "sidebar-nav-btn" },
+                    onclick: move |_| on_navigate.call(ContentView::Threads),
+                    span { class: "sidebar-nav-icon", "💬" }
+                    span { class: "sidebar-nav-label", "Threads" }
+                }
+
+                button {
+                    class: if matches!(current_view, ContentView::RlDashboard) { "sidebar-nav-btn sidebar-nav-btn-active" } else { "sidebar-nav-btn" },
+                    onclick: move |_| on_navigate.call(ContentView::RlDashboard),
+                    span { class: "sidebar-nav-icon", "📊" }
+                    span { class: "sidebar-nav-label", "RL Dashboard" }
+                }
+
+                button {
+                    class: if matches!(current_view, ContentView::Workflow) { "sidebar-nav-btn sidebar-nav-btn-active" } else { "sidebar-nav-btn" },
+                    onclick: move |_| on_navigate.call(ContentView::Workflow),
+                    span { class: "sidebar-nav-icon", "🔀" }
+                    span { class: "sidebar-nav-label", "Workflow" }
                 }
             }
 

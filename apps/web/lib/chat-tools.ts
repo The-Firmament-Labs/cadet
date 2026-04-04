@@ -10,6 +10,8 @@ export interface ChatToolContext {
   operatorId: string;
   conversationSummary?: string;
   refContext?: string;
+  platform?: string;
+  channelThreadId?: string;
 }
 
 /** Default context for backward compatibility. */
@@ -53,7 +55,8 @@ export const chatTools = {
             operatorId: getToolCtx().operatorId,
             conversationContext: getToolCtx().conversationSummary?.slice(0, 1000),
             refContext: getToolCtx().refContext?.slice(0, 1000),
-            channel: "web",
+            channel: getToolCtx().platform ?? "web",
+            channelThreadId: getToolCtx().channelThreadId,
           },
         });
         const runId =
@@ -117,6 +120,8 @@ export const chatTools = {
             chainStep: 0,
             nextSteps: steps.slice(1).map((s) => `${s.agentId}: ${s.goal}`),
             conversationContext: getToolCtx().conversationSummary?.slice(0, 500),
+            channel: getToolCtx().platform ?? "web",
+            channelThreadId: getToolCtx().channelThreadId,
           },
         });
 

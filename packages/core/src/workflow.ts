@@ -35,7 +35,7 @@ export type WorkflowStepStatus =
   | "cancelled";
 
 export type MessageDirection = "inbound" | "outbound" | "system";
-export type MessageChannel = "web" | "slack" | "github" | "system";
+export type MessageChannel = "web" | "slack" | "discord" | "telegram" | "github" | "system";
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "expired";
 export type BrowserTaskStatus =
   | "queued"
@@ -87,6 +87,8 @@ export const messageDirections: readonly MessageDirection[] = [
 export const messageChannels: readonly MessageChannel[] = [
   "web",
   "slack",
+  "discord",
+  "telegram",
   "github",
   "system"
 ] as const;

@@ -270,6 +270,8 @@ string_enum!(
     pub enum MessageChannel {
         Web => "web",
         Slack => "slack",
+        Discord => "discord",
+        Telegram => "telegram",
         Github => "github",
         System => "system",
     }

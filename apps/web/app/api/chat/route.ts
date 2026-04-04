@@ -39,7 +39,11 @@ export async function POST(request: Request) {
   if (!session) return apiUnauthorized();
 
   try {
-    const { messages } = (await request.json()) as { messages: UIMessage[] };
+    const { messages, platform, channelThreadId } = (await request.json()) as {
+      messages: UIMessage[];
+      platform?: string;
+      channelThreadId?: string;
+    };
 
     // Extract the latest user message text
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
@@ -114,6 +118,8 @@ export async function POST(request: Request) {
       operatorId: session.operatorId,
       conversationSummary: handoffSummary,
       refContext: refContext.slice(0, 1000),
+      platform,
+      channelThreadId,
     };
 
     // --- Phase 7: Select model ---
@@ -183,6 +189,7 @@ export async function POST(request: Request) {
         try {
           const client = createControlClient();
           const hasOutput = text.length > 0;
+          const chatPlatform = platform ?? "web";
           const rlvrSignals = {
             compile_success: null,
             tests_passed: null,
@@ -190,6 +197,7 @@ export async function POST(request: Request) {
             user_feedback: null,
             task_completed: hasOutput,
             exit_code: hasOutput ? 0 : 1,
+            platform: chatPlatform,
           };
           const signals = [rlvrSignals.task_completed].filter((s): s is boolean => s !== null);
           const composite = signals.length > 0
@@ -212,7 +220,7 @@ export async function POST(request: Request) {
             scoreId, trajId, `run_chat_${Date.now().toString(36)}`,
             composite, composite, composite, composite, composite,
             1.0, // surprise = cold start
-            "rlvr", "", `RLVR chat: task_completed=${hasOutput}`,
+            "rlvr", "", `RLVR chat [${chatPlatform}]: task_completed=${hasOutput}`,
             JSON.stringify(rlvrSignals),
           ]).catch(() => {});
         } catch { /* RLVR is best-effort */ }

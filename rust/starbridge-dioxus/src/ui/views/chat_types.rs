@@ -32,6 +32,9 @@ pub struct ChatMsg {
     pub content: String,
     pub tool_calls: Vec<ToolCallCard>,
     pub timestamp_ms: u64,
+    pub channel: String,       // "web" | "slack" | "discord" | "telegram" | "github"
+    pub user_id: String,       // operator or platform user ID
+    pub actor: String,         // display name (agent name or user name)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -40,6 +43,7 @@ pub struct Conversation {
     pub title: String,
     pub last_message_at: u64,
     pub message_count: usize,
+    pub channel: String,       // primary channel for this conversation
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -66,6 +70,7 @@ pub fn derive_conversations(messages: &[ChatMsg]) -> Vec<Conversation> {
             title: String::new(),
             last_message_at: 0,
             message_count: 0,
+            channel: msg.channel.clone(),
         });
         entry.message_count += 1;
         if msg.timestamp_ms > entry.last_message_at {
@@ -138,6 +143,9 @@ pub fn from_spacetimedb_messages(rows: &[starbridge_core::MessageEventRecord]) -
                 content: row.content.clone(),
                 tool_calls: Vec::new(),
                 timestamp_ms: (row.created_at_micros / 1000) as u64,
+                channel: row.channel.clone(),
+                user_id: row.actor.clone(),
+                actor: row.actor.clone(),
             }
         })
         .collect()
@@ -183,9 +191,9 @@ mod tests {
     #[test]
     fn derive_conversations_groups_by_thread() {
         let msgs = vec![
-            ChatMsg { id: "1".into(), thread_id: "t1".into(), role: MessageRole::User, content: "hello".into(), tool_calls: vec![], timestamp_ms: 100 },
-            ChatMsg { id: "2".into(), thread_id: "t1".into(), role: MessageRole::Assistant, content: "hi".into(), tool_calls: vec![], timestamp_ms: 200 },
-            ChatMsg { id: "3".into(), thread_id: "t2".into(), role: MessageRole::User, content: "fix the bug in authentication module please".into(), tool_calls: vec![], timestamp_ms: 300 },
+            ChatMsg { id: "1".into(), thread_id: "t1".into(), role: MessageRole::User, content: "hello".into(), tool_calls: vec![], timestamp_ms: 100, channel: "web".into(), user_id: "op1".into(), actor: "Operator".into() },
+            ChatMsg { id: "2".into(), thread_id: "t1".into(), role: MessageRole::Assistant, content: "hi".into(), tool_calls: vec![], timestamp_ms: 200, channel: "web".into(), user_id: "cadet".into(), actor: "cadet".into() },
+            ChatMsg { id: "3".into(), thread_id: "t2".into(), role: MessageRole::User, content: "fix the bug in authentication module please".into(), tool_calls: vec![], timestamp_ms: 300, channel: "slack".into(), user_id: "U123".into(), actor: "Alice".into() },
         ];
         let convos = derive_conversations(&msgs);
         assert_eq!(convos.len(), 2);

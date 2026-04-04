@@ -298,14 +298,21 @@ async function summarizeStep(
     // Reply to the originating platform (Slack, Discord, etc.)
     try {
       const { replyToOrigin } = await import("./bot-reply");
-      await replyToOrigin({ channel, channelThreadId, summary });
+      await replyToOrigin({
+        channel: channel!,
+        channelThreadId,
+        summary,
+        runId,
+        prUrl,
+        agentId,
+      });
     } catch { /* best-effort */ }
   }
 
   return { stage: "summarize" };
 }
 
-async function learnStep(runId: string, agentId: string, goal: string, actOutput?: string) {
+async function learnStep(runId: string, agentId: string, goal: string, operatorId: string, actOutput?: string) {
   "use step";
   const client = createControlClient();
   await client.callReducer("update_run_stage", [runId, "learn"]);
@@ -332,6 +339,19 @@ async function learnStep(runId: string, agentId: string, goal: string, actOutput
           sanitizeContext(learnings, 500),                      // content
           JSON.stringify({ runId, agentId }),
         ]);
+
+        // Also store user-scoped learning if we have a specific operator
+        if (operatorId && operatorId !== "operator" && operatorId !== "system") {
+          await client.callReducer("upsert_memory_document", [
+            `learn_user_${operatorId}_${runId}`,
+            `user_${operatorId}`,          // agent_id = user scope
+            "user-memory",                  // namespace
+            "agent-learning",               // source_kind
+            `User ${operatorId}: ${goal.slice(0, 50)}`,
+            sanitizeContext(learnings, 500),
+            JSON.stringify({ runId, agentId, operatorId }),
+          ]);
+        }
       }
     } catch { /* learning extraction is best-effort */ }
   }
@@ -349,6 +369,7 @@ async function emitRlvrSignals(
   agentId: string,
   actResult: Record<string, unknown>,
   verifyResult: { verified: boolean; verificationResults?: string[] },
+  channel?: string,
 ) {
   "use step";
   const client = createControlClient();
@@ -359,6 +380,7 @@ async function emitRlvrSignals(
       ? verifyResult.verificationResults.every((r: string) => !r.startsWith("FAIL"))
       : verifyResult.verified;
     const taskCompleted = verifyResult.verified;
+    const platform = channel && channel !== "system" ? channel : "web";
 
     const rlvrSignals = {
       compile_success: exitCode === 0,
@@ -367,6 +389,7 @@ async function emitRlvrSignals(
       user_feedback: null,
       task_completed: taskCompleted,
       exit_code: exitCode,
+      platform,
     };
 
     // Compute RLVR composite (average of available binary signals)
@@ -395,7 +418,7 @@ async function emitRlvrSignals(
       1.0,               // surprise — cold start default, daemon recomputes
       "rlvr",            // source
       "",                // judge_model (none for RLVR)
-      `RLVR: ${signals.length} signals, composite=${composite.toFixed(2)}`,
+      `RLVR [${platform}]: ${signals.length} signals, composite=${composite.toFixed(2)}`,
       JSON.stringify(rlvrSignals),
     ]);
   } catch {
@@ -479,10 +502,10 @@ export async function agentWorkflow(params: {
   );
 
   // Stage 7: Learn — extract and store learnings
-  const learnResult = await learnStep(runId, agentId, goal, (actResult as Record<string, unknown>).output as string | undefined);
+  const learnResult = await learnStep(runId, agentId, goal, operatorId, (actResult as Record<string, unknown>).output as string | undefined);
 
   // Stage 8: Emit RLVR signals — verifiable rewards from task outcomes
-  await emitRlvrSignals(runId, agentId, actResult, verifyResult);
+  await emitRlvrSignals(runId, agentId, actResult, verifyResult, channel);
 
   return {
     runId,

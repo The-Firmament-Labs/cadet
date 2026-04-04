@@ -21,10 +21,10 @@ use models::{
 use sidebar::{ChatSidebarContent, VoyagerSidebarContent, SaturnSidebarContent};
 use styles::APP_STYLES;
 use views::{
-    AiChatView, CatalogView, MemoryView, OpsHomeView, OverviewView,
-    TaskDetailView, TaskExecView, TaskHomeView,
+    AiChatView, CatalogView, ChatView, MemoryView, OpsHomeView, OverviewView,
+    RlDashboardView, TaskDetailView, TaskExecView, TaskHomeView, WorkflowStudioView,
 };
-use views::chat_types::{ChatMsg, new_thread_id};
+use views::chat_types::{ChatMsg, new_thread_id, from_spacetimedb_messages};
 
 use crate::LiveSnapshotOptions;
 
@@ -178,6 +178,18 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                         mode.set(AgentMode::Saturn);
                         view.set(ContentView::Agents);
                     }
+                    "view-threads" => {
+                        mode.set(AgentMode::Saturn);
+                        view.set(ContentView::Threads);
+                    }
+                    "view-workflow-studio" => {
+                        mode.set(AgentMode::Saturn);
+                        view.set(ContentView::Workflow);
+                    }
+                    "view-rl" | "view-rl-dashboard" => {
+                        mode.set(AgentMode::Saturn);
+                        view.set(ContentView::RlDashboard);
+                    }
                     "toggle-palette" => show_command_palette.set(!show_command_palette()),
                     "toggle-sidebar" => {}
                     _ => {}
@@ -256,7 +268,13 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                     match mode() {
                         AgentMode::Cadet => rsx! {
                             ChatSidebarContent {
-                                messages: chat_messages(),
+                                messages: {
+                                    let mut merged = chat_messages();
+                                    merged.extend(from_spacetimedb_messages(&snap.message_events));
+                                    merged.sort_by_key(|m| m.timestamp_ms);
+                                    merged.dedup_by(|a, b| a.id == b.id);
+                                    merged
+                                },
                                 active_thread: chat_active_thread(),
                                 on_select_thread: move |tid: String| {
                                     chat_active_thread.set(Some(tid));
@@ -334,7 +352,7 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                     div { class: "view-content",
                         match view() {
                             ContentView::Chat => rsx! {
-                                AiChatView {}
+                                AiChatView { snapshot: snap.clone() }
                             },
                             ContentView::TaskHome => rsx! {
                                 TaskHomeView {
@@ -427,6 +445,15 @@ pub fn MissionControlApp(snapshot: MissionControlSnapshot) -> Element {
                             ContentView::Agents => rsx! {
                                 CatalogView { snapshot: snap.clone() }
                             },
+                            ContentView::Threads => rsx! {
+                                ChatView { snapshot: snap.clone() }
+                            },
+                            ContentView::Workflow => rsx! {
+                                WorkflowStudioView { snapshot: snap.clone() }
+                            },
+                            ContentView::RlDashboard => rsx! {
+                                RlDashboardView { snapshot: snap.clone() }
+                            },
                         }
                     }
                 }
@@ -444,12 +471,15 @@ fn CommandPalette(
 ) -> Element {
     let mut query = use_signal(String::new);
     let nav_items: Vec<(ContentView, &str)> = vec![
-        (ContentView::Chat,      "Chat with Cadet"),
-        (ContentView::TaskHome,  "Tasks (Voyager)"),
-        (ContentView::OpsHome,   "Operations (Saturn)"),
-        (ContentView::Agents,    "Agents"),
-        (ContentView::Memory,    "Memory"),
-        (ContentView::Approvals, "Approvals"),
+        (ContentView::Chat,        "Chat with Cadet"),
+        (ContentView::TaskHome,    "Tasks (Voyager)"),
+        (ContentView::OpsHome,     "Operations (Saturn)"),
+        (ContentView::Agents,      "Agents"),
+        (ContentView::Memory,      "Memory"),
+        (ContentView::Approvals,   "Approvals"),
+        (ContentView::Threads,     "Chat Threads"),
+        (ContentView::Workflow,    "Workflow Studio"),
+        (ContentView::RlDashboard, "RL Dashboard"),
     ];
 
     let q = query().to_lowercase();

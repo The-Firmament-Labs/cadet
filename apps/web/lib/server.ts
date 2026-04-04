@@ -37,6 +37,8 @@ const cloudControlPlaneTarget = parseControlPlaneTarget("cloud");
 const webMessageChannel = parseMessageChannel("web");
 const systemMessageChannel = parseMessageChannel("system");
 const slackMessageChannel = parseMessageChannel("slack");
+const discordMessageChannel = parseMessageChannel("discord");
+const telegramMessageChannel = parseMessageChannel("telegram");
 const githubMessageChannel = parseMessageChannel("github");
 const retryableWorkflowStepStatuses = new Set([
   parseWorkflowStepStatus("failed"),
@@ -360,22 +362,30 @@ export async function dispatchJobFromPayload(payload: unknown, authToken?: strin
     } catch {
       throw new Error("Workflow DevKit is enabled but could not be loaded. Check that 'workflow' is installed.");
     }
+    const ctx = (candidate.context ?? {}) as Record<string, unknown>;
     const run = await start(agentWorkflow, [{
       jobId: normalized.jobId,
       agentId: manifest.id,
       runId: `run_${normalized.jobId}`,
       operatorId: normalized.requestedBy,
       goal: normalized.goal,
+      channel: (ctx.channel as string) ?? undefined,
+      channelThreadId: (ctx.channelThreadId as string) ?? undefined,
+      conversationContext: (ctx.conversationContext as string) ?? undefined,
     }]);
     return { job: normalized, workflowRunId: run.runId };
   }
 
   // Default: synchronous dispatch
+  const ctxSync = (candidate.context ?? {}) as Record<string, unknown>;
+  const channelForSync = ctxSync.channel
+    ? parseMessageChannel(ctxSync.channel as string)
+    : webMessageChannel;
   const workflow = await seedWorkflowFromJob(
     manifest,
     normalized,
     "api:jobs.dispatch",
-    webMessageChannel,
+    channelForSync,
     normalized.requestedBy
   );
   await completeRouteTriage(manifest, normalized, workflow);

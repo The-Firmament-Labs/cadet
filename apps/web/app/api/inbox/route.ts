@@ -40,6 +40,12 @@ export async function POST(request: Request) {
         result = await dispatchJobFromPayload({
           agentId: body.agentId ?? "cadet",
           goal: body.text ?? "",
+          context: {
+            channel: body.platform ?? "web",
+            channelThreadId: body.threadId as string | undefined,
+            channelId: body.channelId as string | undefined,
+            operatorId: (body.userId as string) ?? "operator",
+          },
           ...body,
         });
         break;
