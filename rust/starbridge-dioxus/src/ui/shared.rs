@@ -661,3 +661,157 @@ fn html_escape(s: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
 }
+
+// ── RL Pipeline Components ─────────────────────────────────────────
+
+/// Quality gauge bar — colored by composite score.
+/// Red (<0.4), Yellow (0.4-0.7), Green (>0.7).
+#[component]
+pub fn QualityGauge(
+    composite: f32,
+    correctness: f32,
+    efficiency: f32,
+    tool_use_quality: f32,
+    adherence: f32,
+    delight: f32,
+    source: String,
+) -> Element {
+    let pct = (composite * 100.0).clamp(0.0, 100.0);
+    let color = if composite < 0.4 {
+        "var(--error)"
+    } else if composite < 0.7 {
+        "var(--warning)"
+    } else {
+        "var(--success)"
+    };
+    let bg = if composite < 0.4 {
+        "var(--error-container)"
+    } else if composite < 0.7 {
+        "var(--secondary-container)"
+    } else {
+        "var(--success-container)"
+    };
+
+    let delight_display = format!("{:.2}", delight);
+    let tooltip = format!(
+        "Correctness: {:.0}%  Efficiency: {:.0}%  Tool Use: {:.0}%  Adherence: {:.0}%\nDelight: {}  Source: {}",
+        correctness * 100.0, efficiency * 100.0, tool_use_quality * 100.0, adherence * 100.0,
+        delight_display, source
+    );
+
+    rsx! {
+        div {
+            class: "quality-gauge",
+            title: "{tooltip}",
+            div { class: "quality-gauge-label",
+                span { class: "quality-gauge-score", "{pct:.0}%" }
+                if delight > 0.1 {
+                    span { class: "quality-gauge-delight", "delight {delight_display}" }
+                }
+            }
+            div {
+                class: "quality-gauge-track",
+                style: "background: {bg};",
+                div {
+                    class: "quality-gauge-fill",
+                    style: "width: {pct}%; background: {color};",
+                }
+            }
+        }
+    }
+}
+
+/// SVG sparkline showing a trend of values over time.
+/// Renders as a compact inline SVG.
+#[component]
+pub fn Sparkline(values: Vec<f32>, width: f32, height: f32) -> Element {
+    if values.is_empty() {
+        return rsx! {
+            span { class: "sparkline-empty", "—" }
+        };
+    }
+
+    let min_val = values.iter().copied().fold(f32::INFINITY, f32::min);
+    let max_val = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let range = (max_val - min_val).max(0.01);
+
+    let points: String = values
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let x = if values.len() > 1 {
+                (i as f32 / (values.len() - 1) as f32) * width
+            } else {
+                width / 2.0
+            };
+            let y = height - ((v - min_val) / range) * height;
+            format!("{x:.1},{y:.1}")
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    // Color based on trend (last value vs first value)
+    let trend_color = if values.len() >= 2 {
+        let first = values[0];
+        let last = values[values.len() - 1];
+        if last > first + 0.05 { "var(--success)" }
+        else if last < first - 0.05 { "var(--error)" }
+        else { "var(--secondary)" }
+    } else {
+        "var(--secondary)"
+    };
+
+    let svg = format!(
+        r#"<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg"><polyline points="{points}" fill="none" stroke="{trend_color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>"#,
+    );
+
+    rsx! {
+        span {
+            class: "sparkline",
+            dangerous_inner_html: "{svg}",
+        }
+    }
+}
+
+/// Thumbs up/down feedback buttons for agent messages.
+#[component]
+pub fn FeedbackButtons(
+    message_id: String,
+    current_feedback: Option<bool>,
+    on_feedback: EventHandler<(String, bool)>,
+) -> Element {
+    let msg_id_up = message_id.clone();
+    let msg_id_down = message_id.clone();
+
+    rsx! {
+        div { class: "feedback-buttons",
+            button {
+                class: if current_feedback == Some(true) { "feedback-btn feedback-btn-active" } else { "feedback-btn" },
+                title: "Good response",
+                onclick: move |_| on_feedback.call((msg_id_up.clone(), true)),
+                "▲"
+            }
+            button {
+                class: if current_feedback == Some(false) { "feedback-btn feedback-btn-active feedback-btn-down" } else { "feedback-btn" },
+                title: "Poor response",
+                onclick: move |_| on_feedback.call((msg_id_down.clone(), false)),
+                "▼"
+            }
+        }
+    }
+}
+
+/// Training buffer badge — shows count of high-delight trajectories awaiting GRPO.
+#[component]
+pub fn TrainingBufferBadge(count: usize) -> Element {
+    if count == 0 {
+        return rsx! {};
+    }
+    rsx! {
+        span {
+            class: "training-buffer-badge",
+            title: "{count} high-delight trajectories awaiting training",
+            "{count}"
+        }
+    }
+}

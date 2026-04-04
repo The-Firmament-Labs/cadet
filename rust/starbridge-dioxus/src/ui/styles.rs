@@ -2961,6 +2961,108 @@ pub const APP_STYLES: &str = r#"
     .markdown-body em {
         font-style: italic;
     }
+
+    /* ── RL Pipeline Components ────────────────────────────────── */
+
+    .quality-gauge {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .quality-gauge-label {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+    }
+
+    .quality-gauge-score {
+        font: 600 14px/1 var(--mono);
+        color: var(--on-surface);
+    }
+
+    .quality-gauge-delight {
+        font: 500 10px/1 var(--mono);
+        color: var(--primary);
+        letter-spacing: 0.02em;
+    }
+
+    .quality-gauge-track {
+        height: 6px;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .quality-gauge-fill {
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+
+    .sparkline {
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    .sparkline-empty {
+        font: 400 12px/1 var(--mono);
+        color: var(--on-surface-faint);
+    }
+
+    .feedback-buttons {
+        display: inline-flex;
+        gap: 2px;
+        margin-left: 8px;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+
+    .chat-msg:hover .feedback-buttons {
+        opacity: 1;
+    }
+
+    .feedback-btn {
+        background: none;
+        border: 1px solid var(--surface-border);
+        color: var(--on-surface-faint);
+        font: 500 11px/1 var(--mono);
+        padding: 2px 6px;
+        cursor: pointer;
+        transition: all 0.1s;
+    }
+
+    .feedback-btn:hover {
+        color: var(--success);
+        border-color: var(--success);
+    }
+
+    .feedback-btn-down:hover {
+        color: var(--error);
+        border-color: var(--error);
+    }
+
+    .feedback-btn-active {
+        color: var(--on-primary);
+        background: var(--success);
+        border-color: var(--success);
+    }
+
+    .feedback-btn-active.feedback-btn-down {
+        background: var(--error);
+        border-color: var(--error);
+    }
+
+    .training-buffer-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        font: 600 10px/1 var(--mono);
+        color: var(--on-primary);
+        background: var(--primary);
+        letter-spacing: 0.02em;
+    }
 "#;
 
 

@@ -1,3 +1,3 @@
 pub mod generated;
 
-pub use generated::cadet_control;
+pub use generated as cadet_control;

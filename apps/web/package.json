@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.50",
     "@ai-sdk/react": "^3.0.143",
     "@chat-adapter/discord": "^4.23.0",
     "@chat-adapter/github": "^4.23.0",

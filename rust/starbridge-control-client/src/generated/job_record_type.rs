@@ -70,6 +70,7 @@ impl __sdk::__query_builder::HasCols for JobRecord {
 ///
 /// Provides typed access to indexed columns for query building.
 pub struct JobRecordIxCols {
+    pub agent_id: __sdk::__query_builder::IxCol<JobRecord, String>,
     pub job_id: __sdk::__query_builder::IxCol<JobRecord, String>,
 }
 
@@ -77,6 +78,7 @@ impl __sdk::__query_builder::HasIxCols for JobRecord {
     type IxCols = JobRecordIxCols;
     fn ix_cols(table_name: &'static str) -> Self::IxCols {
         JobRecordIxCols {
+            agent_id: __sdk::__query_builder::IxCol::new(table_name, "agent_id"),
             job_id: __sdk::__query_builder::IxCol::new(table_name, "job_id"),
         }
     }

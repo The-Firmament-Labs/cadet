@@ -59,6 +59,8 @@ impl __sdk::__query_builder::HasCols for MessageEvent {
 /// Provides typed access to indexed columns for query building.
 pub struct MessageEventIxCols {
     pub event_id: __sdk::__query_builder::IxCol<MessageEvent, String>,
+    pub run_id: __sdk::__query_builder::IxCol<MessageEvent, Option<String>>,
+    pub thread_id: __sdk::__query_builder::IxCol<MessageEvent, String>,
 }
 
 impl __sdk::__query_builder::HasIxCols for MessageEvent {
@@ -66,6 +68,8 @@ impl __sdk::__query_builder::HasIxCols for MessageEvent {
     fn ix_cols(table_name: &'static str) -> Self::IxCols {
         MessageEventIxCols {
             event_id: __sdk::__query_builder::IxCol::new(table_name, "event_id"),
+            run_id: __sdk::__query_builder::IxCol::new(table_name, "run_id"),
+            thread_id: __sdk::__query_builder::IxCol::new(table_name, "thread_id"),
         }
     }
 }

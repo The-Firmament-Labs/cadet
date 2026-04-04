@@ -7,7 +7,7 @@ use crate::{
         models::{queue_metrics, OverviewTab},
         shared::{
             status_badge_class, BrowserTaskRow, CalloutBox, EmptyState, InspectorCard,
-            MetricTile, RunListItem, WorkflowStepRow, segmented_button_class,
+            MetricTile, QualityGauge, RunListItem, WorkflowStepRow, segmented_button_class,
         },
         OperatorRuntimeContext,
     },
@@ -212,6 +212,30 @@ pub fn OverviewView(snapshot: MissionControlSnapshot) -> Element {
                             li { span { "Agent" } strong { "{run.agent_id}" } }
                             li { span { "Requested by" } strong { "{run.requested_by}" } }
                             li { span { "Current stage" } strong { "{run.current_stage}" } }
+                        }
+                        // Quality gauge from trajectory scores
+                        {
+                            let run_scores: Vec<_> = snapshot.trajectory_scores.iter()
+                                .filter(|s| s.run_id == run.run_id)
+                                .collect();
+                            if let Some(score) = run_scores.last() {
+                                rsx! {
+                                    div { style: "margin-top: 12px;",
+                                        p { class: "section-eyebrow", "Quality score" }
+                                        QualityGauge {
+                                            composite: score.composite,
+                                            correctness: score.correctness,
+                                            efficiency: score.efficiency,
+                                            tool_use_quality: score.tool_use_quality,
+                                            adherence: score.adherence,
+                                            delight: score.delight,
+                                            source: score.source.clone(),
+                                        }
+                                    }
+                                }
+                            } else {
+                                rsx! {}
+                            }
                         }
                     } else {
                         p { class: "row-copy", "Pick a run from the queue to see its metadata." }

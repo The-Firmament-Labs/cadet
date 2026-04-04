@@ -16,6 +16,8 @@ use starbridge_control_client::cadet_control::{
     retrieval_trace_table::RetrievalTraceTableAccess,
     resolve_approval,
     thread_record_table::ThreadRecordTableAccess,
+    trajectory_score_table::TrajectoryScoreTableAccess,
+    training_buffer_table::TrainingBufferTableAccess,
     workflow_run_table::WorkflowRunTableAccess,
     workflow_step_table::WorkflowStepTableAccess,
     DbConnection, RemoteDbContext,
@@ -23,7 +25,8 @@ use starbridge_control_client::cadet_control::{
 use starbridge_core::{
     ApprovalRequestRecord, BrowserTaskRecord, ChatThreadRecord, MemoryChunkRecord,
     MemoryDocumentRecord, MemoryEmbeddingRecord, MessageEventRecord, MissionControlSnapshot,
-    RetrievalTraceRecord, WorkflowRunRecord, WorkflowStepRecord,
+    RetrievalTraceRecord, TrajectoryScoreRecord, TrainingBufferRecord, WorkflowRunRecord,
+    WorkflowStepRecord,
 };
 
 type SnapshotCallback = dyn Fn(MissionControlSnapshot, String) + Send + Sync + 'static;
@@ -46,7 +49,8 @@ mod live_state {
     use starbridge_core::{
         ApprovalRequestRecord, BrowserTaskRecord, ChatThreadRecord, MemoryChunkRecord,
         MemoryDocumentRecord, MemoryEmbeddingRecord, MessageEventRecord, MissionControlSnapshot,
-        RetrievalTraceRecord, WorkflowRunRecord, WorkflowStepRecord,
+        RetrievalTraceRecord, TrajectoryScoreRecord, TrainingBufferRecord, WorkflowRunRecord,
+        WorkflowStepRecord,
     };
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,6 +76,8 @@ mod live_state {
         pub approval_requests: Signal<Vec<ApprovalRequestRecord>>,
         pub threads: Signal<Vec<ChatThreadRecord>>,
         pub message_events: Signal<Vec<MessageEventRecord>>,
+        pub trajectory_scores: Signal<Vec<TrajectoryScoreRecord>>,
+        pub training_buffer: Signal<Vec<TrainingBufferRecord>>,
         pub connection_status: Signal<ConnectionStatus>,
         pub connection_error: Signal<Option<String>>,
         pub source_label: Signal<String>,
@@ -90,6 +96,8 @@ mod live_state {
                 approval_requests: Signal::new(Vec::new()),
                 threads: Signal::new(Vec::new()),
                 message_events: Signal::new(Vec::new()),
+                trajectory_scores: Signal::new(Vec::new()),
+                training_buffer: Signal::new(Vec::new()),
                 connection_status: Signal::new(ConnectionStatus::Connecting),
                 connection_error: Signal::new(None),
                 source_label: Signal::new("initializing".to_string()),
@@ -109,6 +117,8 @@ mod live_state {
             self.approval_requests.set(snapshot.approval_requests);
             self.threads.set(snapshot.threads);
             self.message_events.set(snapshot.message_events);
+            self.trajectory_scores.set(snapshot.trajectory_scores);
+            self.training_buffer.set(snapshot.training_buffer);
             self.connection_status.set(ConnectionStatus::Connected);
             self.connection_error.set(None);
             self.source_label.set(label);
@@ -130,6 +140,8 @@ mod live_state {
                 approval_requests: (self.approval_requests)(),
                 threads: (self.threads)(),
                 message_events: (self.message_events)(),
+                trajectory_scores: (self.trajectory_scores)(),
+                training_buffer: (self.training_buffer)(),
             }
         }
     }
@@ -406,6 +418,14 @@ fn register_change_watchers(
     watch_table!(message_event);
     watch_table_updates!(message_event);
     watch_table_deletes!(message_event);
+
+    watch_table!(trajectory_score);
+    watch_table_updates!(trajectory_score);
+    watch_table_deletes!(trajectory_score);
+
+    watch_table!(training_buffer);
+    watch_table_updates!(training_buffer);
+    watch_table_deletes!(training_buffer);
 }
 
 fn publish_snapshot(
@@ -608,6 +628,47 @@ fn snapshot_from_context(
             .then_with(|| left.event_id.cmp(&right.event_id))
     });
 
+    let mut trajectory_scores = ctx
+        .db()
+        .trajectory_score()
+        .iter()
+        .map(|r| TrajectoryScoreRecord {
+            score_id: r.score_id.clone(),
+            trajectory_id: r.trajectory_id.clone(),
+            run_id: r.run_id.clone(),
+            correctness: r.correctness,
+            efficiency: r.efficiency,
+            tool_use_quality: r.tool_use_quality,
+            adherence: r.adherence,
+            composite: r.composite,
+            loss: r.loss,
+            surprise: r.surprise,
+            delight: r.delight,
+            source: r.source.clone(),
+            judge_model: r.judge_model.clone(),
+            judge_reasoning: r.judge_reasoning.clone(),
+            rlvr_signals_json: r.rlvr_signals_json.clone(),
+            created_at_micros: r.created_at_micros,
+        })
+        .collect::<Vec<_>>();
+    trajectory_scores.sort_by(|left, right| left.score_id.cmp(&right.score_id));
+
+    let mut training_buffer = ctx
+        .db()
+        .training_buffer()
+        .iter()
+        .map(|r| TrainingBufferRecord {
+            buffer_id: r.buffer_id.clone(),
+            trajectory_id: r.trajectory_id.clone(),
+            score_id: r.score_id.clone(),
+            delight: r.delight,
+            task_cluster: r.task_cluster.clone(),
+            consumed: r.consumed,
+            created_at_micros: r.created_at_micros,
+        })
+        .collect::<Vec<_>>();
+    training_buffer.sort_by(|left, right| left.buffer_id.cmp(&right.buffer_id));
+
     MissionControlSnapshot {
         environment: live_source_label(options, "snapshot"),
         generated_at: format!("SpacetimeDB {}", options.base_url),
@@ -621,6 +682,8 @@ fn snapshot_from_context(
         approval_requests,
         threads,
         message_events,
+        trajectory_scores,
+        training_buffer,
     }
 }
 

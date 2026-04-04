@@ -283,5 +283,7 @@ pub fn sample_snapshot() -> MissionControlSnapshot {
                 created_at_micros: 1774651860500,
             },
         ],
+        trajectory_scores: vec![],
+        training_buffer: vec![],
     }
 }

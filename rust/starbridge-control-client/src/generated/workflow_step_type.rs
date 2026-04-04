@@ -85,6 +85,7 @@ impl __sdk::__query_builder::HasCols for WorkflowStep {
 ///
 /// Provides typed access to indexed columns for query building.
 pub struct WorkflowStepIxCols {
+    pub run_id: __sdk::__query_builder::IxCol<WorkflowStep, String>,
     pub step_id: __sdk::__query_builder::IxCol<WorkflowStep, String>,
 }
 
@@ -92,6 +93,7 @@ impl __sdk::__query_builder::HasIxCols for WorkflowStep {
     type IxCols = WorkflowStepIxCols;
     fn ix_cols(table_name: &'static str) -> Self::IxCols {
         WorkflowStepIxCols {
+            run_id: __sdk::__query_builder::IxCol::new(table_name, "run_id"),
             step_id: __sdk::__query_builder::IxCol::new(table_name, "step_id"),
         }
     }

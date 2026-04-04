@@ -834,6 +834,39 @@ pub struct RetrievalTraceRecord {
     pub created_at_micros: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TrajectoryScoreRecord {
+    pub score_id: String,
+    pub trajectory_id: String,
+    pub run_id: String,
+    pub correctness: f32,
+    pub efficiency: f32,
+    pub tool_use_quality: f32,
+    pub adherence: f32,
+    pub composite: f32,
+    pub loss: f32,
+    pub surprise: f32,
+    pub delight: f32,
+    pub source: String,
+    pub judge_model: String,
+    pub judge_reasoning: String,
+    pub rlvr_signals_json: String,
+    pub created_at_micros: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TrainingBufferRecord {
+    pub buffer_id: String,
+    pub trajectory_id: String,
+    pub score_id: String,
+    pub delight: f32,
+    pub task_cluster: String,
+    pub consumed: bool,
+    pub created_at_micros: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ApprovalRequestRecord {
@@ -896,6 +929,10 @@ pub struct MissionControlSnapshot {
     pub threads: Vec<ChatThreadRecord>,
     #[serde(default)]
     pub message_events: Vec<MessageEventRecord>,
+    #[serde(default)]
+    pub trajectory_scores: Vec<TrajectoryScoreRecord>,
+    #[serde(default)]
+    pub training_buffer: Vec<TrainingBufferRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

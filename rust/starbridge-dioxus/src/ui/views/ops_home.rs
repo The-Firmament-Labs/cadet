@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use starbridge_core::MissionControlSnapshot;
 
 use crate::ui::models::queue_metrics;
-use crate::ui::shared::{ErrorBanner, RunCard, ApprovalCard};
+use crate::ui::shared::{ErrorBanner, RunCard, ApprovalCard, Sparkline, TrainingBufferBadge};
 
 #[component]
 pub fn OpsHomeView(snapshot: MissionControlSnapshot) -> Element {
@@ -36,6 +36,27 @@ pub fn OpsHomeView(snapshot: MissionControlSnapshot) -> Element {
                 div { class: "ops-metric",
                     p { class: "ops-metric-label", "Browser Tasks" }
                     p { class: "ops-metric-value", "{metrics.browser_tasks}" }
+                }
+                // Quality trend sparkline from trajectory scores
+                div { class: "ops-metric",
+                    p { class: "ops-metric-label",
+                        "Quality Trend "
+                        TrainingBufferBadge {
+                            count: snapshot.training_buffer.iter().filter(|b| !b.consumed).count(),
+                        }
+                    }
+                    {
+                        let scores: Vec<f32> = snapshot.trajectory_scores.iter()
+                            .map(|s| s.composite)
+                            .collect();
+                        let avg = if scores.is_empty() { 0.0 } else { scores.iter().sum::<f32>() / scores.len() as f32 };
+                        rsx! {
+                            div { style: "display: flex; align-items: center; gap: 8px;",
+                                p { class: "ops-metric-value", "{avg:.0}%" }
+                                Sparkline { values: scores, width: 80.0, height: 24.0 }
+                            }
+                        }
+                    }
                 }
             }
 

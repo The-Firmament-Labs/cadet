@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use dioxus::prelude::*;
 
 use crate::web_client::{WebClient, ChatMessage, ChatPart};
+use crate::ui::shared::FeedbackButtons;
 
 use super::chat_types::{
     ChatMsg, MessageRole, ToolCallStatus,
@@ -21,6 +23,7 @@ pub fn AiChatView() -> Element {
     let mut is_streaming = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
     let web_client = use_signal(load_web_client);
+    let mut feedback_state = use_signal(HashMap::<String, bool>::new);
 
     let has_client = web_client().is_some();
     let all_messages = messages();
@@ -90,6 +93,17 @@ pub fn AiChatView() -> Element {
                                 if !tc.output_summary.is_empty() {
                                     p { class: "chat-tool-output", "{tc.output_summary}" }
                                 }
+                            }
+                        }
+                        // Feedback buttons on assistant messages
+                        if msg.role == MessageRole::Assistant {
+                            FeedbackButtons {
+                                message_id: msg.id.clone(),
+                                current_feedback: feedback_state().get(&msg.id).copied(),
+                                on_feedback: move |(msg_id, is_positive): (String, bool)| {
+                                    feedback_state.write().insert(msg_id, is_positive);
+                                    // TODO: call record_trajectory_score reducer via WebClient
+                                },
                             }
                         }
                     }

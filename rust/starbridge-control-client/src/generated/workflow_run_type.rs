@@ -76,6 +76,7 @@ impl __sdk::__query_builder::HasCols for WorkflowRun {
 ///
 /// Provides typed access to indexed columns for query building.
 pub struct WorkflowRunIxCols {
+    pub agent_id: __sdk::__query_builder::IxCol<WorkflowRun, String>,
     pub run_id: __sdk::__query_builder::IxCol<WorkflowRun, String>,
 }
 
@@ -83,6 +84,7 @@ impl __sdk::__query_builder::HasIxCols for WorkflowRun {
     type IxCols = WorkflowRunIxCols;
     fn ix_cols(table_name: &'static str) -> Self::IxCols {
         WorkflowRunIxCols {
+            agent_id: __sdk::__query_builder::IxCol::new(table_name, "agent_id"),
             run_id: __sdk::__query_builder::IxCol::new(table_name, "run_id"),
         }
     }
