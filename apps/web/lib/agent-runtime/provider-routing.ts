@@ -58,6 +58,9 @@ const PROVIDER_CATALOG: ProviderConfig[] = [
   { model: "deepseek/deepseek-r1", name: "DeepSeek R1", costTier: 1, speedTier: 3, qualityTier: 2, capabilities: ["code", "reasoning"] },
   // xAI
   { model: "xai/grok-3", name: "Grok 3", costTier: 2, speedTier: 2, qualityTier: 2, capabilities: ["code", "reasoning"] },
+  // ElizaOS Cloud (opt-in — requires ELIZAOS_API_KEY)
+  { model: "elizaos/gemini-2.5-flash", name: "ElizaOS Cloud (Gemini)", costTier: 1, speedTier: 1, qualityTier: 2, capabilities: ["crypto", "fast"] },
+  { model: "elizaos/claude-sonnet-4.5", name: "ElizaOS Cloud (Claude)", costTier: 2, speedTier: 2, qualityTier: 1, capabilities: ["crypto", "reasoning"] },
 ];
 
 /** Select the best model based on routing strategy and preferences. */

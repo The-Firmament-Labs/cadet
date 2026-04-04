@@ -80,10 +80,10 @@ APPROVALS: When the user mentions approvals, use list_approvals first, then reso
         reason: "Operations tasks require edge execution with deployment access."
       },
       {
-        id: "crypto-to-elizaos",
+        id: "crypto-to-agent",
         whenGoalIncludes: ["wallet", "swap", "trade", "token", "portfolio", "defi", "solana", "ethereum", "jupiter", "uniswap", "stake", "liquidity", "crypto", "balance", "nft"],
-        to: "elizaos-cloud",
-        reason: "Crypto/DeFi tasks require ElizaOS runtime with wallet and DEX access."
+        to: "vercel-edge",
+        reason: "Crypto/DeFi tasks route to the eliza-crypto agent via standard provider routing. Uses ElizaOS Cloud when configured, otherwise any available provider."
       }
     ],
     learningPolicy: {
@@ -284,11 +284,11 @@ CAPABILITIES:
 SAFETY: Always confirm high-value transactions (>$100) with the operator before executing. Never expose private keys. Log every trade for trajectory scoring.
 
 STYLE: Report results with token symbols, amounts, and USD values. Include transaction hashes for verification.`,
-    model: "google/gemini-2.5-flash",
-    runtime: "elizaos",
+    model: "anthropic/claude-sonnet-4.5",
+    runtime: "edge-function",
     deployment: {
       controlPlane: "cloud",
-      execution: "elizaos-cloud",
+      execution: "vercel-edge",
       workflow: "crypto"
     },
     tags: ["crypto", "defi", "trading", "wallet", "solana", "evm"],
