@@ -341,6 +341,69 @@ async function learnStep(runId: string, agentId: string, goal: string, actOutput
 }
 
 // ---------------------------------------------------------------------------
+// RLVR signal emission — verifiable rewards from task outcomes
+// ---------------------------------------------------------------------------
+
+async function emitRlvrSignals(
+  runId: string,
+  agentId: string,
+  actResult: Record<string, unknown>,
+  verifyResult: { verified: boolean; verificationResults?: string[] },
+) {
+  "use step";
+  const client = createControlClient();
+
+  try {
+    const exitCode = (actResult.exitCode as number | undefined) ?? (verifyResult.verified ? 0 : 1);
+    const testsPassed = verifyResult.verificationResults
+      ? verifyResult.verificationResults.every((r: string) => !r.startsWith("FAIL"))
+      : verifyResult.verified;
+    const taskCompleted = verifyResult.verified;
+
+    const rlvrSignals = {
+      compile_success: exitCode === 0,
+      tests_passed: testsPassed,
+      deploy_success: actResult.prUrl ? true : null,
+      user_feedback: null,
+      task_completed: taskCompleted,
+      exit_code: exitCode,
+    };
+
+    // Compute RLVR composite (average of available binary signals)
+    const signals = [
+      rlvrSignals.compile_success,
+      rlvrSignals.tests_passed,
+      rlvrSignals.deploy_success,
+      rlvrSignals.task_completed,
+    ].filter((s): s is boolean => s !== null);
+    const composite = signals.length > 0
+      ? signals.reduce((sum, s) => sum + (s ? 1.0 : 0.0), 0) / signals.length
+      : 0.5;
+
+    // Record as trajectory score with source "rlvr"
+    // surprise = 1.0 during cold start (will be recomputed by scoring daemon when embeddings are available)
+    const scoreId = `rlvr_${runId}_${Date.now().toString(36)}`;
+    await client.callReducer("record_trajectory_score", [
+      scoreId,
+      `traj_${runId}`,  // trajectory_id convention
+      runId,
+      composite,         // correctness
+      composite,         // efficiency (RLVR doesn't distinguish dimensions)
+      composite,         // tool_use_quality
+      composite,         // adherence
+      composite,         // composite
+      1.0,               // surprise — cold start default, daemon recomputes
+      "rlvr",            // source
+      "",                // judge_model (none for RLVR)
+      `RLVR: ${signals.length} signals, composite=${composite.toFixed(2)}`,
+      JSON.stringify(rlvrSignals),
+    ]);
+  } catch {
+    // RLVR emission is best-effort — never block the workflow
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main durable workflow
 // ---------------------------------------------------------------------------
 
@@ -417,6 +480,9 @@ export async function agentWorkflow(params: {
 
   // Stage 7: Learn — extract and store learnings
   const learnResult = await learnStep(runId, agentId, goal, (actResult as Record<string, unknown>).output as string | undefined);
+
+  // Stage 8: Emit RLVR signals — verifiable rewards from task outcomes
+  await emitRlvrSignals(runId, agentId, actResult, verifyResult);
 
   return {
     runId,

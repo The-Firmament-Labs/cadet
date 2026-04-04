@@ -6,11 +6,25 @@ Cadet agents get better with every task. Not through prompt engineering — thro
 
 | Loop | Speed | Mechanism | What Changes |
 |------|-------|-----------|-------------|
-| **Fast** | Every session | Memory retrieval from SpacetimeDB | What the agent knows |
-| **Medium** | Every run | LLM-as-judge scoring + trajectory analysis | What the agent prioritizes |
-| **Slow** | Weekly batch | LoRA fine-tuning from DPO pairs | How the agent thinks |
+| **Fast** | Every run | Memory retrieval from SpacetimeDB | What the agent knows |
+| **Medium** | Real-time | RLVR + LLM judge → delight filtering | What enters the training buffer |
+| **Slow** | Periodic batch | GRPO from high-delight trajectories | How the agent thinks |
 
 No competitor has all three loops running simultaneously. Most have zero.
+
+### Core Principle: Delight = Loss x Surprise
+
+You can't just do continuous RL — you get mode collapse. Human memory works the same way: you remember 1-2 striking moments from a day, not everything. As a kid, everything is new, so you learn fast. As you age, your brain filters most information that isn't novel.
+
+Models must do the same. **Only the top ~3% most delightful trajectories enter the training buffer.**
+
+- **Loss**: How wrong was the model? (1.0 - composite_score)
+- **Surprise**: How novel is this? (embedding distance from cluster centroid)
+- **Delight**: loss × surprise — high only when the model was wrong about something new
+
+Training on correct, routine trajectories is waste. Training on surprising failures is gold. This prevents catastrophic forgetting by being extremely selective about what changes the weights.
+
+Reference: https://arxiv.org/abs/2603.20526
 
 ---
 
@@ -68,10 +82,13 @@ The trajectory pipeline is already 60% complete:
    - Builds context from past successes/failures
    - The fast loop is WORKING
 
-❌ Missing: Reward scoring (no quality signal beyond success bool)
-❌ Missing: Trajectory export to training format
-❌ Missing: DPO preference pair construction
-❌ Missing: Local model fine-tuning pipeline
+❌ Missing: RLVR signal emission from workflow steps
+❌ Missing: LLM-as-judge scoring (no quality signal beyond success bool)
+❌ Missing: Surprise computation (embedding distance for novelty)
+❌ Missing: Delight filtering (loss × surprise → top 3% gate)
+❌ Missing: Training buffer for high-delight trajectories
+❌ Missing: GRPO training pipeline
+❌ Missing: Local model fine-tuning (LoRA via MLX)
 ❌ Missing: Local inference for scoring and generation
 ```
 
@@ -79,113 +96,135 @@ The trajectory pipeline is already 60% complete:
 
 ## The Complete Pipeline
 
-### Phase 1: Trajectory Scoring (Local LLM-as-Judge)
+### Phase 1: RLVR Signals + LLM-as-Judge Scoring
 
-**What:** Run a local 4B-7B model to score every agent trajectory on quality.
+**What:** Two reward sources — verifiable rewards (free, instant) and LLM judge (richer, ~3.6s).
 
-**Why this matters:** The `success` bool is too coarse. An agent can "succeed" with ugly code or "fail" for the right reasons. A quality score enables DPO pair ranking.
+**RLVR (Verifiable Rewards — always on, zero cost):**
+```
+Agent completes task
+    ↓ verifyStep checks outcomes:
+    - Did tests pass?         → binary 1.0/0.0
+    - Did code compile?       → binary 1.0/0.0
+    - Did deploy succeed?     → binary 1.0/0.0
+    - Did user thumbs-up?     → binary 1.0/0.0
+    - Task completed?         → binary 1.0/0.0
+    ↓ composite = average of available signals
+Stored as TrajectoryScore with source "rlvr"
+```
 
-**How:**
+These are deterministic, unchallengeable rewards. No judge model needed. Score the instant the task completes.
+
+**LLM-as-Judge (richer signal, per resource profile):**
 ```
 SpacetimeDB TrajectoryLog
     ↓ (push via subscription)
-Desktop receives new trajectory in real-time
+Scoring daemon receives trajectory in real-time
     ↓ (Tokio channel)
-Local Qwen3-4B judge (via llama-cpp-2, Metal GPU)
-    ↓ scores on: correctness, efficiency, tool-use quality, adherence
+Judge model scores on: correctness, efficiency, tool-use quality, adherence
+    ↓ returns 4 scores (0.0-1.0) + reasoning
 Score stored back to SpacetimeDB via reducer
     ↓
 All clients see the score instantly
 ```
 
-**Performance:** Qwen3-4B on M4 Max: ~3.6 seconds per trajectory scoring. Fast enough to score every action as a background task.
+3 modes: Local (Qwen3-4B via llama-cpp-2, Metal), Remote (cadet-inference-server), Cloud (Haiku).
 
-**Desktop UX:** Quality gauge in the run detail view. Trend line showing agent quality over time. Red flag on poor-quality trajectories before the user reviews them.
-
-**SpacetimeDB advantage:** Trajectory arrives at desktop via push subscription. Score is written back via reducer. All clients see it. Zero polling.
-
-**New table:**
+**New tables:**
 ```rust
 #[table(accessor = trajectory_score, public)]
 pub struct TrajectoryScore {
     #[primary_key]
     score_id: String,
+    #[index(btree)]
     trajectory_id: String,
-    correctness: f32,      // 0.0-1.0
-    efficiency: f32,       // 0.0-1.0
-    tool_use_quality: f32, // 0.0-1.0
-    adherence: f32,        // 0.0-1.0
-    composite: f32,        // weighted average
+    run_id: String,
+    correctness: f32,
+    efficiency: f32,
+    tool_use_quality: f32,
+    adherence: f32,
+    composite: f32,
+    loss: f32,           // 1.0 - composite
+    surprise: f32,       // embedding distance from cluster centroid
+    delight: f32,        // loss × surprise — the selectivity signal
+    source: String,      // "rlvr" | "llm-judge" | "operator-feedback"
     judge_model: String,
     judge_reasoning: String,
+    rlvr_signals_json: String,
     created_at_micros: i64,
 }
 ```
 
-**Rust crates:** `llama-cpp-2` with `metal` feature, or `candle-core` with `metal` feature.
+### Phase 2: Delight Filtering (Real-Time Curation)
 
-### Phase 2: Preference Pairs (DPO Data Construction)
-
-**What:** Group trajectories by similar tasks, rank by quality score, pair best vs worst → DPO training data.
+**What:** The 97% rejection gate. Only surprising failures enter the training buffer.
 
 **How:**
 ```
-All scored trajectories from SpacetimeDB
-    ↓ group by similar instruction (embedding similarity)
-For each task cluster:
-    ↓ sort by composite score
-    Best trajectory → "chosen"
-    Worst trajectory → "rejected"
-    ↓ format as DPO pair
-Export to .cadet/training/dpo_pairs.jsonl
+For each scored trajectory:
+    loss = 1.0 - composite_score
+    surprise = embedding_distance(trajectory, nearest_centroid)
+    delight = loss × surprise
+
+    if delight > adaptive_threshold:  // targets top ~3%
+        → insert into training_buffer
+    else:
+        → discard (routine, nothing to learn)
 ```
 
-**SpacetimeDB advantage:** Local embedding search across trajectories uses client-side cache — zero network latency. Similarity computation on Apple Silicon GPU via SimSIMD.
+**Surprise computation:**
+1. Embed trajectory (instruction + output) via configured embedding provider
+2. Find nearest cluster centroid in trajectory embedding index
+3. `surprise = normalized_distance(embedding, centroid)`
+4. Cold-start: surprise = 1.0 for all (everything is new — like a kid)
+5. Centroids update incrementally as trajectories accumulate
 
-**Desktop UX:** "Training Data" view showing DPO pairs. User can manually accept/reject pairs. Thumbs up/down on agent responses feeds directly into pair quality.
+**Adaptive threshold:**
+- Target: top 3% acceptance rate
+- If buffer empty too long: relax to top 10% (floor)
+- If buffer fills too fast: tighten to top 1% (ceiling)
+- Computed over rolling window of last 500 scored trajectories
 
-### Phase 3: User Feedback as Reward
+**Human feedback special case:**
+- Thumbs-down → surprise = 1.0 (human judgment is always novel) → delight = 1.0 → always enters buffer
+- Thumbs-up → loss = 0.0 → delight = 0.0 → doesn't enter buffer (model was right, nothing to learn)
+- This is correct: you train on what went wrong, not what already works
 
-**What:** When the user says "good job" or "that's wrong" in chat, record it as a reward signal on the most recent trajectory.
+### Phase 3: GRPO Training (Batch)
+
+**What:** Periodic batch training using Group Relative Policy Optimization on high-delight trajectories.
+
+**Why GRPO, not DPO:**
+- DPO needs explicit preference pairs — fragile to construct, binary signal
+- GRPO groups trajectories by task type, computes relative rewards within the group
+- The group IS the comparison — no pairing needed
+- Works naturally with the delight-filtered training buffer
 
 **How:**
 ```
-User message in chat
-    ↓ sentiment detection (simple keyword: "good", "wrong", "fix", "perfect")
-    ↓ or explicit thumbs up/down button on agent messages
-Map to most recent trajectory_id
-    ↓ store as TrajectoryScore with source "operator-feedback"
-Used in DPO pair construction with higher weight
-```
-
-**This is critical.** RL without human feedback is unsupervised. The user's judgment is the gold-standard reward signal. Making it effortless (one-click thumbs up/down) means we collect high-quality preference data passively.
-
-### Phase 4: Local LoRA Fine-Tuning
-
-**What:** Weekly batch training produces a LoRA adapter that improves the local model.
-
-**Hardware:** M4 Max 128GB can train QLoRA on 7B-14B models comfortably.
-
-**Framework:** MLX-LM-LoRA for Apple Silicon native training.
-
-**How:**
-```
-.cadet/training/dpo_pairs.jsonl (500+ pairs)
-    ↓ MLX-LM-LoRA DPO training
-    ↓ ~30-60 minutes on M4 Max for 7B model
-.cadet/models/cadet-lora-v{N}.safetensors (~100MB)
+training_buffer reaches threshold (e.g. 200+ trajectories)
+    ↓ group by task_cluster (embedding-derived)
+For each cluster with 3+ trajectories:
+    ↓ GRPO: compute relative advantage within group
+    ↓ trajectories with higher delight get higher advantage
+    ↓ produces gradient signal
+    ↓ LoRA weight update via MLX-LM
+.cadet/models/cadet-lora-v{N}.safetensors
     ↓ hot-swap into local inference engine
-Next agent run uses improved model
+    ↓ mark consumed trajectories in buffer
+Next agent run uses improved weights
 ```
 
-**Desktop UX:** "Training" panel in Settings. Shows:
-- Trajectory count, scored count, DPO pair count
-- "Train Now" button (starts background training)
+**Hardware:** M4 Max 128GB. QLoRA on 7B-14B. ~30-60 min per batch.
+
+**Desktop UX:** "Training" panel in Settings:
+- Training buffer count + delight distribution chart
+- "Train Now" button (triggers GRPO on current buffer)
 - Training progress bar
 - Adapter version history with A/B comparison
-- "Active Adapter" selector
+- Active adapter selector
 
-### Phase 5: Local Inference (Hybrid Local/Cloud)
+### Phase 4: Local Inference (Hybrid Local/Cloud)
 
 **What:** Simple tasks use the local fine-tuned model. Complex tasks route to cloud.
 
@@ -199,9 +238,9 @@ Complex (planning, multi-step, vision) → cloud Claude/GPT
 Response streams to chat
 ```
 
-**Framework:** `mistral.rs` running locally as an OpenAI-compatible server. The web server's existing code can switch between `http://localhost:8080` (local) and the AI Gateway (cloud) with a URL change.
+**Framework:** Local inference server (OpenAI-compatible). The web server switches between local and cloud with a URL change.
 
-**Desktop UX:** Settings slider: "Local ↔ Cloud". Cost dashboard showing estimated savings. Model indicator in chat showing which model generated each response.
+**Desktop UX:** Settings slider: "Local ↔ Cloud". Cost dashboard. Model indicator per message.
 
 ---
 
@@ -274,13 +313,15 @@ Local capable       │  Cursor         │  CADET          │
 
 Cadet is the only platform that combines:
 - Local + cloud execution
-- Real-time SpacetimeDB state
-- Trajectory logging with TOON encoding
-- Local GPU-accelerated scoring and training
-- Self-improving LoRA adapters
-- All running on a single M4 Max with no cloud dependency
+- Real-time SpacetimeDB state for trajectory + score push
+- RLVR (verifiable rewards from task outcomes — free, instant)
+- Delight filtering (loss × surprise → top 3% only → no mode collapse)
+- GRPO training on high-delight trajectories (not outdated DPO)
+- Local GPU-accelerated scoring and training on M4 Max
+- Self-improving LoRA adapters, hot-swappable via reducer
+- All running on a single machine with no cloud dependency
 
-Hermes has some self-improvement (GEPA, Atropos) but requires cloud infrastructure for RL training. Cadet does it locally.
+Hermes has some self-improvement (GEPA, Atropos) but requires cloud infrastructure for RL training and doesn't have delight filtering. Cadet does it locally with biological selectivity.
 
 ---
 
@@ -290,32 +331,32 @@ Hermes has some self-improvement (GEPA, Atropos) but requires cloud infrastructu
 - Add thumbs up/down buttons on agent messages in chat view
 - Display trajectory quality trends in run detail view
 - Show "Learnings" section in run output (already extracted by learnStep)
+- Wire RLVR signal emission from verify/act steps in durable workflow
 
-### Phase 1 (After Desktop Works): Local Embeddings
-- Add `fastembed-rs` to Cargo.toml
-- Replace OpenAI embedding calls with local generation
-- Build local vector index for memory search
-- **Effort: 2-3 days**
-
-### Phase 2: Local Scoring
-- Add `llama-cpp-2` with Metal support
-- Download Qwen3-4B-Q4 as the judge model
-- Score trajectories in background as they arrive via subscription
-- Add `trajectory_score` table to SpacetimeDB
+### Phase 1 (After Desktop Works): RLVR + Scoring Tables
+- Add `trajectory_score`, `training_buffer`, `training_run` tables to SpacetimeDB
+- Emit RLVR signals from workflow steps (tests, compile, deploy outcomes)
+- Cloud judge scoring via Haiku (zero local deps)
 - **Effort: 1 week**
 
-### Phase 3: DPO Training
-- Build trajectory → JSONL exporter
-- Build DPO pair constructor (embedding similarity + quality ranking)
+### Phase 2: Delight Filtering + Local Embeddings
+- Add `fastembed-rs` for surprise computation
+- Build cluster centroid tracking for novelty detection
+- Implement delight gate with adaptive threshold (target top 3%)
+- Background scoring daemon with idle detection
+- **Effort: 1-2 weeks**
+
+### Phase 3: GRPO Training
+- Build GRPO training pipeline (not DPO — group relative, no pairing needed)
+- Group training buffer by task cluster
 - Integrate MLX-LM-LoRA via Python subprocess
-- Add training UI to Settings
+- Add training UI to Settings with buffer visualization
 - **Effort: 2 weeks**
 
 ### Phase 4: Hybrid Local/Cloud
-- Set up `mistral.rs` as local inference server
-- Build complexity router (simple → local, complex → cloud)
-- Add local/cloud slider to Settings
-- Cost dashboard
+- Local inference server (OpenAI-compatible)
+- Complexity router (simple → local 14B + LoRA, complex → cloud)
+- Local/cloud slider in Settings, cost dashboard
 - **Effort: 2 weeks**
 
 ---
@@ -426,21 +467,39 @@ The `local-ml` feature is separate from `desktop-ui`. Users can run the desktop 
 ## New SpacetimeDB Tables
 
 ```rust
-// Trajectory quality scores from local LLM judge
+// Trajectory quality scores — from RLVR, LLM judge, or human feedback
 #[table(accessor = trajectory_score, public)]
 pub struct TrajectoryScore {
     #[primary_key]
     score_id: String,
     #[index(btree)]
     trajectory_id: String,
+    run_id: String,
     correctness: f32,
     efficiency: f32,
     tool_use_quality: f32,
     adherence: f32,
     composite: f32,
+    loss: f32,              // 1.0 - composite
+    surprise: f32,          // embedding distance from cluster centroid
+    delight: f32,           // loss × surprise — the selectivity signal
+    source: String,         // "rlvr" | "llm-judge" | "operator-feedback"
     judge_model: String,
     judge_reasoning: String,
-    source: String,  // "llm-judge" | "operator-feedback"
+    rlvr_signals_json: String,
+    created_at_micros: i64,
+}
+
+// High-delight trajectories awaiting GRPO training
+#[table(accessor = training_buffer, public)]
+pub struct TrainingBuffer {
+    #[primary_key]
+    buffer_id: String,
+    trajectory_id: String,
+    score_id: String,
+    delight: f32,
+    task_cluster: String,   // embedding-derived cluster for GRPO grouping
+    consumed: bool,         // true after training run uses it
     created_at_micros: i64,
 }
 
@@ -451,11 +510,12 @@ pub struct TrainingRun {
     training_id: String,
     base_model: String,
     adapter_path: String,
-    method: String,  // "dpo" | "grpo" | "sft"
+    method: String,  // "grpo" | "rlvr" | "sft"
     trajectory_count: u32,
-    pair_count: u32,
+    group_count: u32,
     epochs: u32,
     final_loss: f32,
+    delight_threshold: f32,  // cutoff used for this batch
     duration_seconds: u32,
     status: String,  // "running" | "completed" | "failed"
     created_at_micros: i64,

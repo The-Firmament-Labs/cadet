@@ -469,6 +469,62 @@ pub struct TrajectoryLog {
     created_at_micros: i64,
 }
 
+/// Trajectory quality score — from RLVR, LLM judge, or human feedback.
+#[table(accessor = trajectory_score, public)]
+pub struct TrajectoryScore {
+    #[primary_key]
+    score_id: String,
+    #[index(btree)]
+    trajectory_id: String,
+    #[index(btree)]
+    run_id: String,
+    correctness: f32,
+    efficiency: f32,
+    tool_use_quality: f32,
+    adherence: f32,
+    composite: f32,        // weighted average of dimensions
+    loss: f32,             // 1.0 - composite
+    surprise: f32,         // embedding distance from cluster centroid
+    delight: f32,          // loss × surprise — the selectivity signal
+    source: String,        // "rlvr" | "llm-judge" | "operator-feedback"
+    judge_model: String,
+    judge_reasoning: String,
+    rlvr_signals_json: String,
+    created_at_micros: i64,
+}
+
+/// High-delight trajectories awaiting GRPO training.
+#[table(accessor = training_buffer, public)]
+pub struct TrainingBuffer {
+    #[primary_key]
+    buffer_id: String,
+    #[index(btree)]
+    trajectory_id: String,
+    score_id: String,
+    delight: f32,
+    task_cluster: String,
+    consumed: bool,
+    created_at_micros: i64,
+}
+
+/// Training run record — tracks GRPO/RLVR/SFT training jobs.
+#[table(accessor = training_run, public)]
+pub struct TrainingRun {
+    #[primary_key]
+    training_id: String,
+    base_model: String,
+    adapter_path: String,
+    method: String,        // "grpo" | "rlvr" | "sft"
+    trajectory_count: u32,
+    group_count: u32,
+    epochs: u32,
+    final_loss: f32,
+    delight_threshold: f32,
+    duration_seconds: u32,
+    status: String,        // "running" | "completed" | "failed"
+    created_at_micros: i64,
+}
+
 // ── Vercel Sandbox tables ────────────────────────────────────────────
 
 #[table(accessor = sandbox_instance, public)]
@@ -2502,6 +2558,191 @@ pub fn log_trajectory(
         created_at_micros: now,
     });
     Ok(())
+}
+
+// ── Trajectory Scoring reducers ─────────────────────────────────────
+
+fn validate_score_f32(value: f32, name: &str) -> Result<f32, String> {
+    if value < 0.0 || value > 1.0 {
+        Err(format!("{name} must be between 0.0 and 1.0, got {value}"))
+    } else {
+        Ok(value)
+    }
+}
+
+fn validate_score_source(value: String) -> Result<String, String> {
+    let trimmed = value.trim().to_string();
+    match trimmed.as_str() {
+        "rlvr" | "llm-judge" | "operator-feedback" => Ok(trimmed),
+        _ => Err(format!("Invalid score source: {trimmed}")),
+    }
+}
+
+fn validate_training_method(value: String) -> Result<String, String> {
+    let trimmed = value.trim().to_string();
+    match trimmed.as_str() {
+        "grpo" | "rlvr" | "sft" => Ok(trimmed),
+        _ => Err(format!("Invalid training method: {trimmed}")),
+    }
+}
+
+fn validate_training_status(value: String) -> Result<String, String> {
+    let trimmed = value.trim().to_string();
+    match trimmed.as_str() {
+        "running" | "completed" | "failed" => Ok(trimmed),
+        _ => Err(format!("Invalid training status: {trimmed}")),
+    }
+}
+
+#[reducer]
+pub fn record_trajectory_score(
+    ctx: &ReducerContext,
+    score_id: String,
+    trajectory_id: String,
+    run_id: String,
+    correctness: f32,
+    efficiency: f32,
+    tool_use_quality: f32,
+    adherence: f32,
+    composite: f32,
+    surprise: f32,
+    source: String,
+    judge_model: String,
+    judge_reasoning: String,
+    rlvr_signals_json: String,
+) -> Result<(), String> {
+    let score_id = validate_identifier(score_id, "score_id")?;
+    let source = validate_score_source(source)?;
+    validate_score_f32(correctness, "correctness")?;
+    validate_score_f32(efficiency, "efficiency")?;
+    validate_score_f32(tool_use_quality, "tool_use_quality")?;
+    validate_score_f32(adherence, "adherence")?;
+    validate_score_f32(composite, "composite")?;
+    validate_score_f32(surprise, "surprise")?;
+
+    let loss = 1.0 - composite;
+    let delight = loss * surprise;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    ctx.db.trajectory_score().insert(TrajectoryScore {
+        score_id,
+        trajectory_id,
+        run_id,
+        correctness,
+        efficiency,
+        tool_use_quality,
+        adherence,
+        composite,
+        loss,
+        surprise,
+        delight,
+        source,
+        judge_model,
+        judge_reasoning,
+        rlvr_signals_json,
+        created_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn buffer_high_delight_trajectory(
+    ctx: &ReducerContext,
+    buffer_id: String,
+    trajectory_id: String,
+    score_id: String,
+    delight: f32,
+    task_cluster: String,
+) -> Result<(), String> {
+    let buffer_id = validate_identifier(buffer_id, "buffer_id")?;
+    validate_score_f32(delight, "delight")?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    ctx.db.training_buffer().insert(TrainingBuffer {
+        buffer_id,
+        trajectory_id,
+        score_id,
+        delight,
+        task_cluster,
+        consumed: false,
+        created_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn consume_training_buffer(
+    ctx: &ReducerContext,
+    buffer_id: String,
+) -> Result<(), String> {
+    if let Some(entry) = ctx.db.training_buffer().buffer_id().find(&buffer_id) {
+        ctx.db.training_buffer().buffer_id().update(TrainingBuffer {
+            consumed: true,
+            ..entry
+        });
+        Ok(())
+    } else {
+        Err(format!("Training buffer entry {buffer_id} not found"))
+    }
+}
+
+#[reducer]
+pub fn record_training_run(
+    ctx: &ReducerContext,
+    training_id: String,
+    base_model: String,
+    adapter_path: String,
+    method: String,
+    trajectory_count: u32,
+    group_count: u32,
+    epochs: u32,
+    final_loss: f32,
+    delight_threshold: f32,
+    duration_seconds: u32,
+    status: String,
+) -> Result<(), String> {
+    let training_id = validate_identifier(training_id, "training_id")?;
+    let method = validate_training_method(method)?;
+    let status = validate_training_status(status)?;
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+
+    ctx.db.training_run().insert(TrainingRun {
+        training_id,
+        base_model,
+        adapter_path,
+        method,
+        trajectory_count,
+        group_count,
+        epochs,
+        final_loss,
+        delight_threshold,
+        duration_seconds,
+        status,
+        created_at_micros: now,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn update_training_run_status(
+    ctx: &ReducerContext,
+    training_id: String,
+    status: String,
+    final_loss: f32,
+    duration_seconds: u32,
+) -> Result<(), String> {
+    let status = validate_training_status(status)?;
+    if let Some(run) = ctx.db.training_run().training_id().find(&training_id) {
+        ctx.db.training_run().training_id().update(TrainingRun {
+            status,
+            final_loss,
+            duration_seconds,
+            ..run
+        });
+        Ok(())
+    } else {
+        Err(format!("Training run {training_id} not found"))
+    }
 }
 
 // ── Vercel Sandbox reducers ──────────────────────────────────────────

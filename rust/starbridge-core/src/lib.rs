@@ -5,6 +5,10 @@ use tokio::sync::broadcast;
 
 pub mod context_engine;
 pub mod subscriptions;
+pub mod scoring;
+pub mod scoring_prompt;
+pub mod delight;
+pub mod scoring_daemon;
 
 macro_rules! string_enum {
     (pub enum $name:ident { $($variant:ident => $value:literal),+ $(,)? }) => {
